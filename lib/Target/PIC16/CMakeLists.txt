@@ -14,13 +14,13 @@ tablegen(LLVM PIC16GenMCPseudoLowering.inc -gen-pseudo-lowering)
 add_public_tablegen_target(PIC16CommonTableGen)
 
 add_llvm_target(PIC16CodeGen
-  PIC1616FrameLowering.cpp
-  PIC1616HardFloat.cpp
-  PIC1616HardFloatInfo.cpp
-  PIC1616InstrInfo.cpp
-  PIC1616ISelDAGToDAG.cpp
-  PIC1616ISelLowering.cpp
-  PIC1616RegisterInfo.cpp
+  PIC16FrameLowering.cpp
+  PIC16HardFloat.cpp
+  PIC16HardFloatInfo.cpp
+  PIC16InstrInfo.cpp
+  PIC16ISelDAGToDAG.cpp
+  PIC16ISelLowering.cpp
+  PIC16RegisterInfo.cpp
   PIC16AnalyzeImmediate.cpp
   PIC16AsmPrinter.cpp
   PIC16CCState.cpp
