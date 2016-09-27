@@ -15,12 +15,19 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/LTO/LTOBackend.h"
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/CGSCCPassManager.h"
+#include "llvm/Analysis/LoopPassManager.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/LTO/LTO.h"
+#include "llvm/LTO/legacy/UpdateCompilerUsed.h"
 #include "llvm/MC/SubtargetFeature.h"
+#include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/TargetRegistry.h"
@@ -33,6 +40,12 @@
 
 using namespace llvm;
 using namespace lto;
+
+LLVM_ATTRIBUTE_NORETURN void reportOpenError(StringRef Path, Twine Msg) {
+  errs() << "failed to open " << Path << ": " << Msg << '\n';
+  errs().flush();
+  exit(1);
+}
 
 Error Config::addSaveTemps(std::string OutputFileName,
                            bool UseInputModulePath) {
@@ -64,13 +77,10 @@ Error Config::addSaveTemps(std::string OutputFileName,
       std::string Path = PathPrefix + "." + PathSuffix + ".bc";
       std::error_code EC;
       raw_fd_ostream OS(Path, EC, sys::fs::OpenFlags::F_None);
-      if (EC) {
-        // Because -save-temps is a debugging feature, we report the error
-        // directly and exit.
-        llvm::errs() << "failed to open " << Path << ": " << EC.message()
-                     << '\n';
-        exit(1);
-      }
+      // Because -save-temps is a debugging feature, we report the error
+      // directly and exit.
+      if (EC)
+        reportOpenError(Path, EC.message());
       WriteBitcodeToFile(&M, OS, /*ShouldPreserveUseListOrder=*/false);
       return true;
     };
@@ -87,12 +97,10 @@ Error Config::addSaveTemps(std::string OutputFileName,
     std::string Path = OutputFileName + "index.bc";
     std::error_code EC;
     raw_fd_ostream OS(Path, EC, sys::fs::OpenFlags::F_None);
-    if (EC) {
-      // Because -save-temps is a debugging feature, we report the error
-      // directly and exit.
-      llvm::errs() << "failed to open " << Path << ": " << EC.message() << '\n';
-      exit(1);
-    }
+    // Because -save-temps is a debugging feature, we report the error
+    // directly and exit.
+    if (EC)
+      reportOpenError(Path, EC.message());
     WriteIndexToFile(Index, OS);
     return true;
   };
@@ -103,18 +111,62 @@ Error Config::addSaveTemps(std::string OutputFileName,
 namespace {
 
 std::unique_ptr<TargetMachine>
-createTargetMachine(Config &C, StringRef TheTriple, const Target *TheTarget) {
+createTargetMachine(Config &Conf, StringRef TheTriple,
+                    const Target *TheTarget) {
   SubtargetFeatures Features;
   Features.getDefaultSubtargetFeatures(Triple(TheTriple));
-  for (const std::string &A : C.MAttrs)
+  for (const std::string &A : Conf.MAttrs)
     Features.AddFeature(A);
 
   return std::unique_ptr<TargetMachine>(TheTarget->createTargetMachine(
-      TheTriple, C.CPU, Features.getString(), C.Options, C.RelocModel,
-      C.CodeModel, C.CGOptLevel));
+      TheTriple, Conf.CPU, Features.getString(), Conf.Options, Conf.RelocModel,
+      Conf.CodeModel, Conf.CGOptLevel));
 }
 
-static void runOldPMPasses(Config &C, Module &M, TargetMachine *TM,
+static void runNewPMCustomPasses(Module &Mod, TargetMachine *TM,
+                                 std::string PipelineDesc,
+                                 std::string AAPipelineDesc,
+                                 bool DisableVerify) {
+  PassBuilder PB(TM);
+  AAManager AA;
+
+  // Parse a custom AA pipeline if asked to.
+  if (!AAPipelineDesc.empty())
+    if (!PB.parseAAPipeline(AA, AAPipelineDesc))
+      report_fatal_error("unable to parse AA pipeline description: " +
+                         AAPipelineDesc);
+
+  LoopAnalysisManager LAM;
+  FunctionAnalysisManager FAM;
+  CGSCCAnalysisManager CGAM;
+  ModuleAnalysisManager MAM;
+
+  // Register the AA manager first so that our version is the one used.
+  FAM.registerPass([&] { return std::move(AA); });
+
+  // Register all the basic analyses with the managers.
+  PB.registerModuleAnalyses(MAM);
+  PB.registerCGSCCAnalyses(CGAM);
+  PB.registerFunctionAnalyses(FAM);
+  PB.registerLoopAnalyses(LAM);
+  PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+  ModulePassManager MPM;
+
+  // Always verify the input.
+  MPM.addPass(VerifierPass());
+
+  // Now, add all the passes we've been requested to.
+  if (!PB.parsePassPipeline(MPM, PipelineDesc))
+    report_fatal_error("unable to parse pass pipeline description: " +
+                       PipelineDesc);
+
+  if (!DisableVerify)
+    MPM.addPass(VerifierPass());
+  MPM.run(Mod, MAM);
+}
+
+static void runOldPMPasses(Config &Conf, Module &Mod, TargetMachine *TM,
                            bool IsThinLto) {
   legacy::PassManager passes;
   passes.add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
@@ -125,63 +177,50 @@ static void runOldPMPasses(Config &C, Module &M, TargetMachine *TM,
   // Unconditionally verify input since it is not verified before this
   // point and has unknown origin.
   PMB.VerifyInput = true;
-  PMB.VerifyOutput = !C.DisableVerify;
+  PMB.VerifyOutput = !Conf.DisableVerify;
   PMB.LoopVectorize = true;
   PMB.SLPVectorize = true;
-  PMB.OptLevel = C.OptLevel;
+  PMB.OptLevel = Conf.OptLevel;
   if (IsThinLto)
     PMB.populateThinLTOPassManager(passes);
   else
     PMB.populateLTOPassManager(passes);
-  passes.run(M);
+  passes.run(Mod);
 }
 
-bool opt(Config &C, TargetMachine *TM, unsigned Task, Module &M,
+bool opt(Config &Conf, TargetMachine *TM, unsigned Task, Module &Mod,
          bool IsThinLto) {
-  M.setDataLayout(TM->createDataLayout());
-  runOldPMPasses(C, M, TM, IsThinLto);
-  if (C.PostOptModuleHook && !C.PostOptModuleHook(Task, M))
-    return false;
-
-  return true;
+  Mod.setDataLayout(TM->createDataLayout());
+  if (Conf.OptPipeline.empty())
+    runOldPMPasses(Conf, Mod, TM, IsThinLto);
+  else
+    runNewPMCustomPasses(Mod, TM, Conf.OptPipeline, Conf.AAPipeline,
+                         Conf.DisableVerify);
+  return !Conf.PostOptModuleHook || Conf.PostOptModuleHook(Task, Mod);
 }
 
-/// Monolithic LTO does not support caching (yet), this is a convenient wrapper
-/// around AddOutput to workaround this.
-static AddOutputFn getUncachedOutputWrapper(AddOutputFn &AddOutput,
-                                            unsigned Task) {
-  return [Task, &AddOutput](unsigned TaskId) {
-    auto Output = AddOutput(Task);
-    if (Output->isCachingEnabled() && Output->tryLoadFromCache(""))
-      report_fatal_error("Cache hit without a valid key?");
-    assert(Task == TaskId && "Unexpexted TaskId mismatch");
-    return Output;
-  };
-}
-
-void codegen(Config &C, TargetMachine *TM, AddOutputFn AddOutput, unsigned Task,
-             Module &M) {
-  if (C.PreCodeGenModuleHook && !C.PreCodeGenModuleHook(Task, M))
+void codegen(Config &Conf, TargetMachine *TM, AddStreamFn AddStream,
+             unsigned Task, Module &Mod) {
+  if (Conf.PreCodeGenModuleHook && !Conf.PreCodeGenModuleHook(Task, Mod))
     return;
 
-  auto Output = AddOutput(Task);
-  std::unique_ptr<raw_pwrite_stream> OS = Output->getStream();
+  auto Stream = AddStream(Task);
   legacy::PassManager CodeGenPasses;
-  if (TM->addPassesToEmitFile(CodeGenPasses, *OS,
+  if (TM->addPassesToEmitFile(CodeGenPasses, *Stream->OS,
                               TargetMachine::CGFT_ObjectFile))
     report_fatal_error("Failed to setup codegen");
-  CodeGenPasses.run(M);
+  CodeGenPasses.run(Mod);
 }
 
-void splitCodeGen(Config &C, TargetMachine *TM, AddOutputFn AddOutput,
+void splitCodeGen(Config &C, TargetMachine *TM, AddStreamFn AddStream,
                   unsigned ParallelCodeGenParallelismLevel,
-                  std::unique_ptr<Module> M) {
+                  std::unique_ptr<Module> Mod) {
   ThreadPool CodegenThreadPool(ParallelCodeGenParallelismLevel);
   unsigned ThreadCount = 0;
   const Target *T = &TM->getTarget();
 
   SplitModule(
-      std::move(M), ParallelCodeGenParallelismLevel,
+      std::move(Mod), ParallelCodeGenParallelismLevel,
       [&](std::unique_ptr<Module> MPart) {
         // We want to clone the module in a new context to multi-thread the
         // codegen. We do it by serializing partition modules to bitcode
@@ -207,9 +246,7 @@ void splitCodeGen(Config &C, TargetMachine *TM, AddOutputFn AddOutput,
               std::unique_ptr<TargetMachine> TM =
                   createTargetMachine(C, MPartInCtx->getTargetTriple(), T);
 
-              codegen(C, TM.get(),
-                      getUncachedOutputWrapper(AddOutput, ThreadId), ThreadId,
-                      *MPartInCtx);
+              codegen(C, TM.get(), AddStream, ThreadId, *MPartInCtx);
             },
             // Pass BC using std::move to ensure that it get moved rather than
             // copied into the thread's context.
@@ -218,14 +255,14 @@ void splitCodeGen(Config &C, TargetMachine *TM, AddOutputFn AddOutput,
       false);
 }
 
-Expected<const Target *> initAndLookupTarget(Config &C, Module &M) {
+Expected<const Target *> initAndLookupTarget(Config &C, Module &Mod) {
   if (!C.OverrideTriple.empty())
-    M.setTargetTriple(C.OverrideTriple);
-  else if (M.getTargetTriple().empty())
-    M.setTargetTriple(C.DefaultTriple);
+    Mod.setTargetTriple(C.OverrideTriple);
+  else if (Mod.getTargetTriple().empty())
+    Mod.setTargetTriple(C.DefaultTriple);
 
   std::string Msg;
-  const Target *T = TargetRegistry::lookupTarget(M.getTargetTriple(), Msg);
+  const Target *T = TargetRegistry::lookupTarget(Mod.getTargetTriple(), Msg);
   if (!T)
     return make_error<StringError>(Msg, inconvertibleErrorCode());
   return T;
@@ -233,30 +270,45 @@ Expected<const Target *> initAndLookupTarget(Config &C, Module &M) {
 
 }
 
-Error lto::backend(Config &C, AddOutputFn AddOutput,
+static void handleAsmUndefinedRefs(Module &Mod, TargetMachine &TM) {
+  // Collect the list of undefined symbols used in asm and update
+  // llvm.compiler.used to prevent optimization to drop these from the output.
+  StringSet<> AsmUndefinedRefs;
+  object::IRObjectFile::CollectAsmUndefinedRefs(
+      Triple(Mod.getTargetTriple()), Mod.getModuleInlineAsm(),
+      [&AsmUndefinedRefs](StringRef Name, object::BasicSymbolRef::Flags Flags) {
+        if (Flags & object::BasicSymbolRef::SF_Undefined)
+          AsmUndefinedRefs.insert(Name);
+      });
+  updateCompilerUsed(Mod, TM, AsmUndefinedRefs);
+}
+
+Error lto::backend(Config &C, AddStreamFn AddStream,
                    unsigned ParallelCodeGenParallelismLevel,
-                   std::unique_ptr<Module> M) {
-  Expected<const Target *> TOrErr = initAndLookupTarget(C, *M);
+                   std::unique_ptr<Module> Mod) {
+  Expected<const Target *> TOrErr = initAndLookupTarget(C, *Mod);
   if (!TOrErr)
     return TOrErr.takeError();
 
   std::unique_ptr<TargetMachine> TM =
-      createTargetMachine(C, M->getTargetTriple(), *TOrErr);
+      createTargetMachine(C, Mod->getTargetTriple(), *TOrErr);
+
+  handleAsmUndefinedRefs(*Mod, *TM);
 
   if (!C.CodeGenOnly)
-    if (!opt(C, TM.get(), 0, *M, /*IsThinLto=*/false))
+    if (!opt(C, TM.get(), 0, *Mod, /*IsThinLto=*/false))
       return Error();
 
   if (ParallelCodeGenParallelismLevel == 1) {
-    codegen(C, TM.get(), getUncachedOutputWrapper(AddOutput, 0), 0, *M);
+    codegen(C, TM.get(), AddStream, 0, *Mod);
   } else {
-    splitCodeGen(C, TM.get(), AddOutput, ParallelCodeGenParallelismLevel,
-                 std::move(M));
+    splitCodeGen(C, TM.get(), AddStream, ParallelCodeGenParallelismLevel,
+                 std::move(Mod));
   }
   return Error();
 }
 
-Error lto::thinBackend(Config &Conf, unsigned Task, AddOutputFn AddOutput,
+Error lto::thinBackend(Config &Conf, unsigned Task, AddStreamFn AddStream,
                        Module &Mod, ModuleSummaryIndex &CombinedIndex,
                        const FunctionImporter::ImportMapTy &ImportList,
                        const GVSummaryMapTy &DefinedGlobals,
@@ -268,8 +320,10 @@ Error lto::thinBackend(Config &Conf, unsigned Task, AddOutputFn AddOutput,
   std::unique_ptr<TargetMachine> TM =
       createTargetMachine(Conf, Mod.getTargetTriple(), *TOrErr);
 
+  handleAsmUndefinedRefs(Mod, *TM);
+
   if (Conf.CodeGenOnly) {
-    codegen(Conf, TM.get(), AddOutput, Task, Mod);
+    codegen(Conf, TM.get(), AddStream, Task, Mod);
     return Error();
   }
 
@@ -292,7 +346,7 @@ Error lto::thinBackend(Config &Conf, unsigned Task, AddOutputFn AddOutput,
 
   auto ModuleLoader = [&](StringRef Identifier) {
     assert(Mod.getContext().isODRUniquingDebugTypes() &&
-           "ODR Type uniquing shoudl be enabled on the context");
+           "ODR Type uniquing should be enabled on the context");
     return std::move(getLazyBitcodeModule(MemoryBuffer::getMemBuffer(
                                               ModuleMap[Identifier], false),
                                           Mod.getContext(),
@@ -309,6 +363,6 @@ Error lto::thinBackend(Config &Conf, unsigned Task, AddOutputFn AddOutput,
   if (!opt(Conf, TM.get(), Task, Mod, /*IsThinLto=*/true))
     return Error();
 
-  codegen(Conf, TM.get(), AddOutput, Task, Mod);
+  codegen(Conf, TM.get(), AddStream, Task, Mod);
   return Error();
 }

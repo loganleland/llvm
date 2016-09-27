@@ -696,7 +696,7 @@ private:
       else
         OtherGep = cast<GetElementPtrInst>(
             cast<StoreInst>(OtherInst)->getPointerOperand());
-      ClonedGep->intersectOptionalDataWith(OtherGep);
+      ClonedGep->andIRFlags(OtherGep);
     }
 
     // Replace uses of Gep with ClonedGep in Repl.
@@ -843,7 +843,7 @@ private:
             MSSA->removeMemoryAccess(OldMA);
           }
 
-          Repl->intersectOptionalDataWith(I);
+          Repl->andIRFlags(I);
           combineKnownMetadata(Repl, I);
           I->replaceAllUsesWith(Repl);
           // Also invalidate the Alias Analysis cache.
@@ -889,6 +889,10 @@ private:
         // Only hoist the first instructions in BB up to MaxDepthInBB. Hoisting
         // deeper may increase the register pressure and compilation time.
         if (MaxDepthInBB != -1 && InstructionNb++ >= MaxDepthInBB)
+          break;
+
+        // Do not value number terminator instructions.
+        if (isa<TerminatorInst>(&I1))
           break;
 
         if (auto *Load = dyn_cast<LoadInst>(&I1))

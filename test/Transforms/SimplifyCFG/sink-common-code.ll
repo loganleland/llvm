@@ -478,6 +478,35 @@ if.end:
 
 ; CHECK-LABEL: test16
 ; CHECK: zext
+; CHECK: zext
+
+define zeroext i1 @test16a(i1 zeroext %flag, i1 zeroext %flag2, i32 %blksA, i32 %blksB, i32 %nblks, i8* %p) {
+
+entry:
+  br i1 %flag, label %if.then, label %if.else
+
+if.then:
+  %cmp = icmp uge i32 %blksA, %nblks
+  %frombool1 = zext i1 %cmp to i8
+  store i8 %frombool1, i8* %p
+  br label %if.end
+
+if.else:
+  br i1 %flag2, label %if.then2, label %if.end
+
+if.then2:
+  %add = add i32 %nblks, %blksB
+  %cmp2 = icmp ule i32 %add, %blksA
+  %frombool3 = zext i1 %cmp2 to i8
+  store i8 %frombool3, i8* %p
+  br label %if.end
+
+if.end:
+  ret i1 true
+}
+
+; CHECK-LABEL: test16a
+; CHECK: zext
 ; CHECK-NOT: zext
 
 define zeroext i1 @test17(i32 %flag, i32 %blksA, i32 %blksB, i32 %nblks) {
@@ -489,13 +518,13 @@ entry:
 
 if.then:
   %cmp = icmp uge i32 %blksA, %nblks
-  %frombool1 = zext i1 %cmp to i8
+  %frombool1 = call i8 @i1toi8(i1 %cmp)
   br label %if.end
 
 if.then2:
   %add = add i32 %nblks, %blksB
   %cmp2 = icmp ule i32 %add, %blksA
-  %frombool3 = zext i1 %cmp2 to i8
+  %frombool3 = call i8 @i1toi8(i1 %cmp2)
   br label %if.end
 
 if.end:
@@ -503,6 +532,7 @@ if.end:
   %tobool4 = icmp ne i8 %obeys.0, 0
   ret i1 %tobool4
 }
+declare i8 @i1toi8(i1)
 
 ; CHECK-LABEL: test17
 ; CHECK: if.then:
@@ -516,7 +546,7 @@ if.end:
 
 ; CHECK: [[x]]:
 ; CHECK-NEXT: %[[y:.*]] = phi i1 [ %cmp
-; CHECK-NEXT: %[[z:.*]] = zext i1 %[[y]]
+; CHECK-NEXT: %[[z:.*]] = call i8 @i1toi8(i1 %[[y]])
 ; CHECK-NEXT: br label %if.end
 
 ; CHECK: if.end:
@@ -561,6 +591,169 @@ if.end:
 ; CHECK-DAG: [ %cmp2, %if.then2 ]
 ; CHECK-DAG: [ %cmp3, %if.then3 ]
 ; CHECK-NEXT: zext i1 %[[x]] to i8
+
+define i32 @test_pr30188(i1 zeroext %flag, i32 %x) {
+entry:
+  %y = alloca i32
+  %z = alloca i32
+  br i1 %flag, label %if.then, label %if.else
+
+if.then:
+  store i32 %x, i32* %y
+  br label %if.end
+
+if.else:
+  store i32 %x, i32* %z
+  br label %if.end
+
+if.end:
+  ret i32 1
+}
+
+; CHECK-LABEL: test_pr30188
+; CHECK-NOT: select
+; CHECK: store
+; CHECK: store
+
+define i32 @test_pr30188a(i1 zeroext %flag, i32 %x) {
+entry:
+  %y = alloca i32
+  %z = alloca i32
+  br i1 %flag, label %if.then, label %if.else
+
+if.then:
+  call void @g()
+  %one = load i32, i32* %y
+  %two = add i32 %one, 2
+  store i32 %two, i32* %y
+  br label %if.end
+
+if.else:
+  %three = load i32, i32* %z
+  %four = add i32 %three, 2
+  store i32 %four, i32* %y
+  br label %if.end
+
+if.end:
+  ret i32 1
+}
+
+; CHECK-LABEL: test_pr30188a
+; CHECK-NOT: select
+; CHECK: load
+; CHECK: load
+; CHECK: store
+
+; The phi is confusing - both add instructions are used by it, but
+; not on their respective unconditional arcs. It should not be
+; optimized.
+define void @test_pr30292(i1 %cond, i1 %cond2, i32 %a, i32 %b) {
+entry:
+  %add1 = add i32 %a, 1
+  br label %succ
+
+one:
+  br i1 %cond, label %two, label %succ
+
+two:
+  call void @g()
+  %add2 = add i32 %a, 1
+  br label %succ
+
+succ:
+  %p = phi i32 [ 0, %entry ], [ %add1, %one ], [ %add2, %two ]
+  br label %one
+}
+declare void @g()
+
+; CHECK-LABEL: test_pr30292
+; CHECK: phi i32 [ 0, %entry ], [ %add1, %succ ], [ %add2, %two ]
+
+define zeroext i1 @test_pr30244(i1 zeroext %flag, i1 zeroext %flag2, i32 %blksA, i32 %blksB, i32 %nblks) {
+
+entry:
+  %p = alloca i8
+  br i1 %flag, label %if.then, label %if.else
+
+if.then:
+  %cmp = icmp uge i32 %blksA, %nblks
+  %frombool1 = zext i1 %cmp to i8
+  store i8 %frombool1, i8* %p
+  br label %if.end
+
+if.else:
+  br i1 %flag2, label %if.then2, label %if.end
+
+if.then2:
+  %add = add i32 %nblks, %blksB
+  %cmp2 = icmp ule i32 %add, %blksA
+  %frombool3 = zext i1 %cmp2 to i8
+  store i8 %frombool3, i8* %p
+  br label %if.end
+
+if.end:
+  ret i1 true
+}
+
+; CHECK-LABEL: @test_pr30244
+; CHECK: store
+; CHECK: store
+
+define i32 @test_pr30373a(i1 zeroext %flag, i32 %x, i32 %y) {
+entry:
+  br i1 %flag, label %if.then, label %if.else
+
+if.then:
+  %x0 = call i32 @foo(i32 %x, i32 0) nounwind readnone
+  %y0 = call i32 @foo(i32 %x, i32 1) nounwind readnone
+  %z0 = lshr i32 %y0, 8
+  br label %if.end
+
+if.else:
+  %x1 = call i32 @foo(i32 %y, i32 0) nounwind readnone
+  %y1 = call i32 @foo(i32 %y, i32 1) nounwind readnone
+  %z1 = lshr exact i32 %y1, 8
+  br label %if.end
+
+if.end:
+  %xx = phi i32 [ %x0, %if.then ], [ %x1, %if.else ]
+  %yy = phi i32 [ %z0, %if.then ], [ %z1, %if.else ]
+  %ret = add i32 %xx, %yy
+  ret i32 %ret
+}
+
+; CHECK-LABEL: test_pr30373a
+; CHECK: lshr
+; CHECK-NOT: exact
+; CHECK: }
+
+define i32 @test_pr30373b(i1 zeroext %flag, i32 %x, i32 %y) {
+entry:
+  br i1 %flag, label %if.then, label %if.else
+
+if.then:
+  %x0 = call i32 @foo(i32 %x, i32 0) nounwind readnone
+  %y0 = call i32 @foo(i32 %x, i32 1) nounwind readnone
+  %z0 = lshr exact i32 %y0, 8
+  br label %if.end
+
+if.else:
+  %x1 = call i32 @foo(i32 %y, i32 0) nounwind readnone
+  %y1 = call i32 @foo(i32 %y, i32 1) nounwind readnone
+  %z1 = lshr i32 %y1, 8
+  br label %if.end
+
+if.end:
+  %xx = phi i32 [ %x0, %if.then ], [ %x1, %if.else ]
+  %yy = phi i32 [ %z0, %if.then ], [ %z1, %if.else ]
+  %ret = add i32 %xx, %yy
+  ret i32 %ret
+}
+
+; CHECK-LABEL: test_pr30373b
+; CHECK: lshr
+; CHECK-NOT: exact
+; CHECK: }
 
 ; CHECK: !0 = !{!1, !1, i64 0}
 ; CHECK: !1 = !{!"float", !2}

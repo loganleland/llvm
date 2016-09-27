@@ -222,8 +222,13 @@ bool LLParser::ValidateEndOfModule() {
       N.second->resolveCycles();
   }
 
-  for (unsigned I = 0, E = InstsWithTBAATag.size(); I < E; I++)
-    UpgradeInstWithTBAATag(InstsWithTBAATag[I]);
+  for (auto *Inst : InstsWithTBAATag) {
+    MDNode *MD = Inst->getMetadata(LLVMContext::MD_tbaa);
+    assert(MD && "UpgradeInstWithTBAATag should have a TBAA tag");
+    auto *UpgradedMD = UpgradeTBAANode(*MD);
+    if (MD != UpgradedMD)
+      Inst->setMetadata(LLVMContext::MD_tbaa, UpgradedMD);
+  }
 
   // Look for intrinsic functions and CallInst that need to be upgraded
   for (Module::iterator FI = M->begin(), FE = M->end(); FI != FE; )
@@ -1271,7 +1276,7 @@ bool LLParser::ParseStringConstant(std::string &Result) {
 
 /// ParseUInt32
 ///   ::= uint32
-bool LLParser::ParseUInt32(unsigned &Val) {
+bool LLParser::ParseUInt32(uint32_t &Val) {
   if (Lex.getKind() != lltok::APSInt || Lex.getAPSIntVal().isSigned())
     return TokError("expected integer");
   uint64_t Val64 = Lex.getAPSIntVal().getLimitedValue(0xFFFFFFFFULL+1);
@@ -2499,7 +2504,7 @@ bool LLParser::PerFunctionState::FinishFunction() {
 Value *LLParser::PerFunctionState::GetVal(const std::string &Name, Type *Ty,
                                           LocTy Loc) {
   // Look this name up in the normal function symbol table.
-  Value *Val = F.getValueSymbolTable().lookup(Name);
+  Value *Val = F.getValueSymbolTable()->lookup(Name);
 
   // If this is a forward reference for the value, see if we already created a
   // forward ref record.
@@ -2917,7 +2922,7 @@ bool LLParser::ParseValID(ValID &ID, PerFunctionState *PFS) {
         return Error(Label.Loc, "cannot take address of numeric label after "
                                 "the function is defined");
       BB = dyn_cast_or_null<BasicBlock>(
-          F->getValueSymbolTable().lookup(Label.StrVal));
+          F->getValueSymbolTable()->lookup(Label.StrVal));
       if (!BB)
         return Error(Label.Loc, "referenced value is not a basic block");
     }
@@ -3407,8 +3412,8 @@ struct EmissionKindField : public MDUnsignedField {
   EmissionKindField() : MDUnsignedField(0, DICompileUnit::LastEmissionKind) {}
 };
 
-struct DIFlagField : public MDUnsignedField {
-  DIFlagField() : MDUnsignedField(0, UINT32_MAX) {}
+struct DIFlagField : public MDFieldImpl<DINode::DIFlags> {
+  DIFlagField() : MDFieldImpl(DINode::FlagZero) {}
 };
 
 struct MDSignedField : public MDFieldImpl<int64_t> {
@@ -3610,12 +3615,15 @@ bool LLParser::ParseMDField(LocTy Loc, StringRef Name,
 ///  ::= DIFlagVector '|' DIFlagFwdDecl '|' uint32 '|' DIFlagPublic
 template <>
 bool LLParser::ParseMDField(LocTy Loc, StringRef Name, DIFlagField &Result) {
-  assert(Result.Max == UINT32_MAX && "Expected only 32-bits");
 
   // Parser for a single flag.
-  auto parseFlag = [&](unsigned &Val) {
-    if (Lex.getKind() == lltok::APSInt && !Lex.getAPSIntVal().isSigned())
-      return ParseUInt32(Val);
+  auto parseFlag = [&](DINode::DIFlags &Val) {
+    if (Lex.getKind() == lltok::APSInt && !Lex.getAPSIntVal().isSigned()) {
+      uint32_t TempVal = static_cast<uint32_t>(Val);
+      bool Res = ParseUInt32(TempVal);
+      Val = static_cast<DINode::DIFlags>(TempVal);
+      return Res;
+    }
 
     if (Lex.getKind() != lltok::DIFlag)
       return TokError("expected debug info flag");
@@ -3629,9 +3637,9 @@ bool LLParser::ParseMDField(LocTy Loc, StringRef Name, DIFlagField &Result) {
   };
 
   // Parse the flags and combine them together.
-  unsigned Combined = 0;
+  DINode::DIFlags Combined = DINode::FlagZero;
   do {
-    unsigned Val;
+    DINode::DIFlags Val;
     if (parseFlag(Val))
       return true;
     Combined |= Val;
@@ -3692,16 +3700,6 @@ bool LLParser::ParseMDField(LocTy Loc, StringRef Name, MDField &Result) {
     return true;
 
   Result.assign(MD);
-  return false;
-}
-
-template <>
-bool LLParser::ParseMDField(LocTy Loc, StringRef Name, MDConstant &Result) {
-  Metadata *MD;
-  if (ParseValueAsMetadata(MD, "expected constant", nullptr))
-    return true;
-
-  Result.assign(cast<ConstantAsMetadata>(MD));
   return false;
 }
 
@@ -4198,7 +4196,7 @@ bool LLParser::ParseDIGlobalVariable(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(type, MDField, );                                                   \
   OPTIONAL(isLocal, MDBoolField, );                                            \
   OPTIONAL(isDefinition, MDBoolField, (true));                                 \
-  OPTIONAL(variable, MDConstant, );                                            \
+  OPTIONAL(expr, MDField, );                                                   \
   OPTIONAL(declaration, MDField, );
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
@@ -4206,7 +4204,7 @@ bool LLParser::ParseDIGlobalVariable(MDNode *&Result, bool IsDistinct) {
   Result = GET_OR_DISTINCT(DIGlobalVariable,
                            (Context, scope.Val, name.Val, linkageName.Val,
                             file.Val, line.Val, type.Val, isLocal.Val,
-                            isDefinition.Val, variable.Val, declaration.Val));
+                            isDefinition.Val, expr.Val, declaration.Val));
   return false;
 }
 
@@ -6499,7 +6497,7 @@ bool LLParser::ParseUseListOrderBB() {
     return Error(Label.Loc, "invalid numeric label in uselistorder_bb");
   if (Label.Kind != ValID::t_LocalName)
     return Error(Label.Loc, "expected basic block name in uselistorder_bb");
-  Value *V = F->getValueSymbolTable().lookup(Label.StrVal);
+  Value *V = F->getValueSymbolTable()->lookup(Label.StrVal);
   if (!V)
     return Error(Label.Loc, "invalid basic block in uselistorder_bb");
   if (!isa<BasicBlock>(V))

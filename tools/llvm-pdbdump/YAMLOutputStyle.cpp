@@ -21,7 +21,8 @@
 using namespace llvm;
 using namespace llvm::pdb;
 
-YAMLOutputStyle::YAMLOutputStyle(PDBFile &File) : File(File), Out(outs()) {}
+YAMLOutputStyle::YAMLOutputStyle(PDBFile &File)
+    : File(File), Out(outs()), Obj(File.getAllocator()) {}
 
 Error YAMLOutputStyle::dump() {
   if (opts::pdb2yaml::StreamDirectory)
@@ -47,6 +48,9 @@ Error YAMLOutputStyle::dump() {
     return EC;
 
   if (auto EC = dumpTpiStream())
+    return EC;
+
+  if (auto EC = dumpIpiStream())
     return EC;
 
   flush();
@@ -173,6 +177,26 @@ Error YAMLOutputStyle::dumpTpiStream() {
     // is owned by the backing stream.
     R.Record = Record;
     Obj.TpiStream->Records.push_back(R);
+  }
+
+  return Error::success();
+}
+
+Error YAMLOutputStyle::dumpIpiStream() {
+  if (!opts::pdb2yaml::IpiStream)
+    return Error::success();
+
+  auto IpiS = File.getPDBIpiStream();
+  if (!IpiS)
+    return IpiS.takeError();
+
+  auto &IS = IpiS.get();
+  Obj.IpiStream.emplace();
+  Obj.IpiStream->Version = IS.getTpiVersion();
+  for (auto &Record : IS.types(nullptr)) {
+    yaml::PdbTpiRecord R;
+    R.Record = Record;
+    Obj.IpiStream->Records.push_back(R);
   }
 
   return Error::success();

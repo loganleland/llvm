@@ -1120,10 +1120,18 @@ SDValue R600TargetLowering::LowerSTORE(SDValue Op, SelectionDAG &DAG) const {
   unsigned AS = StoreNode->getAddressSpace();
   SDValue Value = StoreNode->getValue();
   EVT ValueVT = Value.getValueType();
+  EVT MemVT = StoreNode->getMemoryVT();
+  unsigned Align = StoreNode->getAlignment();
 
   if ((AS == AMDGPUAS::LOCAL_ADDRESS || AS == AMDGPUAS::PRIVATE_ADDRESS) &&
       ValueVT.isVector()) {
     return SplitVectorStore(Op, DAG);
+  }
+
+  // Private AS needs special fixes
+  if (Align < MemVT.getStoreSize() && (AS != AMDGPUAS::PRIVATE_ADDRESS) &&
+      !allowsMisalignedMemoryAccesses(MemVT, AS, Align, NULL)) {
+    return expandUnalignedStore(StoreNode, DAG);
   }
 
   SDLoc DL(Op);
@@ -1131,15 +1139,17 @@ SDValue R600TargetLowering::LowerSTORE(SDValue Op, SelectionDAG &DAG) const {
   SDValue Ptr = StoreNode->getBasePtr();
 
   if (AS == AMDGPUAS::GLOBAL_ADDRESS) {
+    // It is beneficial to create MSKOR here instead of combiner to avoid
+    // artificial dependencies introduced by RMW
     if (StoreNode->isTruncatingStore()) {
       EVT VT = Value.getValueType();
       assert(VT.bitsLE(MVT::i32));
-      EVT MemVT = StoreNode->getMemoryVT();
       SDValue MaskConstant;
       if (MemVT == MVT::i8) {
         MaskConstant = DAG.getConstant(0xFF, DL, MVT::i32);
       } else {
         assert(MemVT == MVT::i16);
+        assert(StoreNode->getAlignment() >= 2);
         MaskConstant = DAG.getConstant(0xFFFF, DL, MVT::i32);
       }
       SDValue DWordAddr = DAG.getNode(ISD::SRL, DL, VT, Ptr,
@@ -1183,7 +1193,6 @@ SDValue R600TargetLowering::LowerSTORE(SDValue Op, SelectionDAG &DAG) const {
   if (AS != AMDGPUAS::PRIVATE_ADDRESS)
     return SDValue();
 
-  EVT MemVT = StoreNode->getMemoryVT();
   if (MemVT.bitsLT(MVT::i32))
     return lowerPrivateTruncStore(StoreNode, DAG);
 
@@ -1503,9 +1512,11 @@ SDValue R600TargetLowering::LowerFormalArguments(
 
   SmallVector<ISD::InputArg, 8> LocalIns;
 
-  getOriginalFunctionArgs(DAG, MF.getFunction(), Ins, LocalIns);
-
-  AnalyzeFormalArguments(CCInfo, LocalIns);
+  if (AMDGPU::isShader(CallConv)) {
+    AnalyzeFormalArguments(CCInfo, Ins);
+  } else {
+    analyzeFormalArgumentsCompute(CCInfo, Ins);
+  }
 
   for (unsigned i = 0, e = Ins.size(); i < e; ++i) {
     CCValAssign &VA = ArgLocs[i];
@@ -1555,8 +1566,9 @@ SDValue R600TargetLowering::LowerFormalArguments(
     SDValue Arg = DAG.getLoad(
         ISD::UNINDEXED, Ext, VT, DL, Chain,
         DAG.getConstant(Offset, DL, MVT::i32), DAG.getUNDEF(MVT::i32), PtrInfo,
-        MemVT, /* Alignment = */ 4,
-        MachineMemOperand::MONonTemporal | MachineMemOperand::MOInvariant);
+        MemVT, /* Alignment = */ 4, MachineMemOperand::MONonTemporal |
+                                        MachineMemOperand::MODereferenceable |
+                                        MachineMemOperand::MOInvariant);
 
     // 4 is the preferred alignment for the CONSTANT memory space.
     InVals.push_back(Arg);
@@ -1811,7 +1823,9 @@ SDValue R600TargetLowering::PerformDAGCombine(SDNode *N,
       }
     }
     if (Arg.getOpcode() == ISD::BITCAST &&
-        Arg.getOperand(0).getOpcode() == ISD::BUILD_VECTOR) {
+        Arg.getOperand(0).getOpcode() == ISD::BUILD_VECTOR &&
+        (Arg.getOperand(0).getValueType().getVectorNumElements() ==
+         Arg.getValueType().getVectorNumElements())) {
       if (ConstantSDNode *Const = dyn_cast<ConstantSDNode>(N->getOperand(1))) {
         unsigned Element = Const->getZExtValue();
         return DAG.getNode(ISD::BITCAST, DL, N->getVTList(),

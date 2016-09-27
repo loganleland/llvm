@@ -163,13 +163,18 @@ void LiveRangeCalc::extendToUses(LiveRange &LR, unsigned Reg, LaneBitmask Mask,
     LI->computeSubRangeUndefs(Undefs, Mask, *MRI, *Indexes);
 
   // Visit all operands that read Reg. This may include partial defs.
+  bool IsSubRange = (Mask != ~0U);
   const TargetRegisterInfo &TRI = *MRI->getTargetRegisterInfo();
   for (MachineOperand &MO : MRI->reg_nodbg_operands(Reg)) {
     // Clear all kill flags. They will be reinserted after register allocation
     // by LiveIntervalAnalysis::addKillFlags().
     if (MO.isUse())
       MO.setIsKill(false);
-    if (!MO.readsReg())
+    // MO::readsReg returns "true" for subregister defs. This is for keeping
+    // liveness of the entire register (i.e. for the main range of the live
+    // interval). For subranges, definitions of non-overlapping subregisters
+    // do not count as uses.
+    if (!MO.readsReg() || (IsSubRange && MO.isDef()))
       continue;
 
     unsigned SubReg = MO.getSubReg();
@@ -356,23 +361,24 @@ bool LiveRangeCalc::findReachingDefs(LiveRange &LR, MachineBasicBlock &UseMBB,
     MachineBasicBlock *MBB = MF->getBlockNumbered(WorkList[i]);
 
 #ifndef NDEBUG
-    if (Undefs.size() > 0 && MBB->pred_empty()) {
+    if (MBB->pred_empty()) {
       MBB->getParent()->verify();
       errs() << "Use of " << PrintReg(PhysReg)
              << " does not have a corresponding definition on every path:\n";
       const MachineInstr *MI = Indexes->getInstructionFromIndex(Use);
       if (MI != nullptr)
         errs() << Use << " " << *MI;
-      llvm_unreachable("Use not jointly dominated by defs.");
+      report_fatal_error("Use not jointly dominated by defs.");
     }
 
     if (TargetRegisterInfo::isPhysicalRegister(PhysReg) &&
         !MBB->isLiveIn(PhysReg)) {
       MBB->getParent()->verify();
-      errs() << "The register " << PrintReg(PhysReg)
+      const TargetRegisterInfo *TRI = MRI->getTargetRegisterInfo();
+      errs() << "The register " << PrintReg(PhysReg, TRI)
              << " needs to be live in to BB#" << MBB->getNumber()
              << ", but is missing from the live-in list.\n";
-      llvm_unreachable("Invalid global physical register");
+      report_fatal_error("Invalid global physical register");
     }
 #endif
     FoundUndef |= MBB->pred_empty();

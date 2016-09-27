@@ -456,6 +456,11 @@ LLVM-specific variables
   If enabled then sphinx documentation warnings will be treated as
   errors. Defaults to ON.
 
+**LLVM_INSTALL_SPHINX_HTML_DIR**:STRING
+  The path to install Sphinx-generated HTML documentation to. This path can
+  either be absolute or relative to the CMAKE_INSTALL_PREFIX. Defaults to
+  `share/doc/llvm/html`.
+
 **LLVM_CREATE_XCODE_TOOLCHAIN**:BOOL
   OS X Only: If enabled CMake will generate a target named
   'install-xcode-toolchain'. This target will create a directory at
@@ -579,7 +584,7 @@ and uses them to build a simple application ``simple-tool``.
   # you will need to enable C++11 support
   # for your compiler.
 
-  include_directories(${LLVM_INCLUDE_DIR})
+  include_directories(${LLVM_INCLUDE_DIRS})
   add_definitions(${LLVM_DEFINITIONS})
 
   # Now build our tools
@@ -636,8 +641,8 @@ include
   This is set to ON if LLVM was built with run time type information (RTTI),
   otherwise OFF.
 
-``LLVM_INCLUDE_DIR``
-  Path to the root directory containing LLVM header files.
+``LLVM_INCLUDE_DIRS``
+  A list of include paths to directories containing LLVM header files.
 
 ``LLVM_PACKAGE_VERSION``
   The LLVM version. This string can be used with CMake conditionals, e.g., ``if
@@ -681,7 +686,7 @@ Contents of ``<project dir>/CMakeLists.txt``:
   find_package(LLVM REQUIRED CONFIG)
 
   add_definitions(${LLVM_DEFINITIONS})
-  include_directories(${LLVM_INCLUDE_DIR})
+  include_directories(${LLVM_INCLUDE_DIRS})
 
   add_subdirectory(<pass name>)
 

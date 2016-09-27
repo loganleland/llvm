@@ -58,6 +58,9 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
   set(LLVM_LIBRARY_OUTPUT_INTDIR ${LLVM_LIBRARY_DIR})
   set(LLVM_RUNTIME_OUTPUT_INTDIR ${LLVM_TOOLS_BINARY_DIR})
 
+  # This variable makes sure that e.g. llvm-lit is found.
+  set(LLVM_MAIN_SRC_DIR ${LLVM_BUILD_MAIN_SRC_DIR})
+
   foreach(entry ${runtimes})
     get_filename_component(projName ${entry} NAME)
 
@@ -194,7 +197,8 @@ else() # if this is included from LLVM's CMake
                                             ${SUB_INSTALL_TARGETS}
                              USE_TOOLCHAIN)
     if(LLVM_INCLUDE_TESTS)
-      set_property(GLOBAL APPEND PROPERTY LLVM_LIT_DEPENDS runtimes-test-depends)
+      set_property(GLOBAL APPEND PROPERTY LLVM_ADDITIONAL_TEST_DEPENDS runtimes-test-depends)
+      set_property(GLOBAL APPEND PROPERTY LLVM_ADDITIONAL_TEST_TARGETS check-runtimes)
     endif()
   endif()
 endif()

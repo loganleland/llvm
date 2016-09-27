@@ -207,7 +207,7 @@ namespace {
     }
 
   private:
-    bool ReverseBranchCondition(BBInfo &BBI) const;
+    bool reverseBranchCondition(BBInfo &BBI) const;
     bool ValidSimple(BBInfo &TrueBBI, unsigned &Dups,
                      BranchProbability Prediction) const;
     bool ValidTriangle(BBInfo &TrueBBI, BBInfo &FalseBBI,
@@ -501,11 +501,11 @@ static MachineBasicBlock *findFalseBlock(MachineBasicBlock *BB,
 
 /// Reverse the condition of the end of the block branch. Swap block's 'true'
 /// and 'false' successors.
-bool IfConverter::ReverseBranchCondition(BBInfo &BBI) const {
+bool IfConverter::reverseBranchCondition(BBInfo &BBI) const {
   DebugLoc dl;  // FIXME: this is nowhere
-  if (!TII->ReverseBranchCondition(BBI.BrCond)) {
-    TII->RemoveBranch(*BBI.BB);
-    TII->InsertBranch(*BBI.BB, BBI.FalseBB, BBI.TrueBB, BBI.BrCond, dl);
+  if (!TII->reverseBranchCondition(BBI.BrCond)) {
+    TII->removeBranch(*BBI.BB);
+    TII->insertBranch(*BBI.BB, BBI.FalseBB, BBI.TrueBB, BBI.BrCond, dl);
     std::swap(BBI.TrueBB, BBI.FalseBB);
     return true;
   }
@@ -671,7 +671,9 @@ bool IfConverter::CountDuplicatedInstructions(
     std::vector<MachineOperand> PredDefs;
     if (TII->DefinesPredicate(*TIB, PredDefs))
       return false;
-    ++Dups1;
+    // If we get all the way to the branch instructions, don't count them.
+    if (!TIB->isBranch())
+      ++Dups1;
     ++TIB;
     ++FIB;
   }
@@ -855,11 +857,11 @@ bool IfConverter::ValidForkedDiamond(
     if (!FalseBBI.IsBrReversible)
       return false;
     FalseReversed = true;
-    ReverseBranchCondition(FalseBBI);
+    reverseBranchCondition(FalseBBI);
   }
   auto UnReverseOnExit = make_scope_exit([&]() {
     if (FalseReversed)
-      ReverseBranchCondition(FalseBBI);
+      reverseBranchCondition(FalseBBI);
   });
 
   // Count duplicate instructions at the beginning of the true and false blocks.
@@ -953,7 +955,7 @@ void IfConverter::AnalyzeBranches(BBInfo &BBI) {
       !TII->analyzeBranch(*BBI.BB, BBI.TrueBB, BBI.FalseBB, BBI.BrCond);
   SmallVector<MachineOperand, 4> RevCond(BBI.BrCond.begin(), BBI.BrCond.end());
   BBI.IsBrReversible = (RevCond.size() == 0) ||
-      !TII->ReverseBranchCondition(RevCond);
+      !TII->reverseBranchCondition(RevCond);
   BBI.HasFallThrough = BBI.IsBrAnalyzable && BBI.FalseBB == nullptr;
 
   if (BBI.BrCond.size()) {
@@ -1111,10 +1113,10 @@ bool IfConverter::FeasibilityAnalysis(BBInfo &BBI,
     SmallVector<MachineOperand, 4> RevPred(Pred.begin(), Pred.end());
     SmallVector<MachineOperand, 4> Cond(BBI.BrCond.begin(), BBI.BrCond.end());
     if (RevBranch) {
-      if (TII->ReverseBranchCondition(Cond))
+      if (TII->reverseBranchCondition(Cond))
         return false;
     }
-    if (TII->ReverseBranchCondition(RevPred) ||
+    if (TII->reverseBranchCondition(RevPred) ||
         !TII->SubsumesPredicate(Cond, RevPred))
       return false;
   }
@@ -1200,7 +1202,7 @@ void IfConverter::AnalyzeBlock(
 
     SmallVector<MachineOperand, 4>
         RevCond(BBI.BrCond.begin(), BBI.BrCond.end());
-    bool CanRevCond = !TII->ReverseBranchCondition(RevCond);
+    bool CanRevCond = !TII->reverseBranchCondition(RevCond);
 
     unsigned Dups = 0;
     unsigned Dups2 = 0;
@@ -1392,7 +1394,7 @@ static void InsertUncondBranch(MachineBasicBlock &MBB, MachineBasicBlock &ToMBB,
                                const TargetInstrInfo *TII) {
   DebugLoc dl;  // FIXME: this is nowhere
   SmallVector<MachineOperand, 0> NoCond;
-  TII->InsertBranch(MBB, &ToMBB, nullptr, NoCond, dl);
+  TII->insertBranch(MBB, &ToMBB, nullptr, NoCond, dl);
 }
 
 /// Remove true / false edges if either / both are no longer successors.
@@ -1500,7 +1502,7 @@ bool IfConverter::IfConvertSimple(BBInfo &BBI, IfcvtKind Kind) {
     return false;
 
   if (Kind == ICSimpleFalse)
-    if (TII->ReverseBranchCondition(Cond))
+    if (TII->reverseBranchCondition(Cond))
       llvm_unreachable("Unable to reverse branch condition!");
 
   // Initialize liveins to the first BB. These are potentiall redefined by
@@ -1515,7 +1517,7 @@ bool IfConverter::IfConvertSimple(BBInfo &BBI, IfcvtKind Kind) {
   DontKill.addLiveIns(NextMBB);
 
   if (CvtMBB.pred_size() > 1) {
-    BBI.NonPredSize -= TII->RemoveBranch(*BBI.BB);
+    BBI.NonPredSize -= TII->removeBranch(*BBI.BB);
     // Copy instructions in the true block, predicate them, and add them to
     // the entry block.
     CopyAndPredicateBlock(BBI, *CvtBBI, Cond);
@@ -1528,7 +1530,7 @@ bool IfConverter::IfConvertSimple(BBInfo &BBI, IfcvtKind Kind) {
     PredicateBlock(*CvtBBI, CvtMBB.end(), Cond);
 
     // Merge converted block into entry block.
-    BBI.NonPredSize -= TII->RemoveBranch(*BBI.BB);
+    BBI.NonPredSize -= TII->removeBranch(*BBI.BB);
     MergeBlocks(BBI, *CvtBBI);
   }
 
@@ -1588,11 +1590,11 @@ bool IfConverter::IfConvertTriangle(BBInfo &BBI, IfcvtKind Kind) {
     return false;
 
   if (Kind == ICTriangleFalse || Kind == ICTriangleFRev)
-    if (TII->ReverseBranchCondition(Cond))
+    if (TII->reverseBranchCondition(Cond))
       llvm_unreachable("Unable to reverse branch condition!");
 
   if (Kind == ICTriangleRev || Kind == ICTriangleFRev) {
-    if (ReverseBranchCondition(*CvtBBI)) {
+    if (reverseBranchCondition(*CvtBBI)) {
       // BB has been changed, modify its predecessors (except for this
       // one) so they don't get ifcvt'ed based on bad intel.
       for (MachineBasicBlock *PBB : CvtMBB.predecessors()) {
@@ -1627,7 +1629,7 @@ bool IfConverter::IfConvertTriangle(BBInfo &BBI, IfcvtKind Kind) {
   }
 
   if (CvtMBB.pred_size() > 1) {
-    BBI.NonPredSize -= TII->RemoveBranch(*BBI.BB);
+    BBI.NonPredSize -= TII->removeBranch(*BBI.BB);
     // Copy instructions in the true block, predicate them, and add them to
     // the entry block.
     CopyAndPredicateBlock(BBI, *CvtBBI, Cond, true);
@@ -1637,11 +1639,11 @@ bool IfConverter::IfConvertTriangle(BBInfo &BBI, IfcvtKind Kind) {
     BBI.BB->removeSuccessor(&CvtMBB, true);
   } else {
     // Predicate the 'true' block after removing its branch.
-    CvtBBI->NonPredSize -= TII->RemoveBranch(CvtMBB);
+    CvtBBI->NonPredSize -= TII->removeBranch(CvtMBB);
     PredicateBlock(*CvtBBI, CvtMBB.end(), Cond);
 
     // Now merge the entry of the triangle with the true block.
-    BBI.NonPredSize -= TII->RemoveBranch(*BBI.BB);
+    BBI.NonPredSize -= TII->removeBranch(*BBI.BB);
     MergeBlocks(BBI, *CvtBBI, false);
   }
 
@@ -1649,7 +1651,7 @@ bool IfConverter::IfConvertTriangle(BBInfo &BBI, IfcvtKind Kind) {
   if (HasEarlyExit) {
     SmallVector<MachineOperand, 4> RevCond(CvtBBI->BrCond.begin(),
                                            CvtBBI->BrCond.end());
-    if (TII->ReverseBranchCondition(RevCond))
+    if (TII->reverseBranchCondition(RevCond))
       llvm_unreachable("Unable to reverse branch condition!");
 
     // Update the edge probability for both CvtBBI->FalseBB and NextBBI.
@@ -1665,7 +1667,7 @@ bool IfConverter::IfConvertTriangle(BBInfo &BBI, IfcvtKind Kind) {
       BBI.BB->setSuccProbability(NewTrueBBIter, NewNext);
 
     auto NewFalse = BBCvt * CvtFalse;
-    TII->InsertBranch(*BBI.BB, CvtBBI->FalseBB, nullptr, RevCond, dl);
+    TII->insertBranch(*BBI.BB, CvtBBI->FalseBB, nullptr, RevCond, dl);
     BBI.BB->addSuccessor(CvtBBI->FalseBB, NewFalse);
   }
 
@@ -1742,7 +1744,7 @@ bool IfConverter::IfConvertDiamondCommon(
   BBInfo *BBI1 = &TrueBBI;
   BBInfo *BBI2 = &FalseBBI;
   SmallVector<MachineOperand, 4> RevCond(BBI.BrCond.begin(), BBI.BrCond.end());
-  if (TII->ReverseBranchCondition(RevCond))
+  if (TII->reverseBranchCondition(RevCond))
     llvm_unreachable("Unable to reverse branch condition!");
   SmallVector<MachineOperand, 4> *Cond1 = &BBI.BrCond;
   SmallVector<MachineOperand, 4> *Cond2 = &RevCond;
@@ -1751,17 +1753,18 @@ bool IfConverter::IfConvertDiamondCommon(
   bool DoSwap = false;
   if (TClobbersPred && !FClobbersPred)
     DoSwap = true;
-  else if (TClobbersPred == FClobbersPred) {
+  else if (!TClobbersPred && !FClobbersPred) {
     if (TrueBBI.NonPredSize > FalseBBI.NonPredSize)
       DoSwap = true;
-  }
+  } else if (TClobbersPred && FClobbersPred)
+    llvm_unreachable("Predicate info cannot be clobbered by both sides.");
   if (DoSwap) {
     std::swap(BBI1, BBI2);
     std::swap(Cond1, Cond2);
   }
 
   // Remove the conditional branch from entry to the blocks.
-  BBI.NonPredSize -= TII->RemoveBranch(*BBI.BB);
+  BBI.NonPredSize -= TII->removeBranch(*BBI.BB);
 
   MachineBasicBlock &MBB1 = *BBI1->BB;
   MachineBasicBlock &MBB2 = *BBI2->BB;
@@ -1799,8 +1802,7 @@ bool IfConverter::IfConvertDiamondCommon(
   // This is everything used+live in BB2 after the duplicated instructions. We
   // can compute this set by simulating liveness backwards from the end of BB2.
   DontKill.init(TRI);
-  for (const MachineInstr &MI :
-       make_range(MBB2.rbegin(), MachineBasicBlock::reverse_iterator(DI2)))
+  for (const MachineInstr &MI : make_range(MBB2.rbegin(), ++DI2.getReverse()))
     DontKill.stepBackward(MI);
 
   for (const MachineInstr &MI : make_range(MBB1.begin(), DI1)) {
@@ -1817,7 +1819,7 @@ bool IfConverter::IfConvertDiamondCommon(
   if (!BBI1->IsBrAnalyzable)
     verifySameBranchInstructions(&MBB1, &MBB2);
 #endif
-  BBI1->NonPredSize -= TII->RemoveBranch(*BBI1->BB);
+  BBI1->NonPredSize -= TII->removeBranch(*BBI1->BB);
   // Remove duplicated instructions.
   DI1 = MBB1.end();
   for (unsigned i = 0; i != NumDups2; ) {
@@ -1839,7 +1841,7 @@ bool IfConverter::IfConvertDiamondCommon(
   // The branches have been checked to match. Skip over the branch in the false
   // block so that we don't try to predicate it.
   if (RemoveBranch)
-    BBI2->NonPredSize -= TII->RemoveBranch(*BBI2->BB);
+    BBI2->NonPredSize -= TII->removeBranch(*BBI2->BB);
   else {
     do {
       assert(DI2 != MBB2.begin());
@@ -1949,7 +1951,7 @@ bool IfConverter::IfConvertForkedDiamond(
 
   // Add back the branch.
   // Debug location saved above when removing the branch from BBI2
-  TII->InsertBranch(*BBI.BB, TrueBBI.TrueBB, TrueBBI.FalseBB,
+  TII->insertBranch(*BBI.BB, TrueBBI.TrueBB, TrueBBI.FalseBB,
                     TrueBBI.BrCond, dl);
 
   RemoveExtraEdges(BBI);
@@ -1980,7 +1982,7 @@ bool IfConverter::IfConvertDiamond(BBInfo &BBI, IfcvtKind Kind,
   if (!IfConvertDiamondCommon(
       BBI, TrueBBI, FalseBBI,
       NumDups1, NumDups2,
-      TrueBBI.ClobbersPred, FalseBBI.ClobbersPred,
+      TClobbersPred, FClobbersPred,
       /* RemoveBranch */ TrueBBI.IsBrAnalyzable,
       /* MergeAddEdges */ TailBB == nullptr))
     return false;

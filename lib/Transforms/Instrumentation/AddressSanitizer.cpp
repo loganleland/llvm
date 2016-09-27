@@ -275,7 +275,7 @@ static cl::opt<std::string> ClDebugFunc("asan-debug-func", cl::Hidden,
                                         cl::desc("Debug func"));
 static cl::opt<int> ClDebugMin("asan-debug-min", cl::desc("Debug min inst"),
                                cl::Hidden, cl::init(-1));
-static cl::opt<int> ClDebugMax("asan-debug-max", cl::desc("Debug man inst"),
+static cl::opt<int> ClDebugMax("asan-debug-max", cl::desc("Debug max inst"),
                                cl::Hidden, cl::init(-1));
 
 STATISTIC(NumInstrumentedReads, "Number of instrumented reads");
@@ -1508,6 +1508,13 @@ bool AddressSanitizerModule::InstrumentGlobals(IRBuilder<> &IRB, Module &M) {
     NewGlobal->copyAttributesFrom(G);
     NewGlobal->setAlignment(MinRZ);
 
+    // Transfer the debug info.  The payload starts at offset zero so we can
+    // copy the debug info over as is.
+    SmallVector<DIGlobalVariable *, 1> GVs;
+    G->getDebugInfo(GVs);
+    for (auto *GV : GVs)
+      NewGlobal->addDebugInfo(GV);
+
     Value *Indices2[2];
     Indices2[0] = IRB.getInt32(0);
     Indices2[1] = IRB.getInt32(0);
@@ -1528,7 +1535,8 @@ bool AddressSanitizerModule::InstrumentGlobals(IRBuilder<> &IRB, Module &M) {
     Constant *ODRIndicator = ConstantExpr::getNullValue(IRB.getInt8PtrTy());
     GlobalValue *InstrumentedGlobal = NewGlobal;
 
-    bool CanUsePrivateAliases = TargetTriple.isOSBinFormatELF();
+    bool CanUsePrivateAliases =
+        TargetTriple.isOSBinFormatELF() || TargetTriple.isOSBinFormatMachO();
     if (CanUsePrivateAliases && ClUsePrivateAliasForGlobals) {
       // Create local alias for NewGlobal to avoid crash on ODR between
       // instrumented and non-instrumented libraries.
@@ -1804,17 +1812,24 @@ void AddressSanitizer::markEscapedLocalAllocas(Function &F) {
 bool AddressSanitizer::runOnFunction(Function &F) {
   if (&F == AsanCtorFunction) return false;
   if (F.getLinkage() == GlobalValue::AvailableExternallyLinkage) return false;
-  DEBUG(dbgs() << "ASAN instrumenting:\n" << F << "\n");
-  initializeCallbacks(*F.getParent());
+  if (!ClDebugFunc.empty() && ClDebugFunc == F.getName()) return false;
+  if (F.getName().startswith("__asan_")) return false;
 
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  bool FunctionModified = false;
 
   // If needed, insert __asan_init before checking for SanitizeAddress attr.
-  maybeInsertAsanInitAtFunctionEntry(F);
+  // This function needs to be called even if the function body is not
+  // instrumented.  
+  if (maybeInsertAsanInitAtFunctionEntry(F))
+    FunctionModified = true;
+  
+  // Leave if the function doesn't need instrumentation.
+  if (!F.hasFnAttribute(Attribute::SanitizeAddress)) return FunctionModified;
 
-  if (!F.hasFnAttribute(Attribute::SanitizeAddress)) return false;
+  DEBUG(dbgs() << "ASAN instrumenting:\n" << F << "\n");
 
-  if (!ClDebugFunc.empty() && ClDebugFunc != F.getName()) return false;
+  initializeCallbacks(*F.getParent());
+  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
   FunctionStateRAII CleanupObj(this);
 
@@ -1910,11 +1925,13 @@ bool AddressSanitizer::runOnFunction(Function &F) {
     NumInstrumented++;
   }
 
-  bool res = NumInstrumented > 0 || ChangedStack || !NoReturnCalls.empty();
+  if (NumInstrumented > 0 || ChangedStack || !NoReturnCalls.empty())
+    FunctionModified = true;
 
-  DEBUG(dbgs() << "ASAN done instrumenting: " << res << " " << F << "\n");
+  DEBUG(dbgs() << "ASAN done instrumenting: " << FunctionModified << " "
+               << F << "\n");
 
-  return res;
+  return FunctionModified;
 }
 
 // Workaround for bug 11395: we don't want to instrument stack in functions
@@ -2418,7 +2435,7 @@ void FunctionStackPoisoner::poisonAlloca(Value *V, uint64_t Size,
 
 AllocaInst *FunctionStackPoisoner::findAllocaForValue(Value *V) {
   if (AllocaInst *AI = dyn_cast<AllocaInst>(V))
-    // We're intested only in allocas we can handle.
+    // We're interested only in allocas we can handle.
     return ASan.isInterestingAlloca(*AI) ? AI : nullptr;
   // See if we've already calculated (or started to calculate) alloca for a
   // given value.

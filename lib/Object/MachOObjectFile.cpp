@@ -504,6 +504,127 @@ static Error checkLinkeditDataCommand(const MachOObjectFile *Obj,
   return Error::success();
 }
 
+static Error checkDyldInfoCommand(const MachOObjectFile *Obj,
+                                  const MachOObjectFile::LoadCommandInfo &Load,
+                                  uint32_t LoadCommandIndex,
+                                  const char **LoadCmd, const char *CmdName) {
+  if (Load.C.cmdsize < sizeof(MachO::dyld_info_command))
+    return malformedError("load command " + Twine(LoadCommandIndex) + " " +
+                          CmdName + " cmdsize too small");
+  if (*LoadCmd != nullptr)
+    return malformedError("more than one LC_DYLD_INFO and or LC_DYLD_INFO_ONLY "
+                          "command");
+  MachO::dyld_info_command DyldInfo =
+    getStruct<MachO::dyld_info_command>(Obj, Load.Ptr);
+  if (DyldInfo.cmdsize != sizeof(MachO::dyld_info_command))
+    return malformedError(Twine(CmdName) + " command " +
+                          Twine(LoadCommandIndex) + " has incorrect cmdsize");
+  uint64_t FileSize = Obj->getData().size();
+  if (DyldInfo.rebase_off > FileSize)
+    return malformedError("rebase_off field of " + Twine(CmdName) +
+                          " command " + Twine(LoadCommandIndex) + " extends "
+                          "past the end of the file");
+  uint64_t BigSize = DyldInfo.rebase_off;
+  BigSize += DyldInfo.rebase_size;
+  if (BigSize > FileSize)
+    return malformedError("rebase_off field plus rebase_size field of " +
+                          Twine(CmdName) + " command " +
+                          Twine(LoadCommandIndex) + " extends past the end of "
+                          "the file");
+  if (DyldInfo.bind_off > FileSize)
+    return malformedError("bind_off field of " + Twine(CmdName) +
+                          " command " + Twine(LoadCommandIndex) + " extends "
+                          "past the end of the file");
+  BigSize = DyldInfo.bind_off;
+  BigSize += DyldInfo.bind_size;
+  if (BigSize > FileSize)
+    return malformedError("bind_off field plus bind_size field of " +
+                          Twine(CmdName) + " command " +
+                          Twine(LoadCommandIndex) + " extends past the end of "
+                          "the file");
+  if (DyldInfo.weak_bind_off > FileSize)
+    return malformedError("weak_bind_off field of " + Twine(CmdName) +
+                          " command " + Twine(LoadCommandIndex) + " extends "
+                          "past the end of the file");
+  BigSize = DyldInfo.weak_bind_off;
+  BigSize += DyldInfo.weak_bind_size;
+  if (BigSize > FileSize)
+    return malformedError("weak_bind_off field plus weak_bind_size field of " +
+                          Twine(CmdName) + " command " +
+                          Twine(LoadCommandIndex) + " extends past the end of "
+                          "the file");
+  if (DyldInfo.lazy_bind_off > FileSize)
+    return malformedError("lazy_bind_off field of " + Twine(CmdName) +
+                          " command " + Twine(LoadCommandIndex) + " extends "
+                          "past the end of the file");
+  BigSize = DyldInfo.lazy_bind_off;
+  BigSize += DyldInfo.lazy_bind_size;
+  if (BigSize > FileSize)
+    return malformedError("lazy_bind_off field plus lazy_bind_size field of " +
+                          Twine(CmdName) + " command " +
+                          Twine(LoadCommandIndex) + " extends past the end of "
+                          "the file");
+  if (DyldInfo.export_off > FileSize)
+    return malformedError("export_off field of " + Twine(CmdName) +
+                          " command " + Twine(LoadCommandIndex) + " extends "
+                          "past the end of the file");
+  BigSize = DyldInfo.export_off;
+  BigSize += DyldInfo.export_size;
+  if (BigSize > FileSize)
+    return malformedError("export_off field plus export_size field of " +
+                          Twine(CmdName) + " command " +
+                          Twine(LoadCommandIndex) + " extends past the end of "
+                          "the file");
+  *LoadCmd = Load.Ptr;
+  return Error::success();
+}
+
+static Error checkDylibCommand(const MachOObjectFile *Obj,
+                               const MachOObjectFile::LoadCommandInfo &Load,
+                               uint32_t LoadCommandIndex, const char *CmdName) {
+  if (Load.C.cmdsize < sizeof(MachO::dylib_command))
+    return malformedError("load command " + Twine(LoadCommandIndex) + " " +
+                          CmdName + " cmdsize too small");
+  MachO::dylib_command D = getStruct<MachO::dylib_command>(Obj, Load.Ptr);
+  if (D.dylib.name < sizeof(MachO::dylib_command))
+    return malformedError("load command " + Twine(LoadCommandIndex) + " " +
+                          CmdName + " name.offset field too small, not past "
+                          "the end of the dylib_command struct");
+  if (D.dylib.name >= D.cmdsize)
+    return malformedError("load command " + Twine(LoadCommandIndex) + " " +
+                          CmdName + " name.offset field extends past the end "
+                          "of the load command");
+  // Make sure there is a null between the starting offset of the name and
+  // the end of the load command.
+  uint32_t i;
+  const char *P = (const char *)Load.Ptr;
+  for (i = D.dylib.name; i < D.cmdsize; i++)
+    if (P[i] == '\0')
+      break;
+  if (i >= D.cmdsize)
+    return malformedError("load command " + Twine(LoadCommandIndex) + " " +
+                          CmdName + " library name extends past the end of the "
+                          "load command");
+  return Error::success();
+}
+
+static Error checkDylibIdCommand(const MachOObjectFile *Obj,
+                                 const MachOObjectFile::LoadCommandInfo &Load,
+                                 uint32_t LoadCommandIndex,
+                                 const char **LoadCmd) {
+  if (Error Err = checkDylibCommand(Obj, Load, LoadCommandIndex,
+                                     "LC_ID_DYLIB"))
+    return Err;
+  if (*LoadCmd != nullptr)
+    return malformedError("more than one LC_ID_DYLIB command");
+  if (Obj->getHeader().filetype != MachO::MH_DYLIB &&
+      Obj->getHeader().filetype != MachO::MH_DYLIB_STUB)
+    return malformedError("LC_ID_DYLIB load command in non-dynamic library "
+                          "file type");
+  *LoadCmd = Load.Ptr;
+  return Error::success();
+}
+
 Expected<std::unique_ptr<MachOObjectFile>>
 MachOObjectFile::create(MemoryBufferRef Object, bool IsLittleEndian,
                         bool Is64Bits) {
@@ -541,17 +662,17 @@ MachOObjectFile::MachOObjectFile(MemoryBufferRef Object, bool IsLittleEndian,
   }
 
   uint32_t LoadCommandCount = getHeader().ncmds;
-  if (LoadCommandCount == 0)
-    return;
-
   LoadCommandInfo Load;
-  if (auto LoadOrErr = getFirstLoadCommandInfo(this))
-    Load = *LoadOrErr;
-  else {
-    Err = LoadOrErr.takeError();
-    return;
+  if (LoadCommandCount != 0) {
+    if (auto LoadOrErr = getFirstLoadCommandInfo(this))
+      Load = *LoadOrErr;
+    else {
+      Err = LoadOrErr.takeError();
+      return;
+    }
   }
 
+  const char *DyldIdLoadCmd = nullptr;
   for (unsigned I = 0; I < LoadCommandCount; ++I) {
     if (is64Bit()) {
       if (Load.C.cmdsize % 8 != 0) {
@@ -587,18 +708,22 @@ MachOObjectFile::MachOObjectFile(MemoryBufferRef Object, bool IsLittleEndian,
       if ((Err = checkLinkeditDataCommand(this, Load, I, &LinkOptHintsLoadCmd,
                                           "LC_LINKER_OPTIMIZATION_HINT")))
         return;
-    } else if (Load.C.cmd == MachO::LC_DYLD_INFO ||
-               Load.C.cmd == MachO::LC_DYLD_INFO_ONLY) {
-      // Multiple dyldinfo load commands
-      if (DyldInfoLoadCmd) {
-        Err = malformedError("Multiple dyldinfo load commands");
+    } else if (Load.C.cmd == MachO::LC_DYLD_INFO) {
+      if ((Err = checkDyldInfoCommand(this, Load, I, &DyldInfoLoadCmd,
+                                      "LC_DYLD_INFO")))
+        return;
+    } else if (Load.C.cmd == MachO::LC_DYLD_INFO_ONLY) {
+      if ((Err = checkDyldInfoCommand(this, Load, I, &DyldInfoLoadCmd,
+                                      "LC_DYLD_INFO_ONLY")))
+        return;
+    } else if (Load.C.cmd == MachO::LC_UUID) {
+      if (Load.C.cmdsize != sizeof(MachO::uuid_command)) {
+        Err = malformedError("LC_UUID command " + Twine(I) + " has incorrect "
+                             "cmdsize");
         return;
       }
-      DyldInfoLoadCmd = Load.Ptr;
-    } else if (Load.C.cmd == MachO::LC_UUID) {
-      // Multiple UUID load commands
       if (UuidLoadCmd) {
-        Err = malformedError("Multiple UUID load commands");
+        Err = malformedError("more than one LC_UUID command");
         return;
       }
       UuidLoadCmd = Load.Ptr;
@@ -614,11 +739,28 @@ MachOObjectFile::MachOObjectFile(MemoryBufferRef Object, bool IsLittleEndian,
                    this, Load, Sections, HasPageZeroSegment, I,
                    "LC_SEGMENT", SizeOfHeaders)))
         return;
-    } else if (Load.C.cmd == MachO::LC_LOAD_DYLIB ||
-               Load.C.cmd == MachO::LC_LOAD_WEAK_DYLIB ||
-               Load.C.cmd == MachO::LC_LAZY_LOAD_DYLIB ||
-               Load.C.cmd == MachO::LC_REEXPORT_DYLIB ||
-               Load.C.cmd == MachO::LC_LOAD_UPWARD_DYLIB) {
+    } else if (Load.C.cmd == MachO::LC_ID_DYLIB) {
+      if ((Err = checkDylibIdCommand(this, Load, I, &DyldIdLoadCmd)))
+        return;
+    } else if (Load.C.cmd == MachO::LC_LOAD_DYLIB) {
+      if ((Err = checkDylibCommand(this, Load, I, "LC_LOAD_DYLIB")))
+        return;
+      Libraries.push_back(Load.Ptr);
+    } else if (Load.C.cmd == MachO::LC_LOAD_WEAK_DYLIB) {
+      if ((Err = checkDylibCommand(this, Load, I, "LC_LOAD_WEAK_DYLIB")))
+        return;
+      Libraries.push_back(Load.Ptr);
+    } else if (Load.C.cmd == MachO::LC_LAZY_LOAD_DYLIB) {
+      if ((Err = checkDylibCommand(this, Load, I, "LC_LAZY_LOAD_DYLIB")))
+        return;
+      Libraries.push_back(Load.Ptr);
+    } else if (Load.C.cmd == MachO::LC_REEXPORT_DYLIB) {
+      if ((Err = checkDylibCommand(this, Load, I, "LC_REEXPORT_DYLIB")))
+        return;
+      Libraries.push_back(Load.Ptr);
+    } else if (Load.C.cmd == MachO::LC_LOAD_UPWARD_DYLIB) {
+      if ((Err = checkDylibCommand(this, Load, I, "LC_LOAD_UPWARD_DYLIB")))
+        return;
       Libraries.push_back(Load.Ptr);
     }
     if (I < LoadCommandCount - 1) {
@@ -678,6 +820,13 @@ MachOObjectFile::MachOObjectFile(MemoryBufferRef Object, bool IsLittleEndian,
                            " command extends past the end of the symbol table");
       return;
     }
+  }
+  if ((getHeader().filetype == MachO::MH_DYLIB ||
+       getHeader().filetype == MachO::MH_DYLIB_STUB) &&
+       DyldIdLoadCmd == nullptr) {
+    Err = malformedError("no LC_ID_DYLIB load command in dynamic library "
+                         "filetype");
+    return;
   }
   assert(LoadCommands.size() == LoadCommandCount);
 

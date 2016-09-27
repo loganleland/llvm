@@ -1451,9 +1451,10 @@ void computeKnownBits(const Value *V, APInt &KnownZero, APInt &KnownOne,
          KnownOne.getBitWidth() == BitWidth &&
          "V, KnownOne and KnownZero should have same BitWidth");
 
-  if (const ConstantInt *CI = dyn_cast<ConstantInt>(V)) {
-    // We know all of the bits for a constant!
-    KnownOne = CI->getValue();
+  const APInt *C;
+  if (match(V, m_APInt(C))) {
+    // We know all of the bits for a scalar constant or a splat vector constant!
+    KnownOne = *C;
     KnownZero = ~KnownOne;
     return;
   }
@@ -1500,6 +1501,14 @@ void computeKnownBits(const Value *V, APInt &KnownZero, APInt &KnownOne,
 
   // Start out not knowing anything.
   KnownZero.clearAllBits(); KnownOne.clearAllBits();
+
+  // We can't imply anything about undefs.
+  if (isa<UndefValue>(V))
+    return;
+
+  // There's no point in looking through other users of ConstantData for
+  // assumptions.  Confirm that we've handled them all.
+  assert(!isa<ConstantData>(V) && "Unhandled constant data!");
 
   // Limit search depth.
   // All recursive calls that increase depth must come after this.
@@ -3296,6 +3305,7 @@ static bool isKnownNonNullFromDominatingCondition(const Value *V,
                                                   const Instruction *CtxI,
                                                   const DominatorTree *DT) {
   assert(V->getType()->isPointerTy() && "V must be pointer type");
+  assert(!isa<ConstantData>(V) && "Did not expect ConstantPointerNull");
 
   unsigned NumUsesExplored = 0;
   for (auto *U : V->users()) {
@@ -3332,6 +3342,9 @@ static bool isKnownNonNullFromDominatingCondition(const Value *V,
 
 bool llvm::isKnownNonNullAt(const Value *V, const Instruction *CtxI,
                             const DominatorTree *DT) {
+  if (isa<ConstantPointerNull>(V) || isa<UndefValue>(V))
+    return false;
+
   if (isKnownNonNull(V))
     return true;
 

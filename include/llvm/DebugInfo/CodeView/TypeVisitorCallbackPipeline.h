@@ -22,8 +22,7 @@ class TypeVisitorCallbackPipeline : public TypeVisitorCallbacks {
 public:
   TypeVisitorCallbackPipeline() {}
 
-  virtual Error
-  visitUnknownType(const CVRecord<TypeLeafKind> &Record) override {
+  virtual Error visitUnknownType(CVRecord<TypeLeafKind> &Record) override {
     for (auto Visitor : Pipeline) {
       if (auto EC = Visitor->visitUnknownType(Record))
         return EC;
@@ -31,8 +30,7 @@ public:
     return Error::success();
   }
 
-  virtual Error
-  visitUnknownMember(const CVRecord<TypeLeafKind> &Record) override {
+  virtual Error visitUnknownMember(CVMemberRecord &Record) override {
     for (auto Visitor : Pipeline) {
       if (auto EC = Visitor->visitUnknownMember(Record))
         return EC;
@@ -40,20 +38,31 @@ public:
     return Error::success();
   }
 
-  virtual Expected<TypeLeafKind>
-  visitTypeBegin(const CVRecord<TypeLeafKind> &Record) override {
-    TypeLeafKind Kind = Record.Type;
+  virtual Error visitTypeBegin(CVType &Record) override {
     for (auto Visitor : Pipeline) {
-      if (auto ExpectedKind = Visitor->visitTypeBegin(Record))
-        Kind = *ExpectedKind;
-      else
-        return ExpectedKind.takeError();
+      if (auto EC = Visitor->visitTypeBegin(Record))
+        return EC;
     }
-    return Kind;
+    return Error::success();
   }
-  virtual Error visitTypeEnd(const CVRecord<TypeLeafKind> &Record) override {
+  virtual Error visitTypeEnd(CVType &Record) override {
     for (auto Visitor : Pipeline) {
       if (auto EC = Visitor->visitTypeEnd(Record))
+        return EC;
+    }
+    return Error::success();
+  }
+
+  virtual Error visitMemberBegin(CVMemberRecord &Record) override {
+    for (auto Visitor : Pipeline) {
+      if (auto EC = Visitor->visitMemberBegin(Record))
+        return EC;
+    }
+    return Error::success();
+  }
+  virtual Error visitMemberEnd(CVMemberRecord &Record) override {
+    for (auto Visitor : Pipeline) {
+      if (auto EC = Visitor->visitMemberEnd(Record))
         return EC;
     }
     return Error::success();
@@ -64,8 +73,7 @@ public:
   }
 
 #define TYPE_RECORD(EnumName, EnumVal, Name)                                   \
-  Error visitKnownRecord(const CVRecord<TypeLeafKind> &CVR,                    \
-                         Name##Record &Record) override {                      \
+  Error visitKnownRecord(CVType &CVR, Name##Record &Record) override {         \
     for (auto Visitor : Pipeline) {                                            \
       if (auto EC = Visitor->visitKnownRecord(CVR, Record))                    \
         return EC;                                                             \
@@ -73,7 +81,14 @@ public:
     return Error::success();                                                   \
   }
 #define MEMBER_RECORD(EnumName, EnumVal, Name)                                 \
-  TYPE_RECORD(EnumName, EnumVal, Name)
+  Error visitKnownMember(CVMemberRecord &CVMR, Name##Record &Record)           \
+      override {                                                               \
+    for (auto Visitor : Pipeline) {                                            \
+      if (auto EC = Visitor->visitKnownMember(CVMR, Record))                   \
+        return EC;                                                             \
+    }                                                                          \
+    return Error::success();                                                   \
+  }
 #define TYPE_RECORD_ALIAS(EnumName, EnumVal, Name, AliasName)
 #define MEMBER_RECORD_ALIAS(EnumName, EnumVal, Name, AliasName)
 #include "llvm/DebugInfo/CodeView/TypeRecords.def"

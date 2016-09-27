@@ -1561,6 +1561,7 @@ static const char *getTypeString(uint64_t Type) {
   LLVM_READOBJ_TYPE_CASE(MIPS_RLD_MAP);
   LLVM_READOBJ_TYPE_CASE(MIPS_PLTGOT);
   LLVM_READOBJ_TYPE_CASE(MIPS_OPTIONS);
+  LLVM_READOBJ_TYPE_CASE(AUXILIARY);
   default: return "unknown";
   }
 }
@@ -1720,6 +1721,9 @@ void ELFDumper<ELFT>::printValue(uint64_t Type, uint64_t Value) {
     break;
   case DT_SONAME:
     OS << "LibrarySoname (" << getDynamicString(Value) << ")";
+    break;
+  case DT_AUXILIARY:
+    OS << "Auxiliary library: [" << getDynamicString(Value) << "]";
     break;
   case DT_RPATH:
   case DT_RUNPATH:
@@ -2362,7 +2366,7 @@ template <class ELFT> void ELFDumper<ELFT>::printStackMap() const {
   ArrayRef<uint8_t> StackMapContentsArray =
       unwrapOrError(Obj->getSectionContents(StackMapSection));
 
-  prettyPrintStackMap(llvm::outs(), StackMapV1Parser<ELFT::TargetEndianness>(
+  prettyPrintStackMap(llvm::outs(), StackMapV2Parser<ELFT::TargetEndianness>(
                                         StackMapContentsArray));
 }
 

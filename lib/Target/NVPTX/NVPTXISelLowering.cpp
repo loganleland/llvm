@@ -279,6 +279,28 @@ NVPTXTargetLowering::NVPTXTargetLowering(const NVPTXTargetMachine &TM,
   setTargetDAGCombine(ISD::SHL);
   setTargetDAGCombine(ISD::SELECT);
 
+  // Library functions.  These default to Expand, but we have instructions
+  // for them.
+  setOperationAction(ISD::FCEIL,  MVT::f32, Legal);
+  setOperationAction(ISD::FCEIL,  MVT::f64, Legal);
+  setOperationAction(ISD::FFLOOR, MVT::f32, Legal);
+  setOperationAction(ISD::FFLOOR, MVT::f64, Legal);
+  setOperationAction(ISD::FNEARBYINT, MVT::f32, Legal);
+  setOperationAction(ISD::FNEARBYINT, MVT::f64, Legal);
+  setOperationAction(ISD::FRINT,  MVT::f32, Legal);
+  setOperationAction(ISD::FRINT,  MVT::f64, Legal);
+  setOperationAction(ISD::FROUND, MVT::f32, Legal);
+  setOperationAction(ISD::FROUND, MVT::f64, Legal);
+  setOperationAction(ISD::FTRUNC, MVT::f32, Legal);
+  setOperationAction(ISD::FTRUNC, MVT::f64, Legal);
+  setOperationAction(ISD::FMINNUM, MVT::f32, Legal);
+  setOperationAction(ISD::FMINNUM, MVT::f64, Legal);
+  setOperationAction(ISD::FMAXNUM, MVT::f32, Legal);
+  setOperationAction(ISD::FMAXNUM, MVT::f64, Legal);
+
+  // No FEXP2, FLOG2.  The PTX ex2 and log2 functions are always approximate.
+  // No FPOW or FREM in PTX.
+
   // Now deduce the information based on the above mentioned
   // actions
   computeRegisterProperties(STI.getRegisterInfo());
@@ -1002,11 +1024,15 @@ std::string NVPTXTargetLowering::getPrototype(
   return O.str();
 }
 
-unsigned
-NVPTXTargetLowering::getArgumentAlignment(SDValue Callee,
-                                          const ImmutableCallSite *CS,
-                                          Type *Ty,
-                                          unsigned Idx) const {
+unsigned NVPTXTargetLowering::getArgumentAlignment(SDValue Callee,
+                                                   const ImmutableCallSite *CS,
+                                                   Type *Ty, unsigned Idx,
+                                                   const DataLayout &DL) const {
+  if (!CS) {
+    // CallSite is zero, fallback to ABI type alignment
+    return DL.getABITypeAlignment(Ty);
+  }
+
   unsigned Align = 0;
   const Value *DirectCallee = CS->getCalledFunction();
 
@@ -1024,7 +1050,7 @@ NVPTXTargetLowering::getArgumentAlignment(SDValue Callee,
 
       const Value *CalleeV = cast<CallInst>(CalleeI)->getCalledValue();
       // Ignore any bitcast instructions
-      while(isa<ConstantExpr>(CalleeV)) {
+      while (isa<ConstantExpr>(CalleeV)) {
         const ConstantExpr *CE = cast<ConstantExpr>(CalleeV);
         if (!CE->isCast())
           break;
@@ -1047,7 +1073,6 @@ NVPTXTargetLowering::getArgumentAlignment(SDValue Callee,
 
   // Call is indirect or alignment information is not available, fall back to
   // the ABI type alignment
-  auto &DL = CS->getCaller()->getParent()->getDataLayout();
   return DL.getABITypeAlignment(Ty);
 }
 
@@ -1104,7 +1129,8 @@ SDValue NVPTXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
         ComputePTXValueVTs(*this, DAG.getDataLayout(), Ty, vtparts, &Offsets,
                            0);
 
-        unsigned align = getArgumentAlignment(Callee, CS, Ty, paramCount + 1);
+        unsigned align =
+            getArgumentAlignment(Callee, CS, Ty, paramCount + 1, DL);
         // declare .param .align <align> .b8 .param<n>[<size>];
         unsigned sz = DL.getTypeAllocSize(Ty);
         SDVTList DeclareParamVTs = DAG.getVTList(MVT::Other, MVT::Glue);
@@ -1144,7 +1170,8 @@ SDValue NVPTXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       }
       if (Ty->isVectorTy()) {
         EVT ObjectVT = getValueType(DL, Ty);
-        unsigned align = getArgumentAlignment(Callee, CS, Ty, paramCount + 1);
+        unsigned align =
+            getArgumentAlignment(Callee, CS, Ty, paramCount + 1, DL);
         // declare .param .align <align> .b8 .param<n>[<size>];
         unsigned sz = DL.getTypeAllocSize(Ty);
         SDVTList DeclareParamVTs = DAG.getVTList(MVT::Other, MVT::Glue);
@@ -1404,7 +1431,7 @@ SDValue NVPTXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
                           DeclareRetOps);
       InFlag = Chain.getValue(1);
     } else {
-      retAlignment = getArgumentAlignment(Callee, CS, retTy, 0);
+      retAlignment = getArgumentAlignment(Callee, CS, retTy, 0, DL);
       SDVTList DeclareRetVTs = DAG.getVTList(MVT::Other, MVT::Glue);
       SDValue DeclareRetOps[] = { Chain,
                                   DAG.getConstant(retAlignment, dl, MVT::i32),
@@ -1611,9 +1638,10 @@ SDValue NVPTXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     } else {
       SmallVector<EVT, 16> VTs;
       SmallVector<uint64_t, 16> Offsets;
-      ComputePTXValueVTs(*this, DAG.getDataLayout(), retTy, VTs, &Offsets, 0);
+      auto &DL = DAG.getDataLayout();
+      ComputePTXValueVTs(*this, DL, retTy, VTs, &Offsets, 0);
       assert(VTs.size() == Ins.size() && "Bad value decomposition");
-      unsigned RetAlign = getArgumentAlignment(Callee, CS, retTy, 0);
+      unsigned RetAlign = getArgumentAlignment(Callee, CS, retTy, 0, DL);
       for (unsigned i = 0, e = Ins.size(); i != e; ++i) {
         unsigned sz = VTs[i].getSizeInBits();
         unsigned AlignI = GreatestCommonDivisor64(RetAlign, Offsets[i]);
@@ -2216,7 +2244,8 @@ SDValue NVPTXTargetLowering::LowerFormalArguments(
           SDValue P = DAG.getLoad(
               EltVT, dl, Root, Arg, MachinePointerInfo(SrcValue),
               DL.getABITypeAlignment(EltVT.getTypeForEVT(F->getContext())),
-              MachineMemOperand::MOInvariant);
+              MachineMemOperand::MODereferenceable |
+                  MachineMemOperand::MOInvariant);
           if (P.getNode())
             P.getNode()->setIROrder(idx + 1);
 
@@ -2233,7 +2262,8 @@ SDValue NVPTXTargetLowering::LowerFormalArguments(
           SDValue P = DAG.getLoad(
               VecVT, dl, Root, Arg, MachinePointerInfo(SrcValue),
               DL.getABITypeAlignment(VecVT.getTypeForEVT(F->getContext())),
-              MachineMemOperand::MOInvariant);
+              MachineMemOperand::MODereferenceable |
+                  MachineMemOperand::MOInvariant);
           if (P.getNode())
             P.getNode()->setIROrder(idx + 1);
 
@@ -2275,7 +2305,8 @@ SDValue NVPTXTargetLowering::LowerFormalArguments(
             SDValue P = DAG.getLoad(
                 VecVT, dl, Root, SrcAddr, MachinePointerInfo(SrcValue),
                 DL.getABITypeAlignment(VecVT.getTypeForEVT(F->getContext())),
-                MachineMemOperand::MOInvariant);
+                MachineMemOperand::MODereferenceable |
+                    MachineMemOperand::MOInvariant);
             if (P.getNode())
               P.getNode()->setIROrder(idx + 1);
 
@@ -2419,7 +2450,7 @@ NVPTXTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
       //      11 elem => 3 st.v4
 
       unsigned VecSize = 4;
-      if (OutVals[0].getValueType().getSizeInBits() == 64)
+      if (OutVals[0].getValueSizeInBits() == 64)
         VecSize = 2;
 
       unsigned Offset = 0;
@@ -2507,7 +2538,7 @@ NVPTXTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
           TmpVal = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::i32, TmpVal);
           TheStoreType = MVT::i32;
         }
-        else if (TmpVal.getValueType().getSizeInBits() < 16)
+        else if (TmpVal.getValueSizeInBits() < 16)
           TmpVal = DAG.getNode(ISD::ANY_EXTEND, dl, MVT::i16, TmpVal);
 
         SDValue Ops[] = {
@@ -4551,9 +4582,7 @@ NVPTXTargetObjectFile::~NVPTXTargetObjectFile() {
   delete static_cast<NVPTXSection *>(DwarfMacinfoSection);
 }
 
-MCSection *
-NVPTXTargetObjectFile::SelectSectionForGlobal(const GlobalValue *GV,
-                                              SectionKind Kind, Mangler &Mang,
-                                              const TargetMachine &TM) const {
+MCSection *NVPTXTargetObjectFile::SelectSectionForGlobal(
+    const GlobalValue *GV, SectionKind Kind, const TargetMachine &TM) const {
   return getDataSection();
 }

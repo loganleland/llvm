@@ -474,7 +474,7 @@ namespace llvm {
     /// then the VPERM for the shuffle. All in all a very slow sequence.
     TargetLoweringBase::LegalizeTypeAction getPreferredVectorAction(EVT VT)
       const override {
-      if (VT.getVectorElementType().getSizeInBits() % 8 == 0)
+      if (VT.getScalarSizeInBits() % 8 == 0)
         return TypeWidenVector;
       return TargetLoweringBase::getPreferredVectorAction(VT);
     }
@@ -493,6 +493,10 @@ namespace llvm {
     }
 
     bool isCtlzFast() const override {
+      return true;
+    }
+
+    bool hasAndNotCompare(SDValue) const override {
       return true;
     }
 
@@ -757,12 +761,24 @@ namespace llvm {
       SDValue Chain;
       SDValue ResChain;
       MachinePointerInfo MPI;
+      bool IsDereferenceable;
       bool IsInvariant;
       unsigned Alignment;
       AAMDNodes AAInfo;
       const MDNode *Ranges;
 
-      ReuseLoadInfo() : IsInvariant(false), Alignment(0), Ranges(nullptr) {}
+      ReuseLoadInfo()
+          : IsDereferenceable(false), IsInvariant(false), Alignment(0),
+            Ranges(nullptr) {}
+
+      MachineMemOperand::Flags MMOFlags() const {
+        MachineMemOperand::Flags F = MachineMemOperand::MONone;
+        if (IsDereferenceable)
+          F |= MachineMemOperand::MODereferenceable;
+        if (IsInvariant)
+          F |= MachineMemOperand::MOInvariant;
+        return F;
+      }
     };
 
     bool canReuseLoadAddress(SDValue Op, EVT MemVT, ReuseLoadInfo &RLI,
@@ -833,6 +849,7 @@ namespace llvm {
     SDValue LowerSRA_PARTS(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerVECTOR_SHUFFLE(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerINSERT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerEXTRACT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerINTRINSIC_WO_CHAIN(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSCALAR_TO_VECTOR(SDValue Op, SelectionDAG &DAG) const;

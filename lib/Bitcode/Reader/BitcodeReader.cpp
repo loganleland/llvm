@@ -230,12 +230,79 @@ private:
   Metadata *resolveTypeRefArray(Metadata *MaybeTuple);
 };
 
-class BitcodeReader : public GVMaterializer {
-  LLVMContext &Context;
-  Module *TheModule = nullptr;
+class BitcodeReaderBase {
+protected:
+  BitcodeReaderBase() = default;
+  BitcodeReaderBase(MemoryBuffer *Buffer) : Buffer(Buffer) {}
+
   std::unique_ptr<MemoryBuffer> Buffer;
   std::unique_ptr<BitstreamReader> StreamFile;
   BitstreamCursor Stream;
+
+  std::error_code initStream(std::unique_ptr<DataStreamer> Streamer);
+  std::error_code initStreamFromBuffer();
+  std::error_code initLazyStream(std::unique_ptr<DataStreamer> Streamer);
+
+  virtual std::error_code error(const Twine &Message) = 0;
+  virtual ~BitcodeReaderBase() = default;
+};
+
+std::error_code
+BitcodeReaderBase::initStream(std::unique_ptr<DataStreamer> Streamer) {
+  if (Streamer)
+    return initLazyStream(std::move(Streamer));
+  return initStreamFromBuffer();
+}
+
+std::error_code BitcodeReaderBase::initStreamFromBuffer() {
+  const unsigned char *BufPtr = (const unsigned char*)Buffer->getBufferStart();
+  const unsigned char *BufEnd = BufPtr+Buffer->getBufferSize();
+
+  if (Buffer->getBufferSize() & 3)
+    return error("Invalid bitcode signature");
+
+  // If we have a wrapper header, parse it and ignore the non-bc file contents.
+  // The magic number is 0x0B17C0DE stored in little endian.
+  if (isBitcodeWrapper(BufPtr, BufEnd))
+    if (SkipBitcodeWrapperHeader(BufPtr, BufEnd, true))
+      return error("Invalid bitcode wrapper header");
+
+  StreamFile.reset(new BitstreamReader(BufPtr, BufEnd));
+  Stream.init(&*StreamFile);
+
+  return std::error_code();
+}
+
+std::error_code
+BitcodeReaderBase::initLazyStream(std::unique_ptr<DataStreamer> Streamer) {
+  // Check and strip off the bitcode wrapper; BitstreamReader expects never to
+  // see it.
+  auto OwnedBytes =
+      llvm::make_unique<StreamingMemoryObject>(std::move(Streamer));
+  StreamingMemoryObject &Bytes = *OwnedBytes;
+  StreamFile = llvm::make_unique<BitstreamReader>(std::move(OwnedBytes));
+  Stream.init(&*StreamFile);
+
+  unsigned char buf[16];
+  if (Bytes.readBytes(buf, 16, 0) != 16)
+    return error("Invalid bitcode signature");
+
+  if (!isBitcode(buf, buf + 16))
+    return error("Invalid bitcode signature");
+
+  if (isBitcodeWrapper(buf, buf + 4)) {
+    const unsigned char *bitcodeStart = buf;
+    const unsigned char *bitcodeEnd = buf + 16;
+    SkipBitcodeWrapperHeader(bitcodeStart, bitcodeEnd, false);
+    Bytes.dropLeadingBytes(bitcodeStart - buf);
+    Bytes.setKnownObjectSize(bitcodeEnd - bitcodeStart);
+  }
+  return std::error_code();
+}
+
+class BitcodeReader : public BitcodeReaderBase, public GVMaterializer {
+  LLVMContext &Context;
+  Module *TheModule = nullptr;
   // Next offset to start scanning for lazy parsing of function bodies.
   uint64_t NextUnreadBit = 0;
   // Last function offset found in the VST.
@@ -256,8 +323,6 @@ class BitcodeReader : public GVMaterializer {
   std::vector<std::pair<Function*, unsigned> > FunctionPrefixes;
   std::vector<std::pair<Function*, unsigned> > FunctionPrologues;
   std::vector<std::pair<Function*, unsigned> > FunctionPersonalityFns;
-
-  SmallVector<Instruction*, 64> InstsWithTBAATag;
 
   bool HasSeenOldLoopTags = false;
 
@@ -331,7 +396,7 @@ class BitcodeReader : public GVMaterializer {
 
 public:
   std::error_code error(BitcodeError E, const Twine &Message);
-  std::error_code error(const Twine &Message);
+  std::error_code error(const Twine &Message) override;
 
   BitcodeReader(MemoryBuffer *Buffer, LLVMContext &Context);
   BitcodeReader(LLVMContext &Context);
@@ -507,9 +572,6 @@ private:
   ErrorOr<std::string> parseModuleTriple();
   ErrorOr<bool> hasObjCCategoryInModule();
   std::error_code parseUseLists();
-  std::error_code initStream(std::unique_ptr<DataStreamer> Streamer);
-  std::error_code initStreamFromBuffer();
-  std::error_code initLazyStream(std::unique_ptr<DataStreamer> Streamer);
   std::error_code findFunctionInStream(
       Function *F,
       DenseMap<Function *, uint64_t>::iterator DeferredFunctionInfoIterator);
@@ -517,15 +579,11 @@ private:
 
 /// Class to manage reading and parsing function summary index bitcode
 /// files/sections.
-class ModuleSummaryIndexBitcodeReader {
+class ModuleSummaryIndexBitcodeReader : public BitcodeReaderBase {
   DiagnosticHandlerFunction DiagnosticHandler;
 
   /// Eventually points to the module index built during parsing.
   ModuleSummaryIndex *TheIndex = nullptr;
-
-  std::unique_ptr<MemoryBuffer> Buffer;
-  std::unique_ptr<BitstreamReader> StreamFile;
-  BitstreamCursor Stream;
 
   /// Used to indicate whether caller only wants to check for the presence
   /// of the global value summary bitcode section. All blocks are skipped,
@@ -590,9 +648,6 @@ private:
       DenseMap<unsigned, GlobalValue::LinkageTypes> &ValueIdToLinkageMap);
   std::error_code parseEntireSummary();
   std::error_code parseModuleStringTable();
-  std::error_code initStream(std::unique_ptr<DataStreamer> Streamer);
-  std::error_code initStreamFromBuffer();
-  std::error_code initLazyStream(std::unique_ptr<DataStreamer> Streamer);
   std::pair<GlobalValue::GUID, GlobalValue::GUID>
 
   getGUIDFromValueId(unsigned ValueId);
@@ -645,12 +700,11 @@ std::error_code BitcodeReader::error(const Twine &Message) {
 }
 
 BitcodeReader::BitcodeReader(MemoryBuffer *Buffer, LLVMContext &Context)
-    : Context(Context), Buffer(Buffer), ValueList(Context),
+    : BitcodeReaderBase(Buffer), Context(Context), ValueList(Context),
       MetadataList(Context) {}
 
 BitcodeReader::BitcodeReader(LLVMContext &Context)
-    : Context(Context), Buffer(nullptr), ValueList(Context),
-      MetadataList(Context) {}
+    : Context(Context), ValueList(Context), MetadataList(Context) {}
 
 std::error_code BitcodeReader::materializeForwardReferencedFunctions() {
   if (WillMaterializeAllForwardRefs)
@@ -2414,13 +2468,14 @@ std::error_code BitcodeReader::parseMetadata(bool ModuleLevel) {
         return error("Invalid record");
 
       IsDistinct = Record[0];
+      DINode::DIFlags Flags = static_cast<DINode::DIFlags>(Record[10]);
       MetadataList.assignValue(
-          GET_OR_DISTINCT(
-              DIDerivedType,
-              (Context, Record[1], getMDString(Record[2]),
-               getMDOrNull(Record[3]), Record[4], getDITypeRefOrNull(Record[5]),
-               getDITypeRefOrNull(Record[6]), Record[7], Record[8], Record[9],
-               Record[10], getDITypeRefOrNull(Record[11]))),
+          GET_OR_DISTINCT(DIDerivedType,
+                          (Context, Record[1], getMDString(Record[2]),
+                           getMDOrNull(Record[3]), Record[4],
+                           getDITypeRefOrNull(Record[5]),
+                           getDITypeRefOrNull(Record[6]), Record[7], Record[8],
+                           Record[9], Flags, getDITypeRefOrNull(Record[11]))),
           NextMetadataNo++);
       break;
     }
@@ -2441,7 +2496,7 @@ std::error_code BitcodeReader::parseMetadata(bool ModuleLevel) {
       uint64_t SizeInBits = Record[7];
       uint64_t AlignInBits = Record[8];
       uint64_t OffsetInBits = Record[9];
-      unsigned Flags = Record[10];
+      DINode::DIFlags Flags = static_cast<DINode::DIFlags>(Record[10]);
       Metadata *Elements = getMDOrNull(Record[11]);
       unsigned RuntimeLang = Record[12];
       Metadata *VTableHolder = getDITypeRefOrNull(Record[13]);
@@ -2474,12 +2529,13 @@ std::error_code BitcodeReader::parseMetadata(bool ModuleLevel) {
       unsigned CC = (Record.size() > 3) ? Record[3] : 0;
 
       IsDistinct = Record[0] & 0x1;
+      DINode::DIFlags Flags = static_cast<DINode::DIFlags>(Record[1]);
       Metadata *Types = getMDOrNull(Record[2]);
       if (LLVM_UNLIKELY(IsOldTypeRefArray))
         Types = MetadataList.upgradeTypeRefArray(Types);
 
       MetadataList.assignValue(
-          GET_OR_DISTINCT(DISubroutineType, (Context, Record[1], CC, Types)),
+          GET_OR_DISTINCT(DISubroutineType, (Context, Flags, CC, Types)),
           NextMetadataNo++);
       break;
     }
@@ -2551,20 +2607,21 @@ std::error_code BitcodeReader::parseMetadata(bool ModuleLevel) {
       bool HasThisAdj = Record.size() >= 20;
       DISubprogram *SP = GET_OR_DISTINCT(
           DISubprogram, (Context,
-                         getDITypeRefOrNull(Record[1]),    // scope
-                         getMDString(Record[2]),           // name
-                         getMDString(Record[3]),           // linkageName
-                         getMDOrNull(Record[4]),           // file
-                         Record[5],                        // line
-                         getMDOrNull(Record[6]),           // type
-                         Record[7],                        // isLocal
-                         Record[8],                        // isDefinition
-                         Record[9],                        // scopeLine
-                         getDITypeRefOrNull(Record[10]),   // containingType
-                         Record[11],                       // virtuality
-                         Record[12],                       // virtualIndex
-                         HasThisAdj ? Record[19] : 0,      // thisAdjustment
-                         Record[13],                       // flags
+                         getDITypeRefOrNull(Record[1]),  // scope
+                         getMDString(Record[2]),         // name
+                         getMDString(Record[3]),         // linkageName
+                         getMDOrNull(Record[4]),         // file
+                         Record[5],                      // line
+                         getMDOrNull(Record[6]),         // type
+                         Record[7],                      // isLocal
+                         Record[8],                      // isDefinition
+                         Record[9],                      // scopeLine
+                         getDITypeRefOrNull(Record[10]), // containingType
+                         Record[11],                     // virtuality
+                         Record[12],                     // virtualIndex
+                         HasThisAdj ? Record[19] : 0,    // thisAdjustment
+                         static_cast<DINode::DIFlags>(Record[13] // flags
+                                                      ),
                          Record[14],                       // isOptimized
                          HasUnit ? CUorFn : nullptr,       // unit
                          getMDOrNull(Record[15 + Offset]), // templateParams
@@ -2676,14 +2733,35 @@ std::error_code BitcodeReader::parseMetadata(bool ModuleLevel) {
         return error("Invalid record");
 
       IsDistinct = Record[0];
-      MetadataList.assignValue(
-          GET_OR_DISTINCT(DIGlobalVariable,
-                          (Context, getMDOrNull(Record[1]),
-                           getMDString(Record[2]), getMDString(Record[3]),
-                           getMDOrNull(Record[4]), Record[5],
-                           getDITypeRefOrNull(Record[6]), Record[7], Record[8],
-                           getMDOrNull(Record[9]), getMDOrNull(Record[10]))),
-          NextMetadataNo++);
+
+      // Upgrade old metadata, which stored a global variable reference or a
+      // ConstantInt here.
+      Metadata *Expr = getMDOrNull(Record[9]);
+      GlobalVariable *Attach = nullptr;
+      if (auto *CMD = dyn_cast_or_null<ConstantAsMetadata>(Expr)) {
+        if (auto *GV = dyn_cast<GlobalVariable>(CMD->getValue())) {
+          Attach = GV;
+          Expr = nullptr;
+        } else if (auto *CI = dyn_cast<ConstantInt>(CMD->getValue())) {
+          Expr = DIExpression::get(Context,
+                                   {dwarf::DW_OP_constu, CI->getZExtValue(),
+                                    dwarf::DW_OP_stack_value});
+        } else {
+          Expr = nullptr;
+        }
+      }
+
+      DIGlobalVariable *DGV = GET_OR_DISTINCT(
+          DIGlobalVariable,
+          (Context, getMDOrNull(Record[1]), getMDString(Record[2]),
+           getMDString(Record[3]), getMDOrNull(Record[4]), Record[5],
+           getDITypeRefOrNull(Record[6]), Record[7], Record[8], Expr,
+           getMDOrNull(Record[10])));
+      MetadataList.assignValue(DGV, NextMetadataNo++);
+
+      if (Attach)
+        Attach->addDebugInfo(DGV);
+
       break;
     }
     case bitc::METADATA_LOCAL_VAR: {
@@ -2695,13 +2773,14 @@ std::error_code BitcodeReader::parseMetadata(bool ModuleLevel) {
       // DW_TAG_arg_variable.
       IsDistinct = Record[0];
       bool HasTag = Record.size() > 8;
+      DINode::DIFlags Flags = static_cast<DINode::DIFlags>(Record[7 + HasTag]);
       MetadataList.assignValue(
           GET_OR_DISTINCT(DILocalVariable,
                           (Context, getMDOrNull(Record[1 + HasTag]),
                            getMDString(Record[2 + HasTag]),
                            getMDOrNull(Record[3 + HasTag]), Record[4 + HasTag],
                            getDITypeRefOrNull(Record[5 + HasTag]),
-                           Record[6 + HasTag], Record[7 + HasTag])),
+                           Record[6 + HasTag], Flags)),
           NextMetadataNo++);
       break;
     }
@@ -4400,11 +4479,11 @@ std::error_code BitcodeReader::parseMetadataAttachment(Function &F) {
         if (HasSeenOldLoopTags && I->second == LLVMContext::MD_loop)
           MD = upgradeInstructionLoopAttachment(*MD);
 
-        Inst->setMetadata(I->second, MD);
         if (I->second == LLVMContext::MD_tbaa) {
-          InstsWithTBAATag.push_back(Inst);
-          continue;
+          assert(!MD->isTemporary() && "should load MDs before attachments");
+          MD = UpgradeTBAANode(*MD);
         }
+        Inst->setMetadata(I->second, MD);
       }
       break;
     }
@@ -5817,11 +5896,6 @@ std::error_code BitcodeReader::materializeModule() {
   if (!BasicBlockFwdRefs.empty())
     return error("Never resolved function from blockaddress");
 
-  // Upgrading intrinsic calls before TBAA can cause TBAA metadata to be lost,
-  // to prevent this instructions with TBAA tags should be upgraded first.
-  for (unsigned I = 0, E = InstsWithTBAATag.size(); I < E; I++)
-    UpgradeInstWithTBAATag(InstsWithTBAATag[I]);
-
   // Upgrade any intrinsic calls that slipped through (should not happen!) and
   // delete the old functions to clean up. We can't do this unless the entire
   // module is materialized because there could always be another function body
@@ -5853,59 +5927,6 @@ std::vector<StructType *> BitcodeReader::getIdentifiedStructTypes() const {
   return IdentifiedStructTypes;
 }
 
-std::error_code
-BitcodeReader::initStream(std::unique_ptr<DataStreamer> Streamer) {
-  if (Streamer)
-    return initLazyStream(std::move(Streamer));
-  return initStreamFromBuffer();
-}
-
-std::error_code BitcodeReader::initStreamFromBuffer() {
-  const unsigned char *BufPtr = (const unsigned char*)Buffer->getBufferStart();
-  const unsigned char *BufEnd = BufPtr+Buffer->getBufferSize();
-
-  if (Buffer->getBufferSize() & 3)
-    return error("Invalid bitcode signature");
-
-  // If we have a wrapper header, parse it and ignore the non-bc file contents.
-  // The magic number is 0x0B17C0DE stored in little endian.
-  if (isBitcodeWrapper(BufPtr, BufEnd))
-    if (SkipBitcodeWrapperHeader(BufPtr, BufEnd, true))
-      return error("Invalid bitcode wrapper header");
-
-  StreamFile.reset(new BitstreamReader(BufPtr, BufEnd));
-  Stream.init(&*StreamFile);
-
-  return std::error_code();
-}
-
-std::error_code
-BitcodeReader::initLazyStream(std::unique_ptr<DataStreamer> Streamer) {
-  // Check and strip off the bitcode wrapper; BitstreamReader expects never to
-  // see it.
-  auto OwnedBytes =
-      llvm::make_unique<StreamingMemoryObject>(std::move(Streamer));
-  StreamingMemoryObject &Bytes = *OwnedBytes;
-  StreamFile = llvm::make_unique<BitstreamReader>(std::move(OwnedBytes));
-  Stream.init(&*StreamFile);
-
-  unsigned char buf[16];
-  if (Bytes.readBytes(buf, 16, 0) != 16)
-    return error("Invalid bitcode signature");
-
-  if (!isBitcode(buf, buf + 16))
-    return error("Invalid bitcode signature");
-
-  if (isBitcodeWrapper(buf, buf + 4)) {
-    const unsigned char *bitcodeStart = buf;
-    const unsigned char *bitcodeEnd = buf + 16;
-    SkipBitcodeWrapperHeader(bitcodeStart, bitcodeEnd, false);
-    Bytes.dropLeadingBytes(bitcodeStart - buf);
-    Bytes.setKnownObjectSize(bitcodeEnd - bitcodeStart);
-  }
-  return std::error_code();
-}
-
 std::error_code ModuleSummaryIndexBitcodeReader::error(const Twine &Message) {
   return ::error(DiagnosticHandler,
                  make_error_code(BitcodeError::CorruptedBitcode), Message);
@@ -5914,7 +5935,7 @@ std::error_code ModuleSummaryIndexBitcodeReader::error(const Twine &Message) {
 ModuleSummaryIndexBitcodeReader::ModuleSummaryIndexBitcodeReader(
     MemoryBuffer *Buffer, DiagnosticHandlerFunction DiagnosticHandler,
     bool CheckGlobalValSummaryPresenceOnly)
-    : DiagnosticHandler(std::move(DiagnosticHandler)), Buffer(Buffer),
+    : BitcodeReaderBase(Buffer), DiagnosticHandler(std::move(DiagnosticHandler)),
       CheckGlobalValSummaryPresenceOnly(CheckGlobalValSummaryPresenceOnly) {}
 
 void ModuleSummaryIndexBitcodeReader::freeState() { Buffer = nullptr; }
@@ -6079,13 +6100,18 @@ std::error_code ModuleSummaryIndexBitcodeReader::parseModule() {
           return error("Invalid record");
         break;
       case bitc::GLOBALVAL_SUMMARY_BLOCK_ID:
-        assert(VSTOffset > 0 && "Expected non-zero VST offset");
         assert(!SeenValueSymbolTable &&
                "Already read VST when parsing summary block?");
-        if (std::error_code EC =
-                parseValueSymbolTable(VSTOffset, ValueIdToLinkageMap))
-          return EC;
-        SeenValueSymbolTable = true;
+        // We might not have a VST if there were no values in the
+        // summary. An empty summary block generated when we are
+        // performing ThinLTO compiles so we don't later invoke
+        // the regular LTO process on them.
+        if (VSTOffset > 0) {
+          if (std::error_code EC =
+                  parseValueSymbolTable(VSTOffset, ValueIdToLinkageMap))
+            return EC;
+          SeenValueSymbolTable = true;
+        }
         SeenGlobalValSummary = true;
         if (std::error_code EC = parseEntireSummary())
           return EC;
@@ -6526,59 +6552,6 @@ std::error_code ModuleSummaryIndexBitcodeReader::parseSummaryIndexInto(
     if (Stream.SkipBlock())
       return error("Invalid record");
   }
-}
-
-std::error_code ModuleSummaryIndexBitcodeReader::initStream(
-    std::unique_ptr<DataStreamer> Streamer) {
-  if (Streamer)
-    return initLazyStream(std::move(Streamer));
-  return initStreamFromBuffer();
-}
-
-std::error_code ModuleSummaryIndexBitcodeReader::initStreamFromBuffer() {
-  const unsigned char *BufPtr = (const unsigned char *)Buffer->getBufferStart();
-  const unsigned char *BufEnd = BufPtr + Buffer->getBufferSize();
-
-  if (Buffer->getBufferSize() & 3)
-    return error("Invalid bitcode signature");
-
-  // If we have a wrapper header, parse it and ignore the non-bc file contents.
-  // The magic number is 0x0B17C0DE stored in little endian.
-  if (isBitcodeWrapper(BufPtr, BufEnd))
-    if (SkipBitcodeWrapperHeader(BufPtr, BufEnd, true))
-      return error("Invalid bitcode wrapper header");
-
-  StreamFile.reset(new BitstreamReader(BufPtr, BufEnd));
-  Stream.init(&*StreamFile);
-
-  return std::error_code();
-}
-
-std::error_code ModuleSummaryIndexBitcodeReader::initLazyStream(
-    std::unique_ptr<DataStreamer> Streamer) {
-  // Check and strip off the bitcode wrapper; BitstreamReader expects never to
-  // see it.
-  auto OwnedBytes =
-      llvm::make_unique<StreamingMemoryObject>(std::move(Streamer));
-  StreamingMemoryObject &Bytes = *OwnedBytes;
-  StreamFile = llvm::make_unique<BitstreamReader>(std::move(OwnedBytes));
-  Stream.init(&*StreamFile);
-
-  unsigned char buf[16];
-  if (Bytes.readBytes(buf, 16, 0) != 16)
-    return error("Invalid bitcode signature");
-
-  if (!isBitcode(buf, buf + 16))
-    return error("Invalid bitcode signature");
-
-  if (isBitcodeWrapper(buf, buf + 4)) {
-    const unsigned char *bitcodeStart = buf;
-    const unsigned char *bitcodeEnd = buf + 16;
-    SkipBitcodeWrapperHeader(bitcodeStart, bitcodeEnd, false);
-    Bytes.dropLeadingBytes(bitcodeStart - buf);
-    Bytes.setKnownObjectSize(bitcodeEnd - bitcodeStart);
-  }
-  return std::error_code();
 }
 
 namespace {

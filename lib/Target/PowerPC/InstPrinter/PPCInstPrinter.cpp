@@ -33,6 +33,11 @@ static cl::opt<bool>
 FullRegNames("ppc-asm-full-reg-names", cl::Hidden, cl::init(false),
              cl::desc("Use full register names when printing assembly"));
 
+// Useful for testing purposes. Prints vs{31-63} as v{0-31} respectively.
+static cl::opt<bool>
+ShowVSRNumsAsVR("ppc-vsr-nums-as-vr", cl::Hidden, cl::init(false),
+             cl::desc("Prints full register names with vs{31-63} as v{0-31}"));
+
 #define PRINT_ALIAS_INSTR
 #include "PPCGenAsmWriter.inc"
 
@@ -134,6 +139,25 @@ void PPCInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
 
     printAnnotation(O, Annot);
     return;
+  }
+
+  if (MI->getOpcode() == PPC::DCBF) {
+    unsigned char L = MI->getOperand(0).getImm();
+    if (!L || L == 1 || L == 3) {
+      O << "\tdcbf";
+      if (L == 1 || L == 3)
+        O << "l";
+      if (L == 3)
+        O << "p";
+      O << " ";
+
+      printOperand(MI, 1, O);
+      O << ", ";
+      printOperand(MI, 2, O);
+
+      printAnnotation(O, Annot);
+      return;
+    }
   }
   
   if (!printAliasInstr(MI, O))
@@ -239,6 +263,15 @@ void PPCInstPrinter::printPredicateOperand(const MCInst *MI, unsigned OpNo,
   printOperand(MI, OpNo+1, O);
 }
 
+void PPCInstPrinter::printATBitsAsHint(const MCInst *MI, unsigned OpNo,
+                                       raw_ostream &O) {
+  unsigned Code = MI->getOperand(OpNo).getImm();
+  if (Code == 2)
+    O << "-";
+  else if (Code == 3)
+    O << "+";
+}
+
 void PPCInstPrinter::printU1ImmOperand(const MCInst *MI, unsigned OpNo,
                                        raw_ostream &O) {
   unsigned int Value = MI->getOperand(OpNo).getImm();
@@ -295,10 +328,12 @@ void PPCInstPrinter::printU7ImmOperand(const MCInst *MI, unsigned OpNo,
   O << (unsigned int)Value;
 }
 
+// Operands of BUILD_VECTOR are signed and we use this to print operands
+// of XXSPLTIB which are unsigned. So we simply truncate to 8 bits and
+// print as unsigned.
 void PPCInstPrinter::printU8ImmOperand(const MCInst *MI, unsigned OpNo,
                                        raw_ostream &O) {
-  unsigned int Value = MI->getOperand(OpNo).getImm();
-  assert(Value <= 255 && "Invalid u8imm argument!");
+  unsigned char Value = MI->getOperand(OpNo).getImm();
   O << (unsigned int)Value;
 }
 
@@ -434,6 +469,14 @@ void PPCInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   const MCOperand &Op = MI->getOperand(OpNo);
   if (Op.isReg()) {
     const char *RegName = getRegisterName(Op.getReg());
+    if (ShowVSRNumsAsVR) {
+      unsigned RegNum = Op.getReg();
+      if (RegNum >= PPC::VSH0 && RegNum <= PPC::VSH31)
+        O << 'v' << RegNum - PPC::VSH0;
+      else
+        O << RegName;
+      return;
+    }
     // The linux and AIX assembler does not take register prefixes.
     if (!isDarwinSyntax())
       RegName = stripRegisterPrefix(RegName);

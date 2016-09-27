@@ -82,13 +82,6 @@ check_include_file(mach/mach.h HAVE_MACH_MACH_H)
 check_include_file(mach-o/dyld.h HAVE_MACH_O_DYLD_H)
 check_include_file(histedit.h HAVE_HISTEDIT_H)
 
-# size_t must be defined before including cxxabi.h on FreeBSD 10.0.
-check_cxx_source_compiles("
-#include <stddef.h>
-#include <cxxabi.h>
-int main() { return 0; }
-" HAVE_CXXABI_H)
-
 # library checks
 if( NOT PURE_WINDOWS )
   check_library_exists(pthread pthread_create "" HAVE_LIBPTHREAD)
@@ -120,7 +113,7 @@ if(HAVE_LIBPTHREAD)
 endif()
 
 # Don't look for these libraries on Windows. Also don't look for them if we're
-# using MSan, since uninstrmented third party code may call MSan interceptors
+# using MSan, since uninstrumented third party code may call MSan interceptors
 # like strlen, leading to false positives.
 if( NOT PURE_WINDOWS AND NOT LLVM_USE_SANITIZER MATCHES "Memory.*")
   if (LLVM_ENABLE_ZLIB)
@@ -565,6 +558,7 @@ if(CMAKE_HOST_APPLE AND APPLE)
   endif()
 endif()
 
+# Keep the version requirements in sync with bindings/ocaml/README.txt.
 include(FindOCaml)
 include(AddOCaml)
 if(WIN32)

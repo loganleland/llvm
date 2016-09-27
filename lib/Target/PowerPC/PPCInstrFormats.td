@@ -163,6 +163,22 @@ class BForm_3<bits<6> opcode, bit aa, bit lk,
   let Inst{31}    = lk;
 }
 
+class BForm_3_at<bits<6> opcode, bit aa, bit lk,
+                 dag OOL, dag IOL, string asmstr>
+  : I<opcode, OOL, IOL, asmstr, IIC_BrB> {
+  bits<5> BO;
+  bits<2> at;
+  bits<5> BI;
+  bits<14> BD;
+
+  let Inst{6-8}   = BO{4-2};
+  let Inst{9-10}  = at;
+  let Inst{11-15} = BI;
+  let Inst{16-29} = BD;
+  let Inst{30}    = aa;
+  let Inst{31}    = lk;
+}
+
 class BForm_4<bits<6> opcode, bits<5> bo, bit aa, bit lk,
               dag OOL, dag IOL, string asmstr>
   : I<opcode, OOL, IOL, asmstr, IIC_BrB> {
@@ -1043,6 +1059,13 @@ class XX3Form<bits<6> opcode, bits<8> xo, dag OOL, dag IOL, string asmstr,
   let Inst{31}    = XT{5};
 }
 
+class XX3Form_Zero<bits<6> opcode, bits<8> xo, dag OOL, dag IOL, string asmstr,
+              InstrItinClass itin, list<dag> pattern>
+  : XX3Form<opcode, xo, OOL, IOL, asmstr, itin, pattern> {
+  let XA = XT;
+  let XB = XT;
+}
+
 class XX3Form_1<bits<6> opcode, bits<8> xo, dag OOL, dag IOL, string asmstr, 
                 InstrItinClass itin, list<dag> pattern>
   : I<opcode, OOL, IOL, asmstr, itin> {
@@ -1191,6 +1214,25 @@ class XLForm_1<bits<6> opcode, bits<10> xo, dag OOL, dag IOL, string asmstr,
   let Inst{16-20} = CRB;
   let Inst{21-30} = xo;
   let Inst{31}    = 0;
+}
+
+class XLForm_1_np<bits<6> opcode, bits<10> xo, dag OOL, dag IOL, string asmstr,
+                  InstrItinClass itin, list<dag> pattern>
+  : XLForm_1<opcode, xo, OOL, IOL, asmstr, itin, pattern> {
+  let CRD = 0;
+  let CRA = 0;
+  let CRB = 0;
+}
+
+class XLForm_1_gen<bits<6> opcode, bits<10> xo, dag OOL, dag IOL, string asmstr,
+                   InstrItinClass itin, list<dag> pattern>
+  : XLForm_1<opcode, xo, OOL, IOL, asmstr, itin, pattern> {
+  bits<5> RT;
+  bits<5> RB;
+
+  let CRD = RT;
+  let CRA = 0;
+  let CRB = RB;
 }
 
 class XLForm_1_ext<bits<6> opcode, bits<10> xo, dag OOL, dag IOL, string asmstr,
