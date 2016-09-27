@@ -267,7 +267,10 @@ public:
     VK_WebAssembly_FUNCTION, // Function table index, rather than virtual addr
 
     VK_TPREL,
-    VK_DTPREL
+    VK_DTPREL,
+
+    VK_PIC16_LO,
+    VK_PIC16_HI
   };
 
 private:
