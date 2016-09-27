@@ -30,4 +30,6 @@ class PIC16Inst<dag outs, dag ins, string asmstr, list<dag> pattern>
   dag InOperandList = ins;
   let AsmString = asmstr;
   let Pattern = pattern;
+
+  field bits<14> Inst;
 }
