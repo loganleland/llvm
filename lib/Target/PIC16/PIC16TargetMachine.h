@@ -1,4 +1,4 @@
-//===-- SparcTargetMachine.h - Define TargetMachine for PIC16 ---*- C++ -*-===//
+//===-- PIC16TargetMachine.h - Define TargetMachine for PIC16 ---*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -24,9 +24,9 @@ class Module;
 class PIC16TargetMachine : public LLVMTargetMachine {
   const DataLayout DataLayout;       // Calculates type size & alignment
   PIC16InstrInfo InstrInfo;
-  PIC16Subtarget Subtarget;
+  PIC16Subtarget DefaultSubtarget;
   TargetFrameInfo FrameInfo;
-
+  
 protected:
   virtual const TargetAsmInfo *createTargetAsmInfo() const;
 
@@ -35,7 +35,6 @@ public:
 
   virtual const PIC16InstrInfo *getInstrInfo() const {return &InstrInfo; }
   virtual const TargetFrameInfo *getFrameInfo() const {return &FrameInfo; }
-  virtual const TargetSubtarget *getSubtargetImpl() const{return &Subtarget; }
   virtual const TargetRegisterInfo *getRegisterInfo() const {
     return &InstrInfo.getRegisterInfo();
   }
