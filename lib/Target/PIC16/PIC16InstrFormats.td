@@ -40,17 +40,36 @@ class PIC16Inst<dag outs, dag ins, string asmstr, list<dag> pattern>
 
 // Byte Oriented Operations
 // Format: [op|d|f]
-class PIC16ByteInst<dag outs, dag ins, string asmstr, list<dag> patter>
+class PIC16ByteInst<dag outs, dag ins, string asmstr, list<dag> pattern>
   : PIC16Inst<outs, ins, asmstr, pattern>
 {
   bits<6> opcode; // Length of opcode
   bit     d;      // Direction bit
   bits<7> f;      // Length of file register address
 
+  // Assign format to Instruction
   let Inst{13-8} = opcode;
   let Inst{7}    = d;
   let Inst{6-0)  = f;
 }
+
+// Bit Oriented Operations
+// Format: [op|b|f]
+class PIC16BitInst<dag outs, dag ins, string asmstr, list<dag> pattern>
+  : PIC16Inst<outs, ins, asmstr, pattern>
+{
+  bits<4> opcode; // Length of opcode
+  bits<3> b;      // Length of selection of bit
+  bits<7> f;      // Length of file register address
+
+  // Assign format to Instruction
+  let Inst{13-10} = opcode;
+  let Inst{9-7}   = b;
+  let Inst{6-0}   = f;
+}
+
+
+
 
 // File Register Instructions
 class FRInst<dag outs, dag ins, string asmstr, list<dag> pattern>
