@@ -36,10 +36,12 @@ class PIC16Inst<dag outs, dag ins, string asmstr, list<dag> pattern>
   let DecoderNamespace = "PIC16";
 }
 
-//Instruction types
+//===----------------------------------------------------------------------===//
+// Instruction types
+//===----------------------------------------------------------------------===//
 
 // Byte Oriented Operations
-// Format: [op|d|f]
+// Format: [opcode|d|f]
 class PIC16ByteInst<dag outs, dag ins, string asmstr, list<dag> pattern>
   : PIC16Inst<outs, ins, asmstr, pattern>
 {
@@ -54,7 +56,7 @@ class PIC16ByteInst<dag outs, dag ins, string asmstr, list<dag> pattern>
 }
 
 // Bit Oriented Operations
-// Format: [op|b|f]
+// Format: [opcode|b|f]
 class PIC16BitInst<dag outs, dag ins, string asmstr, list<dag> pattern>
   : PIC16Inst<outs, ins, asmstr, pattern>
 {
@@ -67,6 +69,21 @@ class PIC16BitInst<dag outs, dag ins, string asmstr, list<dag> pattern>
   let Inst{9-7}   = b;
   let Inst{6-0}   = f;
 }
+
+// Literal Operations
+// Format: [opcode|k]
+class PIC16LiteralInst<dag outs, dag ins, string asmstr, list<dag> pattern>
+  : PIC16Inst<outs, ins, asmastr, pattern>
+{
+  bits<6> opcode; // Length of opcode
+  bits<8> k;      // Length of literal
+
+  // Assign format to Instruction
+  let Inst{13-8} = opcode;
+  let Inst{7-0}  = k;
+}
+
+
 
 
 
