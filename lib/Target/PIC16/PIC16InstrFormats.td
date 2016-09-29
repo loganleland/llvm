@@ -32,4 +32,61 @@ class PIC16Inst<dag outs, dag ins, string asmstr, list<dag> pattern>
   let Pattern = pattern;
 
   field bits<14> Inst;
+
+  field<2> op;
+  let Inst{13-12} = op;
+
+  let DecoderNamespace = "PIC16";
 }
+
+//Instruction types
+
+// File Register Instructions
+class FRInst<dag outs, dag ins, string asmstr, list<dag> pattern>
+  : PIC16Inst<outs, ins, asmstr, pattern>{
+
+  bits<7> f; // File register
+  bit     d; // Result direction (0 for W, 1 for file)
+
+  let op = 0b00;
+
+  let Inst{6-0} = f;
+}
+
+// Bit-oriented instructions
+
+class BOInst<dag outs, dag ins, string asmstr, list<dag> pattern>
+  : PIC16Inst<outs, ins, asmtr, pattern>{
+
+  bits<7> f; // File register
+  bits<3> b; // Bit selector (7-0)
+
+  let op = 0b01;
+
+  let Inst{9-7} = b;
+  let Inst{6-0} = f;
+}
+
+// GOTO and CALL
+class GCInst<dag outs, dag ins, string asmstr, list<dag> pattern>
+  : PIC16Inst<outs, ins, asmstr, pattern>{
+
+  bits<11> k; // Data Address
+
+  let op = 0b10;
+
+  let Inst{10-0} = k;
+}
+
+// Literal instructions
+class LitInst<dag outs, dag ins, string asmstr, list<dag> pattern>
+  : PIC16Inst<outs, ins, asmstr, pattern>{
+
+  bits<8> k; // Literal
+
+  let op = 0b11;
+
+  let Inst{7-0} = k;
+}
+
+
