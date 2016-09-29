@@ -21,7 +21,7 @@
 namespace llvm {
 class TargetMachine;
 class PIC16TargetMachine;
-FunctionPass *createTOYISelDag(TOYTargetMachine &TM,
+FunctionPass *createPIC16SelDag(PIC16TargetMachine &TM,
                                CodeGenOpt::Level OptLevel);
 } // end namespace llvm;
 #endif
