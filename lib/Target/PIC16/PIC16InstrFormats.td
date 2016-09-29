@@ -33,13 +33,24 @@ class PIC16Inst<dag outs, dag ins, string asmstr, list<dag> pattern>
 
   field bits<14> Inst;
 
-  field<2> op;
-  let Inst{13-12} = op;
-
   let DecoderNamespace = "PIC16";
 }
 
 //Instruction types
+
+// Byte Oriented Operations
+// Format: [op|d|f]
+class PIC16ByteInst<dag outs, dag ins, string asmstr, list<dag> patter>
+  : PIC16Inst<outs, ins, asmstr, pattern>
+{
+  bits<6> opcode; // Length of opcode
+  bit     d;      // Direction bit
+  bits<7> f;      // Length of file register address
+
+  let Inst{13-8} = opcode;
+  let Inst{7}    = d;
+  let Inst{6-0)  = f;
+}
 
 // File Register Instructions
 class FRInst<dag outs, dag ins, string asmstr, list<dag> pattern>
