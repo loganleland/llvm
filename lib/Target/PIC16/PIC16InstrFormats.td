@@ -83,7 +83,14 @@ class PIC16LiteralInst<dag outs, dag ins, string asmstr, list<dag> pattern>
   let Inst{7-0}  = k;
 }
 
+// Pseudo Instruction format
+class PIC16PseudoInst<dag outs, dag ins, string asmstr, list<dag> pattern>
+  : PIC16Inst<outs, ins, asmstr, pattern>
+{
+  // Property to declare as Pseudo Instruction set to true
+  let isPseudo = 1;
 
+}
 
 
 
