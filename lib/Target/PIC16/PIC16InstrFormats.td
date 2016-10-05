@@ -42,10 +42,9 @@ class PIC16Inst<dag outs, dag ins, string asmstr, list<dag> pattern>
 
 // Byte Oriented Operations
 // Format: [opcode|d|f]
-class PIC16ByteInst<dag outs, dag ins, string asmstr, list<dag> pattern>
-  : PIC16Inst<outs, ins, asmstr, pattern>
+class PIC16ByteInst<bits<6> opcode, dag outs, dag ins, string asmstr,
+  list<dag> pattern> : PIC16Inst<outs, ins, asmstr, pattern>
 {
-  bits<6> opcode; // Length of opcode
   bit     d;      // Direction bit
   bits<7> f;      // Length of file register address
 
@@ -57,10 +56,9 @@ class PIC16ByteInst<dag outs, dag ins, string asmstr, list<dag> pattern>
 
 // Bit Oriented Operations
 // Format: [opcode|b|f]
-class PIC16BitInst<dag outs, dag ins, string asmstr, list<dag> pattern>
-  : PIC16Inst<outs, ins, asmstr, pattern>
+class PIC16BitInst<bits<4> opcode, dag outs, dag ins, string asmstr,
+  list<dag> pattern> : PIC16Inst<outs, ins, asmstr, pattern>
 {
-  bits<4> opcode; // Length of opcode
   bits<3> b;      // Length of selection of bit
   bits<7> f;      // Length of file register address
 
@@ -72,10 +70,9 @@ class PIC16BitInst<dag outs, dag ins, string asmstr, list<dag> pattern>
 
 // Literal Operations
 // Format: [opcode|k]
-class PIC16LiteralInst<dag outs, dag ins, string asmstr, list<dag> pattern>
-  : PIC16Inst<outs, ins, asmastr, pattern>
+class PIC16LiteralInst<bits<6> opcode, dag outs, dag ins, string asmstr,
+  list<dag> pattern> : PIC16Inst<outs, ins, asmastr, pattern>
 {
-  bits<6> opcode; // Length of opcode
   bits<8> k;      // Length of literal
 
   // Assign format to Instruction
@@ -87,60 +84,7 @@ class PIC16LiteralInst<dag outs, dag ins, string asmstr, list<dag> pattern>
 class PIC16PseudoInst<dag outs, dag ins, string asmstr, list<dag> pattern>
   : PIC16Inst<outs, ins, asmstr, pattern>
 {
-  // Property to declare as Pseudo Instruction set to true
+  // Property set to true
   let isPseudo = 1;
 
 }
-
-
-
-
-// File Register Instructions
-class FRInst<dag outs, dag ins, string asmstr, list<dag> pattern>
-  : PIC16Inst<outs, ins, asmstr, pattern>{
-
-  bits<7> f; // File register
-  bit     d; // Result direction (0 for W, 1 for file)
-
-  let op = 0b00;
-
-  let Inst{6-0} = f;
-}
-
-// Bit-oriented instructions
-
-class BOInst<dag outs, dag ins, string asmstr, list<dag> pattern>
-  : PIC16Inst<outs, ins, asmtr, pattern>{
-
-  bits<7> f; // File register
-  bits<3> b; // Bit selector (7-0)
-
-  let op = 0b01;
-
-  let Inst{9-7} = b;
-  let Inst{6-0} = f;
-}
-
-// GOTO and CALL
-class GCInst<dag outs, dag ins, string asmstr, list<dag> pattern>
-  : PIC16Inst<outs, ins, asmstr, pattern>{
-
-  bits<11> k; // Data Address
-
-  let op = 0b10;
-
-  let Inst{10-0} = k;
-}
-
-// Literal instructions
-class LitInst<dag outs, dag ins, string asmstr, list<dag> pattern>
-  : PIC16Inst<outs, ins, asmstr, pattern>{
-
-  bits<8> k; // Literal
-
-  let op = 0b11;
-
-  let Inst{7-0} = k;
-}
-
-
