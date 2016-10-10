@@ -10,28 +10,24 @@
 //===----------------------------------------------------------------------===//
 //  Declarations that describe the PIC16 register file
 //===----------------------------------------------------------------------===//
-
+include "llvm/Target/Target.td"
 
 class PIC16Reg<bits<16> Enc, string n> : Register<n> {
   let HWEncoding = Enc;
   let Namespace = "PIC16";
 }
 
-def GPR<bits<16> Enc, string n> : PIC16Reg<Enc, n>;
-
-
-
-//Working register, non-addressable
-def W      : PIC16Reg<"W">;
+//Working register, non-addressable, should it even be here?
+//def W      : PIC16Reg<"W">;
 
 // PIC16 Control Registers.
 //These first five are common across 4 banks.
-def INDR    : PIC16RED<0,  "INDR">;
+def INDR    : PIC16Reg<0,  "INDR">;
 def PCL     : PIC16Reg<3,  "PCL">;
 def STATUS  : PIC16Reg<3,  "STATUS">;
 def FSR     : PIC16Reg<4,  "FSR">;
 def PCLATH  : PIC16Reg<10, "PCLATH">;
-def INTCON  : PIC16REG<11, "INTCON">;
+def INTCON  : PIC16Reg<11, "INTCON">;
 
 def TMR0    : PIC16Reg<1,  "TMR0">;
 def PORTA   : PIC16Reg<5,  "PORTA">;
@@ -63,19 +59,19 @@ def ADCON0  : PIC16Reg<31,  "ADCON0">;
 
 
 //GPRnn refers to bank 1 GPR from 0x20 to 0x69
-foreach Index = 32-111 in{
-  def GPR#Index : GPR<Index, "GPR"#Index>,
+foreach Index = 32-111 in {
+  def GPR#Index : PIC16Reg<#Index, "GPR"#Index>;
+}
 
 //16 registers at end, 4-bit subfield of address
 //Shared GPR
 foreach Index = 112-127 in {
-  def SGPR#Index : GPR<Index, "f"#Index>,
-                DwarfRegNum<[!add(Index, 32), !add(Index, 32)]>;
+  def SGPR#Index : PIC16Reg<#Index, "SGPR"#Index>;
 }
 
-//These registers are common on banks 0, 2
+//TODO: These registers are common on banks 0, 2
 
-//These registers are common on banks 1, 3
+//TODO: These registers are common on banks 1, 3
 
 
 
