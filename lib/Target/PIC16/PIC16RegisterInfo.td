@@ -17,7 +17,7 @@ class PIC16Reg<bits<16> Enc, string n> : Register<n> {
   let Namespace = "PIC16";
 }
 
-//Working register, non-addressable, should it even be here?
+//Working accumulator register, non-addressable, should it even be here?
 //def W      : PIC16Reg<"W">;
 
 // PIC16 Control Registers.
@@ -77,6 +77,9 @@ foreach Index = 112-127 in {
 
 
 // PIC16 Register classes.
+// Question: include/Target/TargetRegisterInfo.h specifies fn: 
+//   getPointerRegClass(...). Stale branch didn't implement; necessary??
+// It would be in PIC16RegisterInfo.h/cpp.
 
 // Control Registers
 //NEXT
