@@ -20,6 +20,10 @@ include "PIC16InstrFormats.td"
 
 //===----------------------------------------------------------------------===//
 
+// NOP - subject to change
+let hasSideEffects = 0 in
+def NOP : Pseudo<(outs), (ins), "nop", []>;
+
 
 // File Register Instructions
 
