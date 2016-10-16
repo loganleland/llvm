@@ -68,10 +68,22 @@ class PIC16BitInst<bits<4> opcode, dag outs, dag ins, string asmstr,
   let Inst{6-0}   = f;
 }
 
+// Control Operations
+// Format: [opcode|k]
+class PIC16ControlInst<bits<3> opcode, dag outs, dag ins, string asmstr,
+  list<dag> pattern> : PIC16Inst<outs, ins, asmstr, pattern>
+{
+  bits<11> k;
+
+  // Assign format to Instruction
+  let Inst{13-11} = opcode;
+  let Inst{10-0} = k;
+}
+
 // Literal Operations
 // Format: [opcode|k]
 class PIC16LiteralInst<bits<6> opcode, dag outs, dag ins, string asmstr,
-  list<dag> pattern> : PIC16Inst<outs, ins, asmastr, pattern>
+  list<dag> pattern> : PIC16Inst<outs, ins, asmstr, pattern>
 {
   bits<8> k;      // Length of literal
 
