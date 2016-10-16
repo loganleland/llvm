@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This class prints an PIC16 MCInst to a .s file.
+// This class prints an PIC16 MCInst to a .asm file.
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,7 +21,6 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
-
 
 // Include the auto-generated portion of the assembly writer.
 #include "PIC16GenAsmWriter.inc"
@@ -43,6 +42,12 @@ void PIC16InstPrinter::printPCRelImmOperand(const MCInst *MI, unsigned OpNo,
   }
 }
 
+
+//FIXME !!
+//In the Op.isImm() case, the PIC16 could have a few different options,
+//Such as b'', A'' and 0x.
+//Figure out how to specify which prefix to print for these immediates,
+//maybe just force one or two of these prefixes
 void PIC16InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
                                      raw_ostream &O, const char *Modifier) {
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
@@ -50,10 +55,9 @@ void PIC16InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   if (Op.isReg()) {
     O << getRegisterName(Op.getReg());
   } else if (Op.isImm()) {
-    O << '#' << Op.getImm();
+    O << Op.getImm();
   } else {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
-    O << '#';
     Op.getExpr()->print(O, &MAI);
   }
 }
@@ -64,17 +68,6 @@ void PIC16InstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
   const MCOperand &Base = MI->getOperand(OpNo);
   const MCOperand &Disp = MI->getOperand(OpNo+1);
 
-  // Print displacement first
-
-  // If the global address expression is a part of displacement field with a
-  // register base, we should not emit any prefix symbol here, e.g.
-  //   mov.w &foo, r1
-  // vs
-  //   mov.w glb(r1), r2
-  // Otherwise (!) nope-as will silently miscompile the output :(
-  if (!Base.getReg())
-    O << '&';
-
   if (Disp.isExpr())
     Disp.getExpr()->print(O, &MAI);
   else {
@@ -84,7 +77,7 @@ void PIC16InstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
 
   // Print register base field
   if (Base.getReg())
-    O << '(' << getRegisterName(Base.getReg()) << ')';
+    O << getRegisterName(Base.getReg());
 }
 
 void PIC16InstPrinter::printCCOperand(const MCInst *MI, unsigned OpNo,
@@ -94,23 +87,29 @@ void PIC16InstPrinter::printCCOperand(const MCInst *MI, unsigned OpNo,
   switch (CC) {
   default:
    llvm_unreachable("Unsupported CC code");
-  case PIC16CC::COND_E:
-   O << "eq";
+  case PIC16CC::COND_DECFSZ:
+   O << "decfsz";
    break;
-  case PIC16CC::COND_NE:
-   O << "ne";
+  case PIC16CC::COND_INCFSZ:
+   O << "incfsz";
    break;
-  case PIC16CC::COND_HS:
-   O << "hs";
+  case PIC16CC::COND_IORWF:
+   O << "iorwf";
    break;
-  case PIC16CC::COND_LO:
-   O << "lo";
+  case PIC16CC::COND_XORWF:
+   O << "xorwf";
    break;
-  case PIC16CC::COND_GE:
-   O << "ge";
+  case PIC16CC::COND_BTFSC:
+   O << "btfsc";
    break;
-  case PIC16CC::COND_L:
-   O << 'l';
+  case PIC16CC::COND_BTFSS:
+   O << "btfss";
+   break;
+  case PIC16CC::COND_IORLW:
+   O << "iorlw";
+   break;
+  case PIC16CC::COND_XORLW:
+   O << "xorlw";
    break;
   }
 }

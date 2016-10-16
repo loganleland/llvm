@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This class prints a PIC16 MCInst to a .s file.
+// This class prints a PIC16 MCInst to a .asm file.
 //
 //===----------------------------------------------------------------------===//
 
@@ -38,6 +38,6 @@ namespace llvm {
     void printCCOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
 
   };
-}
+} //end namespace
 
 #endif
