@@ -1,4 +1,4 @@
-//===-- PIC16TargetMachine.h - Define TargetMachine for PIC16 ---*- C++ -*-===//
+//===-- PIC16TargetMachine.h - Define TargetMachine for PIC16 -*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,39 +11,36 @@
 //
 //===----------------------------------------------------------------------===//
 
+
 #ifndef LLVM_LIB_TARGET_PIC16_PIC16TARGETMACHINE_H
 #define LLVM_LIB_TARGET_PIC16_PIC16TARGETMACHINE_H
 
-#include "PIC16InstrInfo.h"
+#include "PIC16Subtarget.h"
+#include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetMachine.h"
 
 namespace llvm {
 
-class Module;
-
 class PIC16TargetMachine : public LLVMTargetMachine {
-  const DataLayout DataLayout;       // Calculates type size & alignment
-  PIC16InstrInfo InstrInfo;
-  PIC16Subtarget DefaultSubtarget;
-  TargetFrameInfo FrameInfo;
-  
-protected:
-  virtual const TargetAsmInfo *createTargetAsmInfo() const;
+  std::unique_ptr<TargetLoweringObjectFile> TLOF;
+  PIC16Subtarget        Subtarget;
 
 public:
-  PIC16TargetMachine(const Module &M, const std::string &FS);
+  PIC16TargetMachine(const Target &T, const Triple &TT, StringRef CPU,
+                      StringRef FS, const TargetOptions &Options,
+                      Optional<Reloc::Model> RM, CodeModel::Model CM,
+                      CodeGenOpt::Level OL);
+  ~PIC16TargetMachine() override;
 
-  virtual const PIC16InstrInfo *getInstrInfo() const {return &InstrInfo; }
-  virtual const TargetFrameInfo *getFrameInfo() const {return &FrameInfo; }
-  virtual const TargetRegisterInfo *getRegisterInfo() const {
-    return &InstrInfo.getRegisterInfo();
+  const PIC16Subtarget *getSubtargetImpl(const Function &F) const override {
+    return &Subtarget;
   }
-  virtual const DataLayout *getDataLayout() const { return &DataLayout; }
+  TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
 
-  // Pass Pipeline Configuration
-  virtual bool addInstSelector(PassManagerBase &PM, bool Fast);
-  virtual bool addPreEmitPass(PassManagerBase &PM, bool Fast);
-};
+  TargetLoweringObjectFile *getObjFileLowering() const override {
+    return TLOF.get();
+  }
+}; // PIC16TargetMachine.
 
 } // end namespace llvm
 

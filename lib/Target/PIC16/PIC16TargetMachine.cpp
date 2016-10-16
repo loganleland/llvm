@@ -1,4 +1,4 @@
-//===-- PIC16TargetMachine.cpp - Define TargetMachine for PIC16 ---*- C++ -*-===//
+//===-- PIC16TargetMachine.cpp - Define TargetMachine for PIC16 ---------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -21,8 +21,6 @@
 #include "llvm/Support/TargetRegistry.h"
 using namespace llvm;
 
-#define DEBUG_TYPE "PIC16"
-
 extern "C" void LLVMInitializePIC16Target() {
   // Register the target.
   RegisterTargetMachine<PIC16TargetMachine> X(ThePIC16Target);
@@ -40,9 +38,6 @@ PIC16TargetMachine::PIC16TargetMachine(const Target &T, const Triple &TT,
                                          Optional<Reloc::Model> RM,
                                          CodeModel::Model CM,
                                          CodeGenOpt::Level OL)
-      //e for little endian. p:7:7 for pointer size and alignment
-      //iX:Y:Y where X is the integer value, Y is the ABI alignment and preferred alignment
-      //This might need fixed.
     : LLVMTargetMachine(T, "e-p:7:7-i8:8:8", TT, CPU, FS,
                         Options, getEffectiveRelocModel(RM), CM, OL),
       TLOF(make_unique<TargetLoweringObjectFileELF>()),
