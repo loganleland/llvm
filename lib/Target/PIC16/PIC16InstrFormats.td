@@ -51,7 +51,7 @@ class PIC16ByteInst<bits<6> opcode, dag outs, dag ins, string asmstr,
   // Assign format to Instruction
   let Inst{13-8} = opcode;
   let Inst{7}    = d;
-  let Inst{6-0)  = f;
+  let Inst{6-0}  = f;
 }
 
 // Bit Oriented Operations

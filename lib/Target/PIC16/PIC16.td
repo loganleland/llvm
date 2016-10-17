@@ -25,7 +25,7 @@ include "PIC16RegisterInfo.td"
 // Calling Convention Description
 //===----------------------------------------------------------------------===//
 
-include "PIC16CallingConv.td"
+//include "PIC16CallingConv.td"
 
 //===----------------------------------------------------------------------===//
 // Instruction Descriptions

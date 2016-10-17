@@ -10,7 +10,6 @@
 //===----------------------------------------------------------------------===//
 //  Declarations that describe the PIC16 register file
 //===----------------------------------------------------------------------===//
-include "llvm/Target/Target.td"
 
 class PIC16Reg<bits<16> Enc, string n> : Register<n> {
   let HWEncoding = Enc;
