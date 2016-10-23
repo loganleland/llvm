@@ -66,7 +66,7 @@ const char *Triple::getArchTypeName(ArchType Kind) {
   case wasm64:         return "wasm64";
   case renderscript32: return "renderscript32";
   case renderscript64: return "renderscript64";
-  case pic16:          return "pic16" 
+  case pic16:          return "pic16";
   }
 
   llvm_unreachable("Invalid ArchType!");
@@ -608,6 +608,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::nvptx:
   case Triple::nvptx64:
   case Triple::ppc64le:
+  case Triple::pic16:
   case Triple::r600:
   case Triple::renderscript32:
   case Triple::renderscript64:
@@ -1129,7 +1130,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::msp430:
     return 16;
 
-  case llvm:Triple::pic16:
+  case llvm::Triple::pic16:
     return 7;
 
   case llvm::Triple::arm:
