@@ -15,7 +15,6 @@
 #ifndef TARGET_PIC16_H
 #define TARGET_PIC16_H
 
-#include "MCTargetDesc/PIC16MCTargetDesc.h"
 #include "llvm/Target/TargetMachine.h"
 
 namespace llvm {
