@@ -91,6 +91,7 @@ public:
     wasm64,         // WebAssembly with 64-bit pointers
     renderscript32, // 32-bit RenderScript
     renderscript64, // 64-bit RenderScript
+    pic16,          // PIC16
     LastArchType = renderscript64
   };
   enum SubArchType {
@@ -135,6 +136,7 @@ public:
     Myriad,
     AMD,
     Mesa,
+    MicrochipTechnologyInc,
     LastVendorType = Mesa
   };
   enum OSType {

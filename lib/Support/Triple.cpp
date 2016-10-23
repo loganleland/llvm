@@ -66,7 +66,7 @@ const char *Triple::getArchTypeName(ArchType Kind) {
   case wasm64:         return "wasm64";
   case renderscript32: return "renderscript32";
   case renderscript64: return "renderscript64";
-  case PIC16:          return "PIC16" 
+  case pic16:          return "pic16" 
   }
 
   llvm_unreachable("Invalid ArchType!");
@@ -136,7 +136,7 @@ const char *Triple::getArchTypePrefix(ArchType Kind) {
   case wasm32:
   case wasm64:      return "wasm";
  
-  case PIC16:       return "PIC16";
+  case pic16:       return "pic16";
   }
 }
 
@@ -290,7 +290,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("wasm64", wasm64)
     .Case("renderscript32", renderscript32)
     .Case("renderscript64", renderscript64)
-    .Case("PIC16", PIC16)
+    .Case("pic16", pic16)
     .Default(UnknownArch);
 }
 
@@ -402,7 +402,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("wasm64", Triple::wasm64)
     .Case("renderscript32", Triple::renderscript32)
     .Case("renderscript64", Triple::renderscript64)
-    .Case("PIC16", Triple::PIC16)
+    .Case("pic16", Triple::pic16)
     .Default(Triple::UnknownArch);
 
   // Some architectures require special parsing logic just to compute the
@@ -1129,7 +1129,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::msp430:
     return 16;
 
-  case llvm:Triple::PIC16:
+  case llvm:Triple::pic16:
     return 7;
 
   case llvm::Triple::arm:
