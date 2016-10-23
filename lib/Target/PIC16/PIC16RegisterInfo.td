@@ -89,7 +89,7 @@ def GPR : RegisterClass<"PIC16", [i8], 8,
           (add (sequence "GPR%u", 32, 111))>;
 
 def SGPR : RegisterClass<"PIC16", [i8], 8,
-           (add (sequence "SGPR%u", 32, 111))>;
+           (add (sequence "SGPR%u", 112, 127))>;
 
 //TODO: Banked registers; cost between same bank is 0. Same wires.
 // Some registers are shared 0-3, some [0, 2], [1, 3], and some unique.
