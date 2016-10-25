@@ -28,7 +28,7 @@ using namespace llvm;
 #define GET_REGINFO_TARGET_DESC
 #include "PIC16GenRegisterInfo.inc"
 
---------
+//--------
 
 PIC16RegisterInfo::PIC16RegisterInfo() : PIC16GenRegisterInfo(SP::O7) {}
 
