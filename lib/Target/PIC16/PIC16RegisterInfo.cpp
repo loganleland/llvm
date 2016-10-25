@@ -13,7 +13,6 @@
 
 #include "PIC16RegisterInfo.h"
 #include "PIC16.h"
-#include "PIC16MachineFunctionInfo.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
