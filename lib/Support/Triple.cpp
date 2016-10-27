@@ -1206,6 +1206,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::msp430:
   case Triple::systemz:
   case Triple::ppc64le:
+  case Triple::pic16:
     T.setArch(UnknownArch);
     break;
 
@@ -1268,6 +1269,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::xcore:
   case Triple::sparcel:
   case Triple::shave:
+  case Triple::pic16:
     T.setArch(UnknownArch);
     break;
 
@@ -1430,6 +1432,7 @@ bool Triple::isLittleEndian() const {
   case Triple::xcore:
   case Triple::renderscript32:
   case Triple::renderscript64:
+  case Triple::pic16:
     return true;
   default:
     return false;
