@@ -13,27 +13,29 @@
 
 class PIC16Reg<bits<16> Enc, string n> : Register<n> {
   let HWEncoding = Enc;
+  let AsmName = n;
+
   let Namespace = "PIC16";
 }
 
 //Working accumulator register, non-addressable, should it even be here?
 //def W      : PIC16Reg<"W">;
 
-// PIC16 Control Registers.
+// PIC16 Control/Special Function Registers (SFR).
 //These first five are common across 4 banks.
-def INDR    : PIC16Reg<0,  "INDR">;
-def PCL     : PIC16Reg<3,  "PCL">;
-def STATUS  : PIC16Reg<3,  "STATUS">;
-def FSR     : PIC16Reg<4,  "FSR">;
-def PCLATH  : PIC16Reg<10, "PCLATH">;
-def INTCON  : PIC16Reg<11, "INTCON">;
+def INDR    : PIC16Reg<0,   "INDR">;
+def PCL     : PIC16Reg<3,   "PCL">;
+def STATUS  : PIC16Reg<3,   "STATUS">;
+def FSR     : PIC16Reg<4,   "FSR">;
+def PCLATH  : PIC16Reg<10,  "PCLATH">;
+def INTCON  : PIC16Reg<11,  "INTCON">;
 
-def TMR0    : PIC16Reg<1,  "TMR0">;
-def PORTA   : PIC16Reg<5,  "PORTA">;
-def PORTB   : PIC16Reg<6,  "PORTB">;
-def PORTC   : PIC16Reg<7,  "PORTC">;
-def PORTD   : PIC16Reg<8,  "PORTD">;
-def PORTE   : PIC16Reg<9,  "PORTE">;
+def TMR0    : PIC16Reg<1,   "TMR0">;
+def PORTA   : PIC16Reg<5,   "PORTA">;
+def PORTB   : PIC16Reg<6,   "PORTB">;
+def PORTC   : PIC16Reg<7,   "PORTC">;
+def PORTD   : PIC16Reg<8,   "PORTD">;
+def PORTE   : PIC16Reg<9,   "PORTE">;
 def PIR1    : PIC16Reg<12,  "PIR1">;
 def PIR2    : PIC16Reg<13,  "PIR2">;
 def TMR1H   : PIC16Reg<14,  "TMR1H">;
@@ -45,13 +47,13 @@ def SSPBUF  : PIC16Reg<19,  "SSPBUF">;
 def SSPCON  : PIC16Reg<20,  "SSPCON">;
 def CCPR1L  : PIC16Reg<21,  "CCPR1L">;
 def CCPR1H  : PIC16Reg<22,  "CCPR1H">;
-def CCP1CON : PIC16Reg<23, "CCP1CON">;
+def CCP1CON : PIC16Reg<23,  "CCP1CON">;
 def RCSTA   : PIC16Reg<24,  "RCSTA">;
 def TXREG   : PIC16Reg<25,  "TXREG">;
 def RCREG   : PIC16Reg<26,  "RCREG">;
 def CCPR2L  : PIC16Reg<27,  "CCPR2L">;
 def CCPR2H  : PIC16Reg<28,  "CCPR2H">;
-def CCP2CON : PIC16Reg<29, "CCP2CON">;
+def CCP2CON : PIC16Reg<29,  "CCP2CON">;
 def ADRESH  : PIC16Reg<30,  "ADRESH">;
 def ADCON0  : PIC16Reg<31,  "ADCON0">;
 //def         : PIC16Reg<"      ">;
@@ -62,7 +64,7 @@ foreach Index = 32-111 in {
   def GPR#Index : PIC16Reg<#Index, "GPR"#Index>;
 }
 
-//16 registers at end, 4-bit subfield of address
+//16 registers at end, 4-bit subfield of address, from 0x80 to 0x8F
 //Shared GPR
 foreach Index = 112-127 in {
   def SGPR#Index : PIC16Reg<#Index, "SGPR"#Index>;
@@ -81,15 +83,22 @@ foreach Index = 112-127 in {
 // It would be in PIC16RegisterInfo.h/cpp.
 
 // Control Registers
-//NEXT
+
+
+def SFR : RegisterClass<"PIC16", [i8], 8,
+                        (add INDR, PCL, STATUS, FSR, PCLATH, INTCON,
+                             TMR0, PORTA, PORTB, PORTC, PORTD, PORTE,
+                             PIR1, PIR2, TMR1H, TMR1L, T1CON, TMR2, T2CON,
+                             SSPBUF, SSPCON, CCPR1L, CCPR1H, CCP1CON, RCSTA,
+                             TXREG, RCREG, CCPR2L, CCPR2H, CCP2CON, ADRESH,
+                             ADCON0)>;
+
 
 // These file registers are the same across all banks
 
-def GPR : RegisterClass<"PIC16", [i8], 8,
-          (add (sequence "GPR%u", 32, 111))>;
+def GPR : RegisterClass<"PIC16", [i8], 8, (sequence "GPR%u", 32, 111)>;
 
-def SGPR : RegisterClass<"PIC16", [i8], 8,
-           (add (sequence "SGPR%u", 112, 127))>;
+def SGPR : RegisterClass<"PIC16", [i8], 8, (sequence "SGPR%u", 112, 127)>;
 
 //TODO: Banked registers; cost between same bank is 0. Same wires.
 // Some registers are shared 0-3, some [0, 2], [1, 3], and some unique.

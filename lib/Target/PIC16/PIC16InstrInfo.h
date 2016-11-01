@@ -31,7 +31,7 @@ public:
   virtual const PIC16RegisterInfo &getRegisterInfo() const {
     return RegisterInfo;
   }
-}
+};
 
 } // namespace llvm
 

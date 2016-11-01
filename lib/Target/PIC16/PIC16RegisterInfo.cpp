@@ -13,6 +13,8 @@
 
 #include "PIC16RegisterInfo.h"
 #include "PIC16.h"
+#include "SparcMachineFunctionInfo.h"
+#include "SparcSubtarget.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -28,24 +30,22 @@ using namespace llvm;
 #define GET_REGINFO_TARGET_DESC
 #include "PIC16GenRegisterInfo.inc"
 
-//--------
+PIC16RegisterInfo::PIC16RegisterInfo() : PIC16GenRegisterInfo(PIC16::RA) {}
 
-PIC16RegisterInfo::PIC16RegisterInfo() : PIC16GenRegisterInfo(SP::O7) {}
-
-const MCPhysReg*
+/*const MCPhysReg*
 PIC16RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
-  return CSR_SaveList;
+  return //CALLEE SAVED REGISTERS - SEE CallingConv.td;
 }
 
 const uint32_t *
 PIC16RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
                                         CallingConv::ID CC) const {
-  return CSR_RegMask;
+  return //CALL PRESERVED MASK;
 }
 
 const uint32_t*
 PIC16RegisterInfo::getRTCallPreservedMask(CallingConv::ID CC) const {
-  return RTCSR_RegMask;
+  return //RT CALL PRESERVED MASK;
 }
 
 BitVector PIC16RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
@@ -54,3 +54,11 @@ BitVector PIC16RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   return Reserved;
 }
 
+// There is one pointer register for files,
+// and another pair of pointer registers for data.
+const TargetRegisterClass*
+SparcRegisterInfo::getPointerRegClass(const MachineFunction &MF,
+                                      unsigned Kind) const {
+  const SparcSubtarget &Subtarget = MF.getSubtarget<SparcSubtarget>();
+  return &PIC16::GPRRegClass;
+}*/
