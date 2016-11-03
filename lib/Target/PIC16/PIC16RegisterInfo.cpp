@@ -13,8 +13,8 @@
 
 #include "PIC16RegisterInfo.h"
 #include "PIC16.h"
-#include "SparcMachineFunctionInfo.h"
-#include "SparcSubtarget.h"
+#include "PIC16MachineFunctionInfo.h"
+#include "PIC16Subtarget.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -57,8 +57,8 @@ BitVector PIC16RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
 // There is one pointer register for files,
 // and another pair of pointer registers for data.
 const TargetRegisterClass*
-SparcRegisterInfo::getPointerRegClass(const MachineFunction &MF,
+PIC16RegisterInfo::getPointerRegClass(const MachineFunction &MF,
                                       unsigned Kind) const {
-  const SparcSubtarget &Subtarget = MF.getSubtarget<SparcSubtarget>();
+  const PIC16Subtarget &Subtarget = MF.getSubtarget<PIC16Subtarget>();
   return &PIC16::GPRRegClass;
 }*/
