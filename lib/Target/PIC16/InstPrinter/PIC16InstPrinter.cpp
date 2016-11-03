@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This class prints an PIC16 MCInst to a .asm file.
+// This class prints an PIC16 MCInst to a .s file.
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,6 +21,7 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
+
 
 // Include the auto-generated portion of the assembly writer.
 #include "PIC16GenAsmWriter.inc"
@@ -42,12 +43,6 @@ void PIC16InstPrinter::printPCRelImmOperand(const MCInst *MI, unsigned OpNo,
   }
 }
 
-
-//FIXME !!
-//In the Op.isImm() case, the PIC16 could have a few different options,
-//Such as b'', A'' and 0x.
-//Figure out how to specify which prefix to print for these immediates,
-//maybe just force one or two of these prefixes
 void PIC16InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
                                      raw_ostream &O, const char *Modifier) {
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");

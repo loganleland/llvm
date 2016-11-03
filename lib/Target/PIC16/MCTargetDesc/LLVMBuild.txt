@@ -1,4 +1,4 @@
-;===- ./lib/Target/PIC16/InstPrinter/LLVMBuild.txt ------------*- Conf -*--===;
+;===- ./lib/Target/PIC16/MCTargetDesc/LLVMBuild.txt -----------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -17,7 +17,7 @@
 
 [component_0]
 type = Library
-name = PIC16AsmPrinter
+name = PIC16Desc
 parent = PIC16
-required_libraries = MC Support
+required_libraries = MC PIC16AsmPrinter PIC16Info Support
 add_to_library_groups = PIC16

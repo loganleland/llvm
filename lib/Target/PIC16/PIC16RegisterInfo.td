@@ -1,4 +1,4 @@
-//===- PIC16RegisterInfo.td - PIC16 Register defs ------------*- tblgen -*-===//
+//===-- NOPERegisterInfo.td - NOPE Register defs -------*- tablegen -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,97 +8,74 @@
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
-//  Declarations that describe the PIC16 register file
+//  Declarations that describe the NOPE register file
 //===----------------------------------------------------------------------===//
 
-class PIC16Reg<bits<16> Enc, string n> : Register<n> {
-  let HWEncoding = Enc;
-  let AsmName = n;
-
-  let Namespace = "PIC16";
+class NOPEReg<bits<4> num, string n> : Register<n> {
+  field bits<4> Num = num;
+  let Namespace = "NOPE";
 }
 
-//Working accumulator register, non-addressable, should it even be here?
-//def W      : PIC16Reg<"W">;
-
-// PIC16 Control/Special Function Registers (SFR).
-//These first five are common across 4 banks.
-def INDR    : PIC16Reg<0,   "INDR">;
-def PCL     : PIC16Reg<3,   "PCL">;
-def STATUS  : PIC16Reg<3,   "STATUS">;
-def FSR     : PIC16Reg<4,   "FSR">;
-def PCLATH  : PIC16Reg<10,  "PCLATH">;
-def INTCON  : PIC16Reg<11,  "INTCON">;
-
-def TMR0    : PIC16Reg<1,   "TMR0">;
-def PORTA   : PIC16Reg<5,   "PORTA">;
-def PORTB   : PIC16Reg<6,   "PORTB">;
-def PORTC   : PIC16Reg<7,   "PORTC">;
-def PORTD   : PIC16Reg<8,   "PORTD">;
-def PORTE   : PIC16Reg<9,   "PORTE">;
-def PIR1    : PIC16Reg<12,  "PIR1">;
-def PIR2    : PIC16Reg<13,  "PIR2">;
-def TMR1H   : PIC16Reg<14,  "TMR1H">;
-def TMR1L   : PIC16Reg<15,  "TMR1L">;
-def T1CON   : PIC16Reg<16,  "T1CON">;
-def TMR2    : PIC16Reg<17,  "TMR2">;
-def T2CON   : PIC16Reg<18,  "T2CON">;
-def SSPBUF  : PIC16Reg<19,  "SSPBUF">;
-def SSPCON  : PIC16Reg<20,  "SSPCON">;
-def CCPR1L  : PIC16Reg<21,  "CCPR1L">;
-def CCPR1H  : PIC16Reg<22,  "CCPR1H">;
-def CCP1CON : PIC16Reg<23,  "CCP1CON">;
-def RCSTA   : PIC16Reg<24,  "RCSTA">;
-def TXREG   : PIC16Reg<25,  "TXREG">;
-def RCREG   : PIC16Reg<26,  "RCREG">;
-def CCPR2L  : PIC16Reg<27,  "CCPR2L">;
-def CCPR2H  : PIC16Reg<28,  "CCPR2H">;
-def CCP2CON : PIC16Reg<29,  "CCP2CON">;
-def ADRESH  : PIC16Reg<30,  "ADRESH">;
-def ADCON0  : PIC16Reg<31,  "ADCON0">;
-//def         : PIC16Reg<"      ">;
-
-
-//GPRnn refers to bank 1 GPR from 0x20 to 0x69
-foreach Index = 32-111 in {
-  def GPR#Index : PIC16Reg<#Index, "GPR"#Index>;
+class NOPERegWithSubregs<bits<4> num, string n, list<Register> subregs> 
+  : RegisterWithSubRegs<n, subregs> {
+  field bits<4> Num = num;
+  let Namespace = "NOPE";
 }
 
-//16 registers at end, 4-bit subfield of address, from 0x80 to 0x8F
-//Shared GPR
-foreach Index = 112-127 in {
-  def SGPR#Index : PIC16Reg<#Index, "SGPR"#Index>;
+//===----------------------------------------------------------------------===//
+//  Registers
+//===----------------------------------------------------------------------===//
+
+def PCB  : NOPEReg<0,  "r0">;
+def SPB  : NOPEReg<1,  "r1">;
+def SRB  : NOPEReg<2,  "r2">;
+def CGB  : NOPEReg<3,  "r3">;
+def FPB  : NOPEReg<4,  "r4">;
+def R5B  : NOPEReg<5,  "r5">;
+def R6B  : NOPEReg<6,  "r6">;
+def R7B  : NOPEReg<7,  "r7">;
+def R8B  : NOPEReg<8,  "r8">;
+def R9B  : NOPEReg<9,  "r9">;
+def R10B : NOPEReg<10, "r10">;
+def R11B : NOPEReg<11, "r11">;
+def R12B : NOPEReg<12, "r12">;
+def R13B : NOPEReg<13, "r13">;
+def R14B : NOPEReg<14, "r14">;
+def R15B : NOPEReg<15, "r15">;
+
+def subreg_8bit : SubRegIndex<8> { let Namespace = "NOPE"; }
+
+let SubRegIndices = [subreg_8bit] in {
+def PC  : NOPERegWithSubregs<0,  "r0",  [PCB]>;
+def SP  : NOPERegWithSubregs<1,  "r1",  [SPB]>;
+def SR  : NOPERegWithSubregs<2,  "r2",  [SRB]>;
+def CG  : NOPERegWithSubregs<3,  "r3",  [CGB]>;
+def FP  : NOPERegWithSubregs<4,  "r4",  [FPB]>;
+def R5  : NOPERegWithSubregs<5,  "r5",  [R5B]>;
+def R6  : NOPERegWithSubregs<6,  "r6",  [R6B]>;
+def R7  : NOPERegWithSubregs<7,  "r7",  [R7B]>;
+def R8  : NOPERegWithSubregs<8,  "r8",  [R8B]>;
+def R9  : NOPERegWithSubregs<9,  "r9",  [R9B]>;
+def R10 : NOPERegWithSubregs<10, "r10", [R10B]>;
+def R11 : NOPERegWithSubregs<11, "r11", [R11B]>;
+def R12 : NOPERegWithSubregs<12, "r12", [R12B]>;
+def R13 : NOPERegWithSubregs<13, "r13", [R13B]>;
+def R14 : NOPERegWithSubregs<14, "r14", [R14B]>;
+def R15 : NOPERegWithSubregs<15, "r15", [R15B]>;
 }
 
-//TODO: These registers are common on banks 0, 2
+def GR8 : RegisterClass<"NOPE", [i8], 8,
+   // Volatile registers
+  (add R12B, R13B, R14B, R15B, R11B, R10B, R9B, R8B, R7B, R6B, R5B,
+   // Frame pointer, sometimes allocable
+   FPB,
+   // Volatile, but not allocable
+   PCB, SPB, SRB, CGB)>;
 
-//TODO: These registers are common on banks 1, 3
-
-
-
-
-// PIC16 Register classes.
-// Question: include/Target/TargetRegisterInfo.h specifies fn: 
-//   getPointerRegClass(...). Stale branch didn't implement; necessary??
-// It would be in PIC16RegisterInfo.h/cpp.
-
-// Control Registers
-
-
-def SFR : RegisterClass<"PIC16", [i8], 8,
-                        (add INDR, PCL, STATUS, FSR, PCLATH, INTCON,
-                             TMR0, PORTA, PORTB, PORTC, PORTD, PORTE,
-                             PIR1, PIR2, TMR1H, TMR1L, T1CON, TMR2, T2CON,
-                             SSPBUF, SSPCON, CCPR1L, CCPR1H, CCP1CON, RCSTA,
-                             TXREG, RCREG, CCPR2L, CCPR2H, CCP2CON, ADRESH,
-                             ADCON0)>;
-
-
-// These file registers are the same across all banks
-
-def GPR : RegisterClass<"PIC16", [i8], 8, (sequence "GPR%u", 32, 111)>;
-
-def SGPR : RegisterClass<"PIC16", [i8], 8, (sequence "SGPR%u", 112, 127)>;
-
-//TODO: Banked registers; cost between same bank is 0. Same wires.
-// Some registers are shared 0-3, some [0, 2], [1, 3], and some unique.
+def GR16 : RegisterClass<"NOPE", [i16], 16,
+   // Volatile registers
+  (add R12, R13, R14, R15, R11, R10, R9, R8, R7, R6, R5,
+   // Frame pointer, sometimes allocable
+   FP,
+   // Volatile, but not allocable
+   PC, SP, SR, CG)>;

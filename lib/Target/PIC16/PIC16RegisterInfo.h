@@ -1,4 +1,4 @@
-//===-- PIC16RegisterInfo.h - PIC16 Register Information Impl ---*- C++ -*-===//
+//===-- NOPERegisterInfo.h - NOPE Register Information Impl -*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,40 +7,38 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the PIC16 implementation of the TargetRegisterInfo class.
+// This file contains the NOPE implementation of the MRegisterInfo class.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_PIC16_REGISTERINFO_H
-#define LLVM_LIB_TARGET_PIC16_REGISTERINFO_H
+#ifndef LLVM_LIB_TARGET_NOPE_NOPEREGISTERINFO_H
+#define LLVM_LIB_TARGET_NOPE_NOPEREGISTERINFO_H
 
 #include "llvm/Target/TargetRegisterInfo.h"
 
 #define GET_REGINFO_HEADER
-#include "PIC16GenRegisterInfo.inc"
+#include "NOPEGenRegisterInfo.inc"
 
 namespace llvm {
-struct PIC16RegisterInfo : public PIC16GenRegisterInfo {
-  PIC16RegisterInfo();
+
+struct NOPERegisterInfo : public NOPEGenRegisterInfo {
+public:
+  NOPERegisterInfo();
 
   /// Code Generation virtual methods...
-/*  const MCPhysReg *getCalleeSavedRegs(const MachineFunction *MF) const override;
-  const uint32_t *getCallPreservedMask(const MachineFunction &MF,
-                                       CallingConv::ID CC) const override;
-
-  const uint32_t* getRTCallPreservedMask(CallingConv::ID CC) const;
+  const MCPhysReg *getCalleeSavedRegs(const MachineFunction *MF) const override;
 
   BitVector getReservedRegs(const MachineFunction &MF) const override;
-
-  const TargetRegisterClass *getPointerRegClass(const MachineFunction &MF,
-                                                unsigned Kind) const override;
+  const TargetRegisterClass*
+  getPointerRegClass(const MachineFunction &MF,
+                     unsigned Kind = 0) const override;
 
   void eliminateFrameIndex(MachineBasicBlock::iterator II,
                            int SPAdj, unsigned FIOperandNum,
                            RegScavenger *RS = nullptr) const override;
 
+  // Debug information queries.
   unsigned getFrameRegister(const MachineFunction &MF) const override;
-*/
 };
 
 } // end namespace llvm

@@ -13,20 +13,25 @@
 // PIC16 Return Value Calling Convention
 //===----------------------------------------------------------------------===//
 def RetCC_PIC16 : CallingConv<[
-  // i8 are returned in the bottom 6 GPR registers in the first bank
-  CCIfType<[i8], CCAssignToReg<[GPR106, GPR107, GPR108, GPR109, GPR110, GPR111]>>
+  // i8 are returned in registers R15B, R14B, R13B, R12B
+  CCIfType<[i8], CCAssignToReg<[R15B, R14B, R13B, R12B]>>,
+
+  // i16 are returned in registers R15, R14, R13, R12
+  CCIfType<[i16], CCAssignToReg<[R15, R14, R13, R12]>>
 ]>;
 
 //===----------------------------------------------------------------------===//
 // PIC16 Argument Calling Conventions
 //===----------------------------------------------------------------------===//
-def CC_PIC16 : CallingConv<[
+def CC_PIC16_AssignStack : CallingConv<[
+  // Pass by value if the byval attribute is given
+  CCIfByVal<CCPassByVal<2, 2>>,
 
-  //The first four integer arguments are passed in 4 registers
-  //in the bottom section of the GPR's in the first bank
-  CCIfType<[i8], CCAssignToReg<GPR102, GPR103, GPR104, GPR105>>,
+  // Promote i8 arguments to i16.
+  CCIfType<[i8], CCPromoteToType<i16>>,
 
-  //Integer Values get stored in stack slots (bottom GPR in first bank),
-  //that are 1 byte in size and 4-byte aligned
-  CCIfType<[i8], CCAssignToStack<1,4>>
+  // Integer values get stored in stack slots that are 2 bytes in
+  // size and 2-byte aligned.
+  CCIfType<[i16], CCAssignToStack<2, 2>>
 ]>;
+
