@@ -34,7 +34,7 @@ static bool inferAllPrototypeAttributes(Module &M,
 }
 
 PreservedAnalyses InferFunctionAttrsPass::run(Module &M,
-                                              ModuleAnalysisManager &AM) {
+                                              AnalysisManager<Module> &AM) {
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
 
   if (!inferAllPrototypeAttributes(M, TLI))

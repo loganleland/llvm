@@ -15,13 +15,11 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Config/config.h" // for strtoull()/strtoll() define
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/TableGen/Error.h"
 #include <cctype>
 #include <cerrno>
-#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -157,7 +155,7 @@ tgtok::TokKind TGLexer::LexToken() {
         case '0': case '1': 
           if (NextChar == 'b')
             return LexNumber();
-          LLVM_FALLTHROUGH;
+          // Fallthrough
         case '2': case '3': case '4': case '5':
         case '6': case '7': case '8': case '9':
         case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
@@ -224,7 +222,7 @@ tgtok::TokKind TGLexer::LexString() {
     case '\0':
       if (CurPtr == CurBuf.end())
         return ReturnError(StrStart, "End of file in string literal");
-      LLVM_FALLTHROUGH;
+      // FALL THROUGH
     default:
       return ReturnError(CurPtr, "invalid escape in string literal");
     }
@@ -247,6 +245,7 @@ tgtok::TokKind TGLexer::LexVarName() {
   CurStrVal.assign(VarNameStart, CurPtr);
   return tgtok::VarName;
 }
+
 
 tgtok::TokKind TGLexer::LexIdentifier() {
   // The first letter is [a-zA-Z_#].
@@ -302,6 +301,7 @@ bool TGLexer::LexInclude() {
   std::string Filename = CurStrVal;
   std::string IncludedFile;
 
+  
   CurBuffer = SrcMgr.AddIncludeFile(Filename, SMLoc::getFromPointer(CurPtr),
                                     IncludedFile);
   if (!CurBuffer) {
@@ -326,7 +326,7 @@ bool TGLexer::LexInclude() {
 
 void TGLexer::SkipBCPLComment() {
   ++CurPtr;  // skip the second slash.
-  while (true) {
+  while (1) {
     switch (*CurPtr) {
     case '\n':
     case '\r':
@@ -348,7 +348,7 @@ bool TGLexer::SkipCComment() {
   ++CurPtr;  // skip the star.
   unsigned CommentDepth = 1;
   
-  while (true) {
+  while (1) {
     int CurChar = getNextChar();
     switch (CurChar) {
     case EOF:
@@ -436,7 +436,7 @@ tgtok::TokKind TGLexer::LexBracket() {
     return tgtok::l_square;
   ++CurPtr;
   const char *CodeStart = CurPtr;
-  while (true) {
+  while (1) {
     int Char = getNextChar();
     if (Char == EOF) break;
     
@@ -485,3 +485,4 @@ tgtok::TokKind TGLexer::LexExclaim() {
 
   return Kind != tgtok::Error ? Kind : ReturnError(Start-1, "Unknown operator");
 }
+

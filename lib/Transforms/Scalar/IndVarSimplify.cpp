@@ -481,7 +481,7 @@ Value *IndVarSimplify::expandSCEVIfNeeded(SCEVExpander &Rewriter, const SCEV *S,
                                           Type *ResultTy) {
   // Before expanding S into an expensive LLVM expression, see if we can use an
   // already existing value as the expansion for S.
-  if (Value *ExistingValue = Rewriter.getExactExistingExpansion(S, InsertPt, L))
+  if (Value *ExistingValue = Rewriter.findExistingExpansion(S, InsertPt, L))
     if (ExistingValue->getType() == ResultTy)
       return ExistingValue;
 
@@ -1184,8 +1184,8 @@ const SCEVAddRecExpr *WidenIV::getWideRecurrence(Instruction *NarrowUse) {
     return nullptr;
 
   const SCEV *NarrowExpr = SE->getSCEV(NarrowUse);
-  if (SE->getTypeSizeInBits(NarrowExpr->getType()) >=
-      SE->getTypeSizeInBits(WideType)) {
+  if (SE->getTypeSizeInBits(NarrowExpr->getType())
+      >= SE->getTypeSizeInBits(WideType)) {
     // NarrowUse implicitly widens its operand. e.g. a gep with a narrow
     // index. So don't follow this use.
     return nullptr;
@@ -1992,36 +1992,8 @@ linearFunctionTestReplace(Loop *L,
 
       DEBUG(dbgs() << "  Widen RHS:\t" << *ExitCnt << "\n");
     } else {
-      // We try to extend trip count first. If that doesn't work we truncate IV.
-      // Zext(trunc(IV)) == IV implies equivalence of the following two:
-      // Trunc(IV) == ExitCnt and IV == zext(ExitCnt). Similarly for sext. If
-      // one of the two holds, extend the trip count, otherwise we truncate IV.
-      bool Extended = false;
-      const SCEV *IV = SE->getSCEV(CmpIndVar);
-      const SCEV *ZExtTrunc =
-           SE->getZeroExtendExpr(SE->getTruncateExpr(SE->getSCEV(CmpIndVar),
-                                                     ExitCnt->getType()),
-                                 CmpIndVar->getType());
-
-      if (ZExtTrunc == IV) {
-        Extended = true;
-        ExitCnt = Builder.CreateZExt(ExitCnt, IndVar->getType(),
-                                     "wide.trip.count");
-      } else {
-        const SCEV *SExtTrunc =
-          SE->getSignExtendExpr(SE->getTruncateExpr(SE->getSCEV(CmpIndVar),
-                                                    ExitCnt->getType()),
-                                CmpIndVar->getType());
-        if (SExtTrunc == IV) {
-          Extended = true;
-          ExitCnt = Builder.CreateSExt(ExitCnt, IndVar->getType(),
-                                       "wide.trip.count");
-        }
-      }
-
-      if (!Extended)
-        CmpIndVar = Builder.CreateTrunc(CmpIndVar, ExitCnt->getType(),
-                                        "lftr.wideiv");
+      CmpIndVar = Builder.CreateTrunc(CmpIndVar, ExitCnt->getType(),
+                                      "lftr.wideiv");
     }
   }
   Value *Cond = Builder.CreateICmp(P, CmpIndVar, ExitCnt, "exitcond");
@@ -2053,7 +2025,7 @@ void IndVarSimplify::sinkUnusedInvariants(Loop *L) {
   BasicBlock *Preheader = L->getLoopPreheader();
   if (!Preheader) return;
 
-  BasicBlock::iterator InsertPt = ExitBlock->getFirstInsertionPt();
+  Instruction *InsertPt = &*ExitBlock->getFirstInsertionPt();
   BasicBlock::iterator I(Preheader->getTerminator());
   while (I != Preheader->begin()) {
     --I;
@@ -2122,9 +2094,9 @@ void IndVarSimplify::sinkUnusedInvariants(Loop *L) {
       Done = true;
     }
 
-    ToMove->moveBefore(*ExitBlock, InsertPt);
+    ToMove->moveBefore(InsertPt);
     if (Done) break;
-    InsertPt = ToMove->getIterator();
+    InsertPt = ToMove;
   }
 }
 
@@ -2249,7 +2221,7 @@ bool IndVarSimplify::run(Loop *L) {
   return Changed;
 }
 
-PreservedAnalyses IndVarSimplifyPass::run(Loop &L, LoopAnalysisManager &AM) {
+PreservedAnalyses IndVarSimplifyPass::run(Loop &L, AnalysisManager<Loop> &AM) {
   auto &FAM = AM.getResult<FunctionAnalysisManagerLoopProxy>(L).getManager();
   Function *F = L.getHeader()->getParent();
   const DataLayout &DL = F->getParent()->getDataLayout();

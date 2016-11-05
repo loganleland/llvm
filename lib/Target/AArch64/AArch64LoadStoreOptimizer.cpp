@@ -55,6 +55,10 @@ static cl::opt<bool> EnableNarrowLdMerge("enable-narrow-ld-merge", cl::Hidden,
                                          cl::init(false),
                                          cl::desc("Enable narrow load merge"));
 
+namespace llvm {
+void initializeAArch64LoadStoreOptPass(PassRegistry &);
+}
+
 #define AARCH64_LOAD_STORE_OPT_NAME "AArch64 load / store optimization pass"
 
 namespace {
@@ -162,7 +166,7 @@ struct AArch64LoadStoreOpt : public MachineFunctionPass {
 
   MachineFunctionProperties getRequiredProperties() const override {
     return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::NoVRegs);
+        MachineFunctionProperties::Property::AllVRegsAllocated);
   }
 
   const char *getPassName() const override {
@@ -1114,9 +1118,8 @@ bool AArch64LoadStoreOpt::findMatchingStore(
     --MBBI;
     MachineInstr &MI = *MBBI;
 
-    // Don't count transient instructions towards the search limit since there
-    // may be different numbers of them if e.g. debug information is present.
-    if (!MI.isTransient())
+    // Don't count DBG_VALUE instructions towards the search limit.
+    if (!MI.isDebugValue())
       ++Count;
 
     // If the load instruction reads directly from the address to which the
@@ -1226,11 +1229,13 @@ AArch64LoadStoreOpt::findMatchingInsn(MachineBasicBlock::iterator I,
 
   for (unsigned Count = 0; MBBI != E && Count < Limit; ++MBBI) {
     MachineInstr &MI = *MBBI;
+    // Skip DBG_VALUE instructions. Otherwise debug info can affect the
+    // optimization by changing how far we scan.
+    if (MI.isDebugValue())
+      continue;
 
-    // Don't count transient instructions towards the search limit since there
-    // may be different numbers of them if e.g. debug information is present.
-    if (!MI.isTransient())
-      ++Count;
+    // Now that we know this is a real instruction, count it.
+    ++Count;
 
     Flags.setSExtIdx(-1);
     if (areCandidatesToMergeOrPair(FirstMI, MI, Flags, TII) &&
@@ -1500,11 +1505,12 @@ MachineBasicBlock::iterator AArch64LoadStoreOpt::findMatchingUpdateInsnForward(
   ++MBBI;
   for (unsigned Count = 0; MBBI != E && Count < Limit; ++MBBI) {
     MachineInstr &MI = *MBBI;
+    // Skip DBG_VALUE instructions.
+    if (MI.isDebugValue())
+      continue;
 
-    // Don't count transient instructions towards the search limit since there
-    // may be different numbers of them if e.g. debug information is present.
-    if (!MI.isTransient())
-      ++Count;
+    // Now that we know this is a real instruction, count it.
+    ++Count;
 
     // If we found a match, return it.
     if (isMatchingUpdateInsn(*I, MI, BaseReg, UnscaledOffset))
@@ -1553,9 +1559,8 @@ MachineBasicBlock::iterator AArch64LoadStoreOpt::findMatchingUpdateInsnBackward(
     --MBBI;
     MachineInstr &MI = *MBBI;
 
-    // Don't count transient instructions towards the search limit since there
-    // may be different numbers of them if e.g. debug information is present.
-    if (!MI.isTransient())
+    // Don't count DBG_VALUE instructions towards the search limit.
+    if (!MI.isDebugValue())
       ++Count;
 
     // If we found a match, return it.
@@ -1747,10 +1752,44 @@ bool AArch64LoadStoreOpt::optimizeBlock(MachineBasicBlock &MBB,
   //        ldp x0, x1, [x2]
   for (MachineBasicBlock::iterator MBBI = MBB.begin(), E = MBB.end();
        MBBI != E;) {
-    if (TII->isPairableLdStInst(*MBBI) && tryToPairLdStInst(MBBI))
-      Modified = true;
-    else
+    MachineInstr &MI = *MBBI;
+    switch (MI.getOpcode()) {
+    default:
+      // Just move on to the next instruction.
       ++MBBI;
+      break;
+    // Scaled instructions.
+    case AArch64::STRSui:
+    case AArch64::STRDui:
+    case AArch64::STRQui:
+    case AArch64::STRXui:
+    case AArch64::STRWui:
+    case AArch64::LDRSui:
+    case AArch64::LDRDui:
+    case AArch64::LDRQui:
+    case AArch64::LDRXui:
+    case AArch64::LDRWui:
+    case AArch64::LDRSWui:
+    // Unscaled instructions.
+    case AArch64::STURSi:
+    case AArch64::STURDi:
+    case AArch64::STURQi:
+    case AArch64::STURWi:
+    case AArch64::STURXi:
+    case AArch64::LDURSi:
+    case AArch64::LDURDi:
+    case AArch64::LDURQi:
+    case AArch64::LDURWi:
+    case AArch64::LDURXi:
+    case AArch64::LDURSWi: {
+      if (tryToPairLdStInst(MBBI)) {
+        Modified = true;
+        break;
+      }
+      ++MBBI;
+      break;
+    }
+    }
   }
   // 4) Find base register updates that can be merged into the load or store
   //    as a base-reg writeback.

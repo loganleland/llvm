@@ -52,7 +52,7 @@
 #define	print	sprint
 #define	at	sat
 #define	match	smat
-#define	nope	snope
+#define	pic16	spic16
 #endif
 #ifdef LNAMES
 #define	matcher	lmatcher
@@ -64,7 +64,7 @@
 #define	print	lprint
 #define	at	lat
 #define	match	lmat
-#define	nope	lnope
+#define	pic16	lpic16
 #endif
 
 /* another structure passed up and down to avoid zillions of parameters */
@@ -117,7 +117,7 @@ static char *pchar(int);
 #define	SP(t, s, c)	print(m, t, s, c, stdout)
 #define	AT(t, p1, p2, s1, s2)	at(m, t, p1, p2, s1, s2)
 #define	NOTE(str)	{ if (m->eflags&REG_TRACE) (void)printf("=%s\n", (str)); }
-static int nope = 0;
+static int pic16 = 0;
 #else
 #define	SP(t, s, c)	/* nothing */
 #define	AT(t, p1, p2, s1, s2)	/* nothing */
@@ -328,7 +328,7 @@ dissect(struct match *m, const char *start, const char *stop, sopno startst,
 		/* figure out what it matched */
 		switch (OP(m->g->strip[ss])) {
 		case OEND:
-			assert(nope);
+			assert(pic16);
 			break;
 		case OCHAR:
 			sp++;
@@ -344,7 +344,7 @@ dissect(struct match *m, const char *start, const char *stop, sopno startst,
 			break;
 		case OBACK_:
 		case O_BACK:
-			assert(nope);
+			assert(pic16);
 			break;
 		/* cases where length of match is hard to find */
 		case OQUEST_:
@@ -454,7 +454,7 @@ dissect(struct match *m, const char *start, const char *stop, sopno startst,
 		case OOR1:
 		case OOR2:
 		case O_CH:
-			assert(nope);
+			assert(pic16);
 			break;
 		case OLPAREN:
 			i = OPND(m->g->strip[ss]);
@@ -467,7 +467,7 @@ dissect(struct match *m, const char *start, const char *stop, sopno startst,
 			m->pmatch[i].rm_eo = sp - m->offp;
 			break;
 		default:		/* uh oh */
-			assert(nope);
+			assert(pic16);
 			break;
 		}
 	}
@@ -666,12 +666,12 @@ backref(struct match *m, const char *start, const char *stop, sopno startst,
 		return(NULL);
 		break;
 	default:		/* uh oh */
-		assert(nope);
+		assert(pic16);
 		break;
 	}
 
 	/* "can't happen" */
-	assert(nope);
+	assert(pic16);
 	/* NOTREACHED */
         return NULL;
 }
@@ -950,7 +950,7 @@ step(struct re_guts *g,
 			FWD(aft, aft, 1);
 			break;
 		default:		/* ooooops... */
-			assert(nope);
+			assert(pic16);
 			break;
 		}
 	}
@@ -1031,4 +1031,4 @@ pchar(int ch)
 #undef	print
 #undef	at
 #undef	match
-#undef	nope
+#undef	pic16

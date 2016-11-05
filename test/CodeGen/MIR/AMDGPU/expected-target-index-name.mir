@@ -32,7 +32,8 @@
 
 ...
 ---
-name: float
+name:            float
+tracksSubRegLiveness: true
 liveins:
   - { reg: '%sgpr0_sgpr1' }
 frameInfo:

@@ -29,26 +29,10 @@ using namespace llvm;
 
 #define DEBUG_TYPE "wasm"
 
-// Emscripten's asm.js-style exception handling
-static cl::opt<bool> EnableEmException(
-    "enable-emscripten-cxx-exceptions",
-    cl::desc("WebAssembly Emscripten-style exception handling"),
-    cl::init(false));
-
-// Emscripten's asm.js-style setjmp/longjmp handling
-static cl::opt<bool> EnableEmSjLj(
-    "enable-emscripten-sjlj",
-    cl::desc("WebAssembly Emscripten-style setjmp/longjmp handling"),
-    cl::init(false));
-
 extern "C" void LLVMInitializeWebAssemblyTarget() {
   // Register the target.
   RegisterTargetMachine<WebAssemblyTargetMachine> X(TheWebAssemblyTarget32);
   RegisterTargetMachine<WebAssemblyTargetMachine> Y(TheWebAssemblyTarget64);
-
-  // Register exception handling pass to opt
-  initializeWebAssemblyLowerEmscriptenEHSjLjPass(
-      *PassRegistry::getPassRegistry());
 }
 
 //===----------------------------------------------------------------------===//
@@ -165,11 +149,6 @@ void WebAssemblyPassConfig::addIRPasses() {
   if (getOptLevel() != CodeGenOpt::None)
     addPass(createWebAssemblyOptimizeReturned());
 
-  // Handle exceptions.
-  if (EnableEmException || EnableEmSjLj)
-    addPass(createWebAssemblyLowerEmscriptenEHSjLj(EnableEmException,
-                                                   EnableEmSjLj));
-
   TargetPassConfig::addIRPasses();
 }
 
@@ -196,7 +175,7 @@ void WebAssemblyPassConfig::addPostRegAlloc() {
   // Has no asserts of its own, but was not written to handle virtual regs.
   disablePass(&ShrinkWrapID);
 
-  // These functions all require the NoVRegs property.
+  // These functions all require the AllVRegsAllocated property.
   disablePass(&MachineCopyPropagationID);
   disablePass(&PostRASchedulerID);
   disablePass(&FuncletLayoutID);

@@ -1509,18 +1509,6 @@ let usesCustomInserter = 1 in {
     def ATOMIC_LOAD_NAND_I8 : Pseudo<
       (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_NAND_I8",
       [(set i32:$dst, (atomic_load_nand_8 xoaddr:$ptr, i32:$incr))]>;
-    def ATOMIC_LOAD_MIN_I8 : Pseudo<
-      (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_MIN_I8",
-      [(set i32:$dst, (atomic_load_min_8 xoaddr:$ptr, i32:$incr))]>;
-    def ATOMIC_LOAD_MAX_I8 : Pseudo<
-      (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_MAX_I8",
-      [(set i32:$dst, (atomic_load_max_8 xoaddr:$ptr, i32:$incr))]>;
-    def ATOMIC_LOAD_UMIN_I8 : Pseudo<
-      (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_UMIN_I8",
-      [(set i32:$dst, (atomic_load_umin_8 xoaddr:$ptr, i32:$incr))]>;
-    def ATOMIC_LOAD_UMAX_I8 : Pseudo<
-      (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_UMAX_I8",
-      [(set i32:$dst, (atomic_load_umax_8 xoaddr:$ptr, i32:$incr))]>;
     def ATOMIC_LOAD_ADD_I16 : Pseudo<
       (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_ADD_I16",
       [(set i32:$dst, (atomic_load_add_16 xoaddr:$ptr, i32:$incr))]>;
@@ -1539,18 +1527,6 @@ let usesCustomInserter = 1 in {
     def ATOMIC_LOAD_NAND_I16 : Pseudo<
       (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_NAND_I16",
       [(set i32:$dst, (atomic_load_nand_16 xoaddr:$ptr, i32:$incr))]>;
-    def ATOMIC_LOAD_MIN_I16 : Pseudo<
-      (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_MIN_I16",
-      [(set i32:$dst, (atomic_load_min_16 xoaddr:$ptr, i32:$incr))]>;
-    def ATOMIC_LOAD_MAX_I16 : Pseudo<
-      (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_MAX_I16",
-      [(set i32:$dst, (atomic_load_max_16 xoaddr:$ptr, i32:$incr))]>;
-    def ATOMIC_LOAD_UMIN_I16 : Pseudo<
-      (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_UMIN_I16",
-      [(set i32:$dst, (atomic_load_umin_16 xoaddr:$ptr, i32:$incr))]>;
-    def ATOMIC_LOAD_UMAX_I16 : Pseudo<
-      (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_UMAX_I16",
-      [(set i32:$dst, (atomic_load_umax_16 xoaddr:$ptr, i32:$incr))]>;
     def ATOMIC_LOAD_ADD_I32 : Pseudo<
       (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_ADD_I32",
       [(set i32:$dst, (atomic_load_add_32 xoaddr:$ptr, i32:$incr))]>;
@@ -1569,18 +1545,6 @@ let usesCustomInserter = 1 in {
     def ATOMIC_LOAD_NAND_I32 : Pseudo<
       (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_NAND_I32",
       [(set i32:$dst, (atomic_load_nand_32 xoaddr:$ptr, i32:$incr))]>;
-    def ATOMIC_LOAD_MIN_I32 : Pseudo<
-      (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_MIN_I32",
-      [(set i32:$dst, (atomic_load_min_32 xoaddr:$ptr, i32:$incr))]>;
-    def ATOMIC_LOAD_MAX_I32 : Pseudo<
-      (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_MAX_I32",
-      [(set i32:$dst, (atomic_load_max_32 xoaddr:$ptr, i32:$incr))]>;
-    def ATOMIC_LOAD_UMIN_I32 : Pseudo<
-      (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_UMIN_I32",
-      [(set i32:$dst, (atomic_load_umin_32 xoaddr:$ptr, i32:$incr))]>;
-    def ATOMIC_LOAD_UMAX_I32 : Pseudo<
-      (outs gprc:$dst), (ins memrr:$ptr, gprc:$incr), "#ATOMIC_LOAD_UMAX_I32",
-      [(set i32:$dst, (atomic_load_umax_32 xoaddr:$ptr, i32:$incr))]>;
 
     def ATOMIC_CMP_SWAP_I8 : Pseudo<
       (outs gprc:$dst), (ins memrr:$ptr, gprc:$old, gprc:$new), "#ATOMIC_CMP_SWAP_I8",
@@ -2146,15 +2110,15 @@ let Uses = [RM] in {
 
   defm FRSP   : XForm_26r<63, 12, (outs f4rc:$frD), (ins f8rc:$frB),
                           "frsp", "$frD, $frB", IIC_FPGeneral,
-                          [(set f32:$frD, (fpround f64:$frB))]>;
+                          [(set f32:$frD, (fround f64:$frB))]>;
 
   let Interpretation64Bit = 1, isCodeGenOnly = 1 in
   defm FRIND  : XForm_26r<63, 392, (outs f8rc:$frD), (ins f8rc:$frB),
                           "frin", "$frD, $frB", IIC_FPGeneral,
-                          [(set f64:$frD, (fround f64:$frB))]>;
+                          [(set f64:$frD, (frnd f64:$frB))]>;
   defm FRINS  : XForm_26r<63, 392, (outs f4rc:$frD), (ins f4rc:$frB),
                           "frin", "$frD, $frB", IIC_FPGeneral,
-                          [(set f32:$frD, (fround f32:$frB))]>;
+                          [(set f32:$frD, (frnd f32:$frB))]>;
   }
 
   let hasSideEffects = 0 in {
@@ -2892,7 +2856,7 @@ def : Pat<(f64 (extloadf32 iaddr:$src)),
 def : Pat<(f64 (extloadf32 xaddr:$src)),
           (COPY_TO_REGCLASS (LFSX xaddr:$src), F8RC)>;
 
-def : Pat<(f64 (fpextend f32:$src)),
+def : Pat<(f64 (fextend f32:$src)),
           (COPY_TO_REGCLASS $src, F8RC)>;
 
 // Only seq_cst fences require the heavyweight sync (SYNC 0).

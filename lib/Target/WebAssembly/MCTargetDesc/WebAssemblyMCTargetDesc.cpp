@@ -77,8 +77,7 @@ static MCCodeEmitter *createCodeEmitter(const MCInstrInfo &MCII,
 
 static MCAsmBackend *createAsmBackend(const Target & /*T*/,
                                       const MCRegisterInfo & /*MRI*/,
-                                      const Triple &TT, StringRef /*CPU*/,
-                                      const MCTargetOptions & /*Options*/) {
+                                      const Triple &TT, StringRef /*CPU*/) {
   return createWebAssemblyAsmBackend(TT);
 }
 

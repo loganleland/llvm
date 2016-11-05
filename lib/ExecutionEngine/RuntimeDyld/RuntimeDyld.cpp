@@ -224,25 +224,11 @@ RuntimeDyldImpl::loadObjectImpl(const object::ObjectFile &Obj) {
         return NameOrErr.takeError();
 
       // Compute JIT symbol flags.
-      JITSymbolFlags JITSymFlags = JITSymbolFlags::fromObjectSymbol(*I);
-
-      // If this is a weak definition, check to see if there's a strong one.
-      // If there is, skip this symbol (we won't be providing it: the strong
-      // definition will). If there's no strong definition, make this definition
-      // strong.
-      if (JITSymFlags.isWeak()) {
-        // First check whether there's already a definition in this instance.
-        // FIXME: Override existing weak definitions with strong ones.
-        if (GlobalSymbolTable.count(Name))
-          continue;
-        // Then check the symbol resolver to see if there's a definition
-        // elsewhere in this logical dylib.
-        if (auto Sym = Resolver.findSymbolInLogicalDylib(Name))
-          if (Sym.getFlags().isStrongDefinition())
-            continue;
-        // else
-        JITSymFlags &= ~JITSymbolFlags::Weak;
-      }
+      JITSymbolFlags RTDyldSymFlags = JITSymbolFlags::None;
+      if (Flags & SymbolRef::SF_Weak)
+        RTDyldSymFlags |= JITSymbolFlags::Weak;
+      if (Flags & SymbolRef::SF_Exported)
+        RTDyldSymFlags |= JITSymbolFlags::Exported;
 
       if (Flags & SymbolRef::SF_Absolute &&
           SymType != object::SymbolRef::ST_File) {
@@ -259,7 +245,7 @@ RuntimeDyldImpl::loadObjectImpl(const object::ObjectFile &Obj) {
                      << format("%p", (uintptr_t)Addr)
                      << " flags: " << Flags << "\n");
         GlobalSymbolTable[Name] =
-          SymbolTableEntry(SectionID, Addr, JITSymFlags);
+          SymbolTableEntry(SectionID, Addr, RTDyldSymFlags);
       } else if (SymType == object::SymbolRef::ST_Function ||
                  SymType == object::SymbolRef::ST_Data ||
                  SymType == object::SymbolRef::ST_Unknown ||
@@ -292,7 +278,7 @@ RuntimeDyldImpl::loadObjectImpl(const object::ObjectFile &Obj) {
                      << format("%p", (uintptr_t)SectOffset)
                      << " flags: " << Flags << "\n");
         GlobalSymbolTable[Name] =
-          SymbolTableEntry(SectionID, SectOffset, JITSymFlags);
+          SymbolTableEntry(SectionID, SectOffset, RTDyldSymFlags);
       }
     }
   }
@@ -598,19 +584,13 @@ Error RuntimeDyldImpl::emitCommonSymbols(const ObjectFile &Obj,
       return NameOrErr.takeError();
 
     // Skip common symbols already elsewhere.
-    if (GlobalSymbolTable.count(Name)) {
+    if (GlobalSymbolTable.count(Name) ||
+        Resolver.findSymbolInLogicalDylib(Name)) {
       DEBUG(dbgs() << "\tSkipping already emitted common symbol '" << Name
                    << "'\n");
       continue;
     }
 
-    if (auto Sym = Resolver.findSymbolInLogicalDylib(Name)) {
-      if (!Sym.getFlags().isCommon()) {
-        DEBUG(dbgs() << "\tSkipping common symbol '" << Name
-                     << "' in favor of stronger definition.\n");
-        continue;
-      }
-    }
     uint32_t Align = Sym.getAlignment();
     uint64_t Size = Sym.getCommonSize();
 
@@ -648,11 +628,16 @@ Error RuntimeDyldImpl::emitCommonSymbols(const ObjectFile &Obj,
       Addr += AlignOffset;
       Offset += AlignOffset;
     }
-    JITSymbolFlags JITSymFlags = JITSymbolFlags::fromObjectSymbol(Sym);
+    uint32_t Flags = Sym.getFlags();
+    JITSymbolFlags RTDyldSymFlags = JITSymbolFlags::None;
+    if (Flags & SymbolRef::SF_Weak)
+      RTDyldSymFlags |= JITSymbolFlags::Weak;
+    if (Flags & SymbolRef::SF_Exported)
+      RTDyldSymFlags |= JITSymbolFlags::Exported;
     DEBUG(dbgs() << "Allocating common symbol " << Name << " address "
                  << format("%p", Addr) << "\n");
     GlobalSymbolTable[Name] =
-      SymbolTableEntry(SectionID, Offset, JITSymFlags);
+      SymbolTableEntry(SectionID, Offset, RTDyldSymFlags);
     Offset += Size;
     Addr += Size;
   }
@@ -989,10 +974,10 @@ uint64_t RuntimeDyld::LoadedObjectInfo::getSectionLoadAddress(
 }
 
 void RuntimeDyld::MemoryManager::anchor() {}
-void JITSymbolResolver::anchor() {}
+void RuntimeDyld::SymbolResolver::anchor() {}
 
 RuntimeDyld::RuntimeDyld(RuntimeDyld::MemoryManager &MemMgr,
-                         JITSymbolResolver &Resolver)
+                         RuntimeDyld::SymbolResolver &Resolver)
     : MemMgr(MemMgr), Resolver(Resolver) {
   // FIXME: There's a potential issue lurking here if a single instance of
   // RuntimeDyld is used to load multiple objects.  The current implementation
@@ -1009,8 +994,8 @@ RuntimeDyld::~RuntimeDyld() {}
 
 static std::unique_ptr<RuntimeDyldCOFF>
 createRuntimeDyldCOFF(Triple::ArchType Arch, RuntimeDyld::MemoryManager &MM,
-                      JITSymbolResolver &Resolver, bool ProcessAllSections,
-                      RuntimeDyldCheckerImpl *Checker) {
+                      RuntimeDyld::SymbolResolver &Resolver,
+                      bool ProcessAllSections, RuntimeDyldCheckerImpl *Checker) {
   std::unique_ptr<RuntimeDyldCOFF> Dyld =
     RuntimeDyldCOFF::create(Arch, MM, Resolver);
   Dyld->setProcessAllSections(ProcessAllSections);
@@ -1020,8 +1005,8 @@ createRuntimeDyldCOFF(Triple::ArchType Arch, RuntimeDyld::MemoryManager &MM,
 
 static std::unique_ptr<RuntimeDyldELF>
 createRuntimeDyldELF(RuntimeDyld::MemoryManager &MM,
-                     JITSymbolResolver &Resolver, bool ProcessAllSections,
-                     RuntimeDyldCheckerImpl *Checker) {
+                     RuntimeDyld::SymbolResolver &Resolver,
+                     bool ProcessAllSections, RuntimeDyldCheckerImpl *Checker) {
   std::unique_ptr<RuntimeDyldELF> Dyld(new RuntimeDyldELF(MM, Resolver));
   Dyld->setProcessAllSections(ProcessAllSections);
   Dyld->setRuntimeDyldChecker(Checker);
@@ -1030,7 +1015,7 @@ createRuntimeDyldELF(RuntimeDyld::MemoryManager &MM,
 
 static std::unique_ptr<RuntimeDyldMachO>
 createRuntimeDyldMachO(Triple::ArchType Arch, RuntimeDyld::MemoryManager &MM,
-                       JITSymbolResolver &Resolver,
+                       RuntimeDyld::SymbolResolver &Resolver,
                        bool ProcessAllSections,
                        RuntimeDyldCheckerImpl *Checker) {
   std::unique_ptr<RuntimeDyldMachO> Dyld =
@@ -1071,7 +1056,7 @@ void *RuntimeDyld::getSymbolLocalAddress(StringRef Name) const {
   return Dyld->getSymbolLocalAddress(Name);
 }
 
-JITEvaluatedSymbol RuntimeDyld::getSymbol(StringRef Name) const {
+RuntimeDyld::SymbolInfo RuntimeDyld::getSymbol(StringRef Name) const {
   if (!Dyld)
     return nullptr;
   return Dyld->getSymbol(Name);

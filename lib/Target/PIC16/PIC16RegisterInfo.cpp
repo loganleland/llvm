@@ -1,4 +1,4 @@
-//===-- NOPERegisterInfo.cpp - NOPE Register Information --------------===//
+//===-- PIC16RegisterInfo.cpp - PIC16 Register Information --------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,14 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the NOPE implementation of the TargetRegisterInfo class.
+// This file contains the PIC16 implementation of the TargetRegisterInfo class.
 //
 //===----------------------------------------------------------------------===//
 
-#include "NOPERegisterInfo.h"
-#include "NOPE.h"
-#include "NOPEMachineFunctionInfo.h"
-#include "NOPETargetMachine.h"
+#include "PIC16RegisterInfo.h"
+#include "PIC16.h"
+#include "PIC16MachineFunctionInfo.h"
+#include "PIC16TargetMachine.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -26,82 +26,82 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "nope-reg-info"
+#define DEBUG_TYPE "pic16-reg-info"
 
 #define GET_REGINFO_TARGET_DESC
-#include "NOPEGenRegisterInfo.inc"
+#include "PIC16GenRegisterInfo.inc"
 
 // FIXME: Provide proper call frame setup / destroy opcodes.
-NOPERegisterInfo::NOPERegisterInfo()
-  : NOPEGenRegisterInfo(NOPE::PC) {}
+PIC16RegisterInfo::PIC16RegisterInfo()
+  : PIC16GenRegisterInfo(PIC16::PC) {}
 
 const MCPhysReg*
-NOPERegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
-  const NOPEFrameLowering *TFI = getFrameLowering(*MF);
+PIC16RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
+  const PIC16FrameLowering *TFI = getFrameLowering(*MF);
   const Function* F = MF->getFunction();
   static const MCPhysReg CalleeSavedRegs[] = {
-    NOPE::FP, NOPE::R5, NOPE::R6, NOPE::R7,
-    NOPE::R8, NOPE::R9, NOPE::R10, NOPE::R11,
+    PIC16::FP, PIC16::R5, PIC16::R6, PIC16::R7,
+    PIC16::R8, PIC16::R9, PIC16::R10, PIC16::R11,
     0
   };
   static const MCPhysReg CalleeSavedRegsFP[] = {
-    NOPE::R5, NOPE::R6, NOPE::R7,
-    NOPE::R8, NOPE::R9, NOPE::R10, NOPE::R11,
+    PIC16::R5, PIC16::R6, PIC16::R7,
+    PIC16::R8, PIC16::R9, PIC16::R10, PIC16::R11,
     0
   };
   static const MCPhysReg CalleeSavedRegsIntr[] = {
-    NOPE::FP,  NOPE::R5,  NOPE::R6,  NOPE::R7,
-    NOPE::R8,  NOPE::R9,  NOPE::R10, NOPE::R11,
-    NOPE::R12, NOPE::R13, NOPE::R14, NOPE::R15,
+    PIC16::FP,  PIC16::R5,  PIC16::R6,  PIC16::R7,
+    PIC16::R8,  PIC16::R9,  PIC16::R10, PIC16::R11,
+    PIC16::R12, PIC16::R13, PIC16::R14, PIC16::R15,
     0
   };
   static const MCPhysReg CalleeSavedRegsIntrFP[] = {
-    NOPE::R5,  NOPE::R6,  NOPE::R7,
-    NOPE::R8,  NOPE::R9,  NOPE::R10, NOPE::R11,
-    NOPE::R12, NOPE::R13, NOPE::R14, NOPE::R15,
+    PIC16::R5,  PIC16::R6,  PIC16::R7,
+    PIC16::R8,  PIC16::R9,  PIC16::R10, PIC16::R11,
+    PIC16::R12, PIC16::R13, PIC16::R14, PIC16::R15,
     0
   };
 
   if (TFI->hasFP(*MF))
-    return (F->getCallingConv() == CallingConv::NOPE_INTR ?
+    return (F->getCallingConv() == CallingConv::PIC16_INTR ?
             CalleeSavedRegsIntrFP : CalleeSavedRegsFP);
   else
-    return (F->getCallingConv() == CallingConv::NOPE_INTR ?
+    return (F->getCallingConv() == CallingConv::PIC16_INTR ?
             CalleeSavedRegsIntr : CalleeSavedRegs);
 
 }
 
-BitVector NOPERegisterInfo::getReservedRegs(const MachineFunction &MF) const {
+BitVector PIC16RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
-  const NOPEFrameLowering *TFI = getFrameLowering(MF);
+  const PIC16FrameLowering *TFI = getFrameLowering(MF);
 
   // Mark 4 special registers with subregisters as reserved.
-  Reserved.set(NOPE::PCB);
-  Reserved.set(NOPE::SPB);
-  Reserved.set(NOPE::SRB);
-  Reserved.set(NOPE::CGB);
-  Reserved.set(NOPE::PC);
-  Reserved.set(NOPE::SP);
-  Reserved.set(NOPE::SR);
-  Reserved.set(NOPE::CG);
+  Reserved.set(PIC16::PCB);
+  Reserved.set(PIC16::SPB);
+  Reserved.set(PIC16::SRB);
+  Reserved.set(PIC16::CGB);
+  Reserved.set(PIC16::PC);
+  Reserved.set(PIC16::SP);
+  Reserved.set(PIC16::SR);
+  Reserved.set(PIC16::CG);
 
   // Mark frame pointer as reserved if needed.
   if (TFI->hasFP(MF)) {
-    Reserved.set(NOPE::FPB);
-    Reserved.set(NOPE::FP);
+    Reserved.set(PIC16::FPB);
+    Reserved.set(PIC16::FP);
   }
 
   return Reserved;
 }
 
 const TargetRegisterClass *
-NOPERegisterInfo::getPointerRegClass(const MachineFunction &MF, unsigned Kind)
+PIC16RegisterInfo::getPointerRegClass(const MachineFunction &MF, unsigned Kind)
                                                                          const {
-  return &NOPE::GR16RegClass;
+  return &PIC16::GR16RegClass;
 }
 
 void
-NOPERegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
+PIC16RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                         int SPAdj, unsigned FIOperandNum,
                                         RegScavenger *RS) const {
   assert(SPAdj == 0 && "Unexpected");
@@ -109,11 +109,11 @@ NOPERegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   MachineInstr &MI = *II;
   MachineBasicBlock &MBB = *MI.getParent();
   MachineFunction &MF = *MBB.getParent();
-  const NOPEFrameLowering *TFI = getFrameLowering(MF);
+  const PIC16FrameLowering *TFI = getFrameLowering(MF);
   DebugLoc dl = MI.getDebugLoc();
   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
 
-  unsigned BasePtr = (TFI->hasFP(MF) ? NOPE::FP : NOPE::SP);
+  unsigned BasePtr = (TFI->hasFP(MF) ? PIC16::FP : PIC16::SP);
   int Offset = MF.getFrameInfo()->getObjectOffset(FrameIndex);
 
   // Skip the saved PC
@@ -127,13 +127,13 @@ NOPERegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   // Fold imm into offset
   Offset += MI.getOperand(FIOperandNum + 1).getImm();
 
-  if (MI.getOpcode() == NOPE::ADD16ri) {
+  if (MI.getOpcode() == PIC16::ADD16ri) {
     // This is actually "load effective address" of the stack slot
     // instruction. We have only two-address instructions, thus we need to
     // expand it into mov + add
     const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
 
-    MI.setDesc(TII.get(NOPE::MOV16rr));
+    MI.setDesc(TII.get(PIC16::MOV16rr));
     MI.getOperand(FIOperandNum).ChangeToRegister(BasePtr, false);
 
     if (Offset == 0)
@@ -142,10 +142,10 @@ NOPERegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     // We need to materialize the offset via add instruction.
     unsigned DstReg = MI.getOperand(0).getReg();
     if (Offset < 0)
-      BuildMI(MBB, std::next(II), dl, TII.get(NOPE::SUB16ri), DstReg)
+      BuildMI(MBB, std::next(II), dl, TII.get(PIC16::SUB16ri), DstReg)
         .addReg(DstReg).addImm(-Offset);
     else
-      BuildMI(MBB, std::next(II), dl, TII.get(NOPE::ADD16ri), DstReg)
+      BuildMI(MBB, std::next(II), dl, TII.get(PIC16::ADD16ri), DstReg)
         .addReg(DstReg).addImm(Offset);
 
     return;
@@ -155,7 +155,7 @@ NOPERegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
 }
 
-unsigned NOPERegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-  const NOPEFrameLowering *TFI = getFrameLowering(MF);
-  return TFI->hasFP(MF) ? NOPE::FP : NOPE::SP;
+unsigned PIC16RegisterInfo::getFrameRegister(const MachineFunction &MF) const {
+  const PIC16FrameLowering *TFI = getFrameLowering(MF);
+  return TFI->hasFP(MF) ? PIC16::FP : PIC16::SP;
 }

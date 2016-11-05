@@ -44,8 +44,7 @@ private:
 
   bool selectAddrFrameIndex(SDValue Addr, SDValue &Base, SDValue &Offset) const;
   bool selectAddrFrameIndexOffset(SDValue Addr, SDValue &Base, SDValue &Offset,
-                                  unsigned OffsetBits,
-                                  unsigned ShiftAmount) const;
+                                  unsigned OffsetBits) const;
 
   bool selectAddrRegImm(SDValue Addr, SDValue &Base,
                         SDValue &Offset) const override;
@@ -58,6 +57,9 @@ private:
 
   bool selectAddrRegImm9(SDValue Addr, SDValue &Base,
                          SDValue &Offset) const;
+
+  bool selectAddrRegImm10(SDValue Addr, SDValue &Base,
+                          SDValue &Offset) const;
 
   bool selectAddrRegImm11(SDValue Addr, SDValue &Base,
                           SDValue &Offset) const;
@@ -80,17 +82,8 @@ private:
   bool selectIntAddrLSL2MM(SDValue Addr, SDValue &Base,
                            SDValue &Offset) const override;
 
-  bool selectIntAddrSImm10(SDValue Addr, SDValue &Base,
-                           SDValue &Offset) const override;
-
-  bool selectIntAddrSImm10Lsl1(SDValue Addr, SDValue &Base,
-                               SDValue &Offset) const override;
-
-  bool selectIntAddrSImm10Lsl2(SDValue Addr, SDValue &Base,
-                               SDValue &Offset) const override;
-
-  bool selectIntAddrSImm10Lsl3(SDValue Addr, SDValue &Base,
-                               SDValue &Offset) const override;
+  bool selectIntAddrMSA(SDValue Addr, SDValue &Base,
+                        SDValue &Offset) const override;
 
   /// \brief Select constant vector splats.
   bool selectVSplat(SDNode *N, APInt &Imm,

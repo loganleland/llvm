@@ -44,7 +44,6 @@ add_llvm_target(ARMCodeGen
   Thumb2ITBlockPass.cpp
   Thumb2InstrInfo.cpp
   Thumb2SizeReduction.cpp
-  ARMComputeBlockSize.cpp
   )
 
 add_subdirectory(TargetInfo)

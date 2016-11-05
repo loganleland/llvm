@@ -9,8 +9,7 @@
 ; GCN-NOHSA: buffer_load_ubyte v{{[0-9]+}}
 ; GCN-HSA: flat_load_ubyte
 
-; EG: VTX_READ_8 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
-; TODO: NOT AND
+; EG: VTX_READ_8 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0
 define void @global_load_i8(i8 addrspace(1)* %out, i8 addrspace(1)* %in) #0 {
 entry:
   %ld = load i8, i8 addrspace(1)* %in
@@ -22,7 +21,7 @@ entry:
 ; GCN-NOHSA: buffer_load_ushort v
 ; GCN-HSA: flat_load_ushort v
 
-; EG: VTX_READ_16 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
+; EG: VTX_READ_16
 define void @global_load_v2i8(<2 x i8> addrspace(1)* %out, <2 x i8> addrspace(1)* %in) #0 {
 entry:
   %ld = load <2 x i8>, <2 x i8> addrspace(1)* %in
@@ -34,7 +33,7 @@ entry:
 ; GCN-NOHSA: buffer_load_dword v
 ; GCN-HSA: flat_load_dword v
 
-; EG: VTX_READ_32 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
+; EG-DAG: VTX_READ_32
 define void @global_load_v3i8(<3 x i8> addrspace(1)* %out, <3 x i8> addrspace(1)* %in) #0 {
 entry:
   %ld = load <3 x i8>, <3 x i8> addrspace(1)* %in
@@ -46,7 +45,7 @@ entry:
 ; GCN-NOHSA: buffer_load_dword v
 ; GCN-HSA: flat_load_dword v
 
-; EG: VTX_READ_32 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
+; EG: VTX_READ_32
 define void @global_load_v4i8(<4 x i8> addrspace(1)* %out, <4 x i8> addrspace(1)* %in) #0 {
 entry:
   %ld = load <4 x i8>, <4 x i8> addrspace(1)* %in
@@ -58,7 +57,7 @@ entry:
 ; GCN-NOHSA: buffer_load_dwordx2
 ; GCN-HSA: flat_load_dwordx2
 
-; EG: VTX_READ_64 T{{[0-9]+}}.XY, T{{[0-9]+}}.X, 0, #1
+; EG: VTX_READ_64
 define void @global_load_v8i8(<8 x i8> addrspace(1)* %out, <8 x i8> addrspace(1)* %in) #0 {
 entry:
   %ld = load <8 x i8>, <8 x i8> addrspace(1)* %in
@@ -71,7 +70,7 @@ entry:
 
 ; GCN-HSA: flat_load_dwordx4
 
-; EG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 0, #1
+; EG: VTX_READ_128
 define void @global_load_v16i8(<16 x i8> addrspace(1)* %out, <16 x i8> addrspace(1)* %in) #0 {
 entry:
   %ld = load <16 x i8>, <16 x i8> addrspace(1)* %in
@@ -83,7 +82,7 @@ entry:
 ; GCN-NOHSA: buffer_load_ubyte v{{[0-9]+}},
 ; GCN-HSA: flat_load_ubyte
 
-; EG: VTX_READ_8 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
+; EG: VTX_READ_8 T{{[0-9]+\.X, T[0-9]+\.X}}
 define void @global_zextload_i8_to_i32(i32 addrspace(1)* %out, i8 addrspace(1)* %in) #0 {
   %a = load i8, i8 addrspace(1)* %in
   %ext = zext i8 %a to i32
@@ -95,7 +94,7 @@ define void @global_zextload_i8_to_i32(i32 addrspace(1)* %out, i8 addrspace(1)* 
 ; GCN-NOHSA: buffer_load_sbyte
 ; GCN-HSA: flat_load_sbyte
 
-; EG: VTX_READ_8 [[DST:T[0-9]\.[XYZW]]], [[DST]], 0, #1
+; EG: VTX_READ_8 [[DST:T[0-9]\.[XYZW]]], [[DST]]
 ; EG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, [[DST]], 0.0, literal
 ; EG: 8
 define void @global_sextload_i8_to_i32(i32 addrspace(1)* %out, i8 addrspace(1)* %in) #0 {
@@ -106,8 +105,6 @@ define void @global_sextload_i8_to_i32(i32 addrspace(1)* %out, i8 addrspace(1)* 
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v1i8_to_v1i32:
-
-; EG: VTX_READ_8 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
 define void @global_zextload_v1i8_to_v1i32(<1 x i32> addrspace(1)* %out, <1 x i8> addrspace(1)* %in) #0 {
   %load = load <1 x i8>, <1 x i8> addrspace(1)* %in
   %ext = zext <1 x i8> %load to <1 x i32>
@@ -116,10 +113,6 @@ define void @global_zextload_v1i8_to_v1i32(<1 x i32> addrspace(1)* %out, <1 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v1i8_to_v1i32:
-
-; EG: VTX_READ_8 [[DST:T[0-9]\.[XYZW]]], [[DST]], 0, #1
-; EG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, [[DST]], 0.0, literal
-; EG: 8
 define void @global_sextload_v1i8_to_v1i32(<1 x i32> addrspace(1)* %out, <1 x i8> addrspace(1)* %in) #0 {
   %load = load <1 x i8>, <1 x i8> addrspace(1)* %in
   %ext = sext <1 x i8> %load to <1 x i32>
@@ -131,10 +124,8 @@ define void @global_sextload_v1i8_to_v1i32(<1 x i32> addrspace(1)* %out, <1 x i8
 ; GCN-NOHSA: buffer_load_ushort
 ; GCN-HSA: flat_load_ushort
 
-; EG: VTX_READ_16 [[DST:T[0-9]+\.X]], T{{[0-9]+}}.X, 0, #1
-; TODO: These should use DST, but for some there are redundant MOVs
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, literal
-; EG-DAG: 8
+; EG: VTX_READ_8
+; EG: VTX_READ_8
 define void @global_zextload_v2i8_to_v2i32(<2 x i32> addrspace(1)* %out, <2 x i8> addrspace(1)* %in) #0 {
   %load = load <2 x i8>, <2 x i8> addrspace(1)* %in
   %ext = zext <2 x i8> %load to <2 x i32>
@@ -146,10 +137,10 @@ define void @global_zextload_v2i8_to_v2i32(<2 x i32> addrspace(1)* %out, <2 x i8
 ; GCN-NOHSA: buffer_load_ushort
 ; GCN-HSA: flat_load_ushort
 
-; EG: VTX_READ_16 [[DST:T[0-9]+\.X]], T{{[0-9]+}}.X, 0, #1
-; TODO: These should use DST, but for some there are redundant MOVs
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
+; EG-DAG: VTX_READ_8 [[DST_X:T[0-9]\.[XYZW]]], [[DST_X]]
+; EG-DAG: VTX_READ_8 [[DST_Y:T[0-9]\.[XYZW]]], [[DST_Y]]
+; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, [[DST_X]], 0.0, literal
+; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, [[DST_Y]], 0.0, literal
 ; EG-DAG: 8
 ; EG-DAG: 8
 define void @global_sextload_v2i8_to_v2i32(<2 x i32> addrspace(1)* %out, <2 x i8> addrspace(1)* %in) #0 {
@@ -166,13 +157,6 @@ define void @global_sextload_v2i8_to_v2i32(<2 x i32> addrspace(1)* %out, <2 x i8
 ; GCN-DAG: v_bfe_u32 v{{[0-9]+}}, v{{[0-9]+}}, 8, 8
 ; GCN-DAG: v_bfe_u32 v{{[0-9]+}}, v{{[0-9]+}}, 16, 8
 ; GCN-DAG: v_and_b32_e32 v{{[0-9]+}}, 0xff,
-
-; EG: VTX_READ_32 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
-; TODO: These should use DST, but for some there are redundant MOVs
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: 8
-; EG-DAG: 8
 define void @global_zextload_v3i8_to_v3i32(<3 x i32> addrspace(1)* %out, <3 x i8> addrspace(1)* %in) #0 {
 entry:
   %ld = load <3 x i8>, <3 x i8> addrspace(1)* %in
@@ -188,15 +172,6 @@ entry:
 ; GCN-DAG: v_bfe_i32 v{{[0-9]+}}, v{{[0-9]+}}, 8, 8
 ; GCN-DAG: v_bfe_i32 v{{[0-9]+}}, v{{[0-9]+}}, 0, 8
 ; GCN-DAG: v_bfe_i32 v{{[0-9]+}}, v{{[0-9]+}}, 16, 8
-
-; EG: VTX_READ_32 [[DST:T[0-9]+\.X]], T{{[0-9]+}}.X, 0, #1
-; TODO: These should use DST, but for some there are redundant MOVs
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
 define void @global_sextload_v3i8_to_v3i32(<3 x i32> addrspace(1)* %out, <3 x i8> addrspace(1)* %in) #0 {
 entry:
   %ld = load <3 x i8>, <3 x i8> addrspace(1)* %in
@@ -209,14 +184,10 @@ entry:
 ; GCN-NOHSA: buffer_load_dword
 ; GCN-HSA: flat_load_dword
 
-; EG: VTX_READ_32 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
-; TODO: These should use DST, but for some there are redundant MOVs
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
+; EG: VTX_READ_8
+; EG: VTX_READ_8
+; EG: VTX_READ_8
+; EG: VTX_READ_8
 define void @global_zextload_v4i8_to_v4i32(<4 x i32> addrspace(1)* %out, <4 x i8> addrspace(1)* %in) #0 {
   %load = load <4 x i8>, <4 x i8> addrspace(1)* %in
   %ext = zext <4 x i8> %load to <4 x i32>
@@ -228,12 +199,14 @@ define void @global_zextload_v4i8_to_v4i32(<4 x i32> addrspace(1)* %out, <4 x i8
 ; GCN-NOHSA: buffer_load_dword
 ; GCN-HSA: flat_load_dword
 
-; EG: VTX_READ_32 [[DST:T[0-9]+\.X]], T{{[0-9]+}}.X, 0, #1
-; TODO: These should use DST, but for some there are redundant MOVs
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
+; EG-DAG: VTX_READ_8 [[DST_X:T[0-9]\.[XYZW]]], [[DST_X]]
+; EG-DAG: VTX_READ_8 [[DST_Y:T[0-9]\.[XYZW]]], [[DST_Y]]
+; EG-DAG: VTX_READ_8 [[DST_Z:T[0-9]\.[XYZW]]], [[DST_Z]]
+; EG-DAG: VTX_READ_8 [[DST_W:T[0-9]\.[XYZW]]], [[DST_W]]
+; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, [[DST_X]], 0.0, literal
+; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, [[DST_Y]], 0.0, literal
+; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, [[DST_Z]], 0.0, literal
+; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, [[DST_W]], 0.0, literal
 ; EG-DAG: 8
 ; EG-DAG: 8
 ; EG-DAG: 8
@@ -246,23 +219,6 @@ define void @global_sextload_v4i8_to_v4i32(<4 x i32> addrspace(1)* %out, <4 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v8i8_to_v8i32:
-
-; EG: VTX_READ_64 T{{[0-9]+}}.XY, T{{[0-9]+}}.X, 0, #1
-; TODO: These should use DST, but for some there are redundant MOVs
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
 define void @global_zextload_v8i8_to_v8i32(<8 x i32> addrspace(1)* %out, <8 x i8> addrspace(1)* %in) #0 {
   %load = load <8 x i8>, <8 x i8> addrspace(1)* %in
   %ext = zext <8 x i8> %load to <8 x i32>
@@ -271,25 +227,6 @@ define void @global_zextload_v8i8_to_v8i32(<8 x i32> addrspace(1)* %out, <8 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v8i8_to_v8i32:
-
-; EG: VTX_READ_64 [[DST:T[0-9]+\.XY]], T{{[0-9]+}}.X, 0, #1
-; TODO: These should use DST, but for some there are redundant MOVs
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
 define void @global_sextload_v8i8_to_v8i32(<8 x i32> addrspace(1)* %out, <8 x i8> addrspace(1)* %in) #0 {
   %load = load <8 x i8>, <8 x i8> addrspace(1)* %in
   %ext = sext <8 x i8> %load to <8 x i32>
@@ -298,39 +235,6 @@ define void @global_sextload_v8i8_to_v8i32(<8 x i32> addrspace(1)* %out, <8 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v16i8_to_v16i32:
-
-; EG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 0, #1
-; TODO: These should use DST, but for some there are redundant MOVs
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
 define void @global_zextload_v16i8_to_v16i32(<16 x i32> addrspace(1)* %out, <16 x i8> addrspace(1)* %in) #0 {
   %load = load <16 x i8>, <16 x i8> addrspace(1)* %in
   %ext = zext <16 x i8> %load to <16 x i32>
@@ -339,41 +243,6 @@ define void @global_zextload_v16i8_to_v16i32(<16 x i32> addrspace(1)* %out, <16 
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v16i8_to_v16i32:
-
-; EG: VTX_READ_128 [[DST:T[0-9]+\.XYZW]], T{{[0-9]+}}.X, 0, #1
-; TODO: These should use DST, but for some there are redundant MOVs
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
 define void @global_sextload_v16i8_to_v16i32(<16 x i32> addrspace(1)* %out, <16 x i8> addrspace(1)* %in) #0 {
   %load = load <16 x i8>, <16 x i8> addrspace(1)* %in
   %ext = sext <16 x i8> %load to <16 x i32>
@@ -382,70 +251,6 @@ define void @global_sextload_v16i8_to_v16i32(<16 x i32> addrspace(1)* %out, <16 
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v32i8_to_v32i32:
-
-; EG-DAG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 0, #1
-; EG-DAG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 16, #1
-; TODO: These should use DST, but for some there are redundant MOVs
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: BFE_UINT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, {{.*}}literal
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
 define void @global_zextload_v32i8_to_v32i32(<32 x i32> addrspace(1)* %out, <32 x i8> addrspace(1)* %in) #0 {
   %load = load <32 x i8>, <32 x i8> addrspace(1)* %in
   %ext = zext <32 x i8> %load to <32 x i32>
@@ -454,74 +259,6 @@ define void @global_zextload_v32i8_to_v32i32(<32 x i32> addrspace(1)* %out, <32 
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v32i8_to_v32i32:
-
-; EG-DAG: VTX_READ_128 [[DST_LO:T[0-9]+\.XYZW]], T{{[0-9]+}}.X, 0, #1
-; EG-DAG: VTX_READ_128 [[DST_HI:T[0-9]+\.XYZW]], T{{[0-9]+}}.X, 16, #1
-; TODO: These should use DST, but for some there are redundant MOVs
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9]+.[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
-; EG-DAG: 8
 define void @global_sextload_v32i8_to_v32i32(<32 x i32> addrspace(1)* %out, <32 x i8> addrspace(1)* %in) #0 {
   %load = load <32 x i8>, <32 x i8> addrspace(1)* %in
   %ext = sext <32 x i8> %load to <32 x i32>
@@ -530,11 +267,6 @@ define void @global_sextload_v32i8_to_v32i32(<32 x i32> addrspace(1)* %out, <32 
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v64i8_to_v64i32:
-
-; EG-DAG: VTX_READ_128 {{T[0-9]+\.XYZW}}, T{{[0-9]+}}.X, 0, #1
-; EG-DAG: VTX_READ_128 {{T[0-9]+\.XYZW}}, T{{[0-9]+}}.X, 16, #1
-; EG-DAG: VTX_READ_128 {{T[0-9]+\.XYZW}}, T{{[0-9]+}}.X, 32, #1
-; EG-DAG: VTX_READ_128 {{T[0-9]+\.XYZW}}, T{{[0-9]+}}.X, 48, #1
 define void @global_zextload_v64i8_to_v64i32(<64 x i32> addrspace(1)* %out, <64 x i8> addrspace(1)* %in) #0 {
   %load = load <64 x i8>, <64 x i8> addrspace(1)* %in
   %ext = zext <64 x i8> %load to <64 x i32>
@@ -543,11 +275,6 @@ define void @global_zextload_v64i8_to_v64i32(<64 x i32> addrspace(1)* %out, <64 
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v64i8_to_v64i32:
-
-; EG-DAG: VTX_READ_128 {{T[0-9]+\.XYZW}}, T{{[0-9]+}}.X, 0, #1
-; EG-DAG: VTX_READ_128 {{T[0-9]+\.XYZW}}, T{{[0-9]+}}.X, 16, #1
-; EG-DAG: VTX_READ_128 {{T[0-9]+\.XYZW}}, T{{[0-9]+}}.X, 32, #1
-; EG-DAG: VTX_READ_128 {{T[0-9]+\.XYZW}}, T{{[0-9]+}}.X, 48, #1
 define void @global_sextload_v64i8_to_v64i32(<64 x i32> addrspace(1)* %out, <64 x i8> addrspace(1)* %in) #0 {
   %load = load <64 x i8>, <64 x i8> addrspace(1)* %in
   %ext = sext <64 x i8> %load to <64 x i32>
@@ -563,9 +290,6 @@ define void @global_sextload_v64i8_to_v64i32(<64 x i32> addrspace(1)* %out, <64 
 
 ; GCN-HSA-DAG: flat_load_ubyte v[[LO:[0-9]+]],
 ; GCN-HSA: flat_store_dwordx2 v{{\[[0-9]+:[0-9]+\]}}, v{{\[}}[[LO]]:[[HI]]]
-
-; EG: VTX_READ_8 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
-; EG: MOV {{.*}}, 0.0
 define void @global_zextload_i8_to_i64(i64 addrspace(1)* %out, i8 addrspace(1)* %in) #0 {
   %a = load i8, i8 addrspace(1)* %in
   %ext = zext i8 %a to i64
@@ -580,11 +304,6 @@ define void @global_zextload_i8_to_i64(i64 addrspace(1)* %out, i8 addrspace(1)* 
 
 ; GCN-NOHSA: buffer_store_dwordx2 v{{\[}}[[LO]]:[[HI]]{{\]}}
 ; GCN-HSA: flat_store_dwordx2 v{{\[[0-9]+:[0-9]+\]}}, v{{\[}}[[LO]]:[[HI]]{{\]}}
-
-; EG: VTX_READ_8 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
-; EG: ASHR {{\**}} {{T[0-9]\.[XYZW]}}, {{.*}}, literal
-; TODO: Why not 7 ?
-; EG: 31
 define void @global_sextload_i8_to_i64(i64 addrspace(1)* %out, i8 addrspace(1)* %in) #0 {
   %a = load i8, i8 addrspace(1)* %in
   %ext = sext i8 %a to i64
@@ -593,9 +312,6 @@ define void @global_sextload_i8_to_i64(i64 addrspace(1)* %out, i8 addrspace(1)* 
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v1i8_to_v1i64:
-
-; EG: VTX_READ_8 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
-; EG: MOV {{.*}}, 0.0
 define void @global_zextload_v1i8_to_v1i64(<1 x i64> addrspace(1)* %out, <1 x i8> addrspace(1)* %in) #0 {
   %load = load <1 x i8>, <1 x i8> addrspace(1)* %in
   %ext = zext <1 x i8> %load to <1 x i64>
@@ -604,11 +320,6 @@ define void @global_zextload_v1i8_to_v1i64(<1 x i64> addrspace(1)* %out, <1 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v1i8_to_v1i64:
-
-; EG: VTX_READ_8 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
-; EG: ASHR {{\**}} {{T[0-9]\.[XYZW]}}, {{.*}}, literal
-; TODO: Why not 7 ?
-; EG: 31
 define void @global_sextload_v1i8_to_v1i64(<1 x i64> addrspace(1)* %out, <1 x i8> addrspace(1)* %in) #0 {
   %load = load <1 x i8>, <1 x i8> addrspace(1)* %in
   %ext = sext <1 x i8> %load to <1 x i64>
@@ -617,8 +328,6 @@ define void @global_sextload_v1i8_to_v1i64(<1 x i64> addrspace(1)* %out, <1 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v2i8_to_v2i64:
-
-; EG: VTX_READ_16 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
 define void @global_zextload_v2i8_to_v2i64(<2 x i64> addrspace(1)* %out, <2 x i8> addrspace(1)* %in) #0 {
   %load = load <2 x i8>, <2 x i8> addrspace(1)* %in
   %ext = zext <2 x i8> %load to <2 x i64>
@@ -627,8 +336,6 @@ define void @global_zextload_v2i8_to_v2i64(<2 x i64> addrspace(1)* %out, <2 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v2i8_to_v2i64:
-
-; EG: VTX_READ_16 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
 define void @global_sextload_v2i8_to_v2i64(<2 x i64> addrspace(1)* %out, <2 x i8> addrspace(1)* %in) #0 {
   %load = load <2 x i8>, <2 x i8> addrspace(1)* %in
   %ext = sext <2 x i8> %load to <2 x i64>
@@ -637,8 +344,6 @@ define void @global_sextload_v2i8_to_v2i64(<2 x i64> addrspace(1)* %out, <2 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v4i8_to_v4i64:
-
-; EG: VTX_READ_32 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
 define void @global_zextload_v4i8_to_v4i64(<4 x i64> addrspace(1)* %out, <4 x i8> addrspace(1)* %in) #0 {
   %load = load <4 x i8>, <4 x i8> addrspace(1)* %in
   %ext = zext <4 x i8> %load to <4 x i64>
@@ -647,8 +352,6 @@ define void @global_zextload_v4i8_to_v4i64(<4 x i64> addrspace(1)* %out, <4 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v4i8_to_v4i64:
-
-; EG: VTX_READ_32 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
 define void @global_sextload_v4i8_to_v4i64(<4 x i64> addrspace(1)* %out, <4 x i8> addrspace(1)* %in) #0 {
   %load = load <4 x i8>, <4 x i8> addrspace(1)* %in
   %ext = sext <4 x i8> %load to <4 x i64>
@@ -657,8 +360,6 @@ define void @global_sextload_v4i8_to_v4i64(<4 x i64> addrspace(1)* %out, <4 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v8i8_to_v8i64:
-
-; EG: VTX_READ_64 T{{[0-9]+}}.XY, T{{[0-9]+}}.X, 0, #1
 define void @global_zextload_v8i8_to_v8i64(<8 x i64> addrspace(1)* %out, <8 x i8> addrspace(1)* %in) #0 {
   %load = load <8 x i8>, <8 x i8> addrspace(1)* %in
   %ext = zext <8 x i8> %load to <8 x i64>
@@ -667,8 +368,6 @@ define void @global_zextload_v8i8_to_v8i64(<8 x i64> addrspace(1)* %out, <8 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v8i8_to_v8i64:
-
-; EG: VTX_READ_64 T{{[0-9]+}}.XY, T{{[0-9]+}}.X, 0, #1
 define void @global_sextload_v8i8_to_v8i64(<8 x i64> addrspace(1)* %out, <8 x i8> addrspace(1)* %in) #0 {
   %load = load <8 x i8>, <8 x i8> addrspace(1)* %in
   %ext = sext <8 x i8> %load to <8 x i64>
@@ -677,8 +376,6 @@ define void @global_sextload_v8i8_to_v8i64(<8 x i64> addrspace(1)* %out, <8 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v16i8_to_v16i64:
-
-; EG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 0, #1
 define void @global_zextload_v16i8_to_v16i64(<16 x i64> addrspace(1)* %out, <16 x i8> addrspace(1)* %in) #0 {
   %load = load <16 x i8>, <16 x i8> addrspace(1)* %in
   %ext = zext <16 x i8> %load to <16 x i64>
@@ -687,8 +384,6 @@ define void @global_zextload_v16i8_to_v16i64(<16 x i64> addrspace(1)* %out, <16 
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v16i8_to_v16i64:
-
-; EG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 0, #1
 define void @global_sextload_v16i8_to_v16i64(<16 x i64> addrspace(1)* %out, <16 x i8> addrspace(1)* %in) #0 {
   %load = load <16 x i8>, <16 x i8> addrspace(1)* %in
   %ext = sext <16 x i8> %load to <16 x i64>
@@ -697,9 +392,6 @@ define void @global_sextload_v16i8_to_v16i64(<16 x i64> addrspace(1)* %out, <16 
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v32i8_to_v32i64:
-
-; EG-DAG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 0, #1
-; EG-DAG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 16, #1
 define void @global_zextload_v32i8_to_v32i64(<32 x i64> addrspace(1)* %out, <32 x i8> addrspace(1)* %in) #0 {
   %load = load <32 x i8>, <32 x i8> addrspace(1)* %in
   %ext = zext <32 x i8> %load to <32 x i64>
@@ -708,9 +400,6 @@ define void @global_zextload_v32i8_to_v32i64(<32 x i64> addrspace(1)* %out, <32 
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v32i8_to_v32i64:
-
-; EG-DAG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 0, #1
-; EG-DAG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 16, #1
 define void @global_sextload_v32i8_to_v32i64(<32 x i64> addrspace(1)* %out, <32 x i8> addrspace(1)* %in) #0 {
   %load = load <32 x i8>, <32 x i8> addrspace(1)* %in
   %ext = sext <32 x i8> %load to <32 x i64>
@@ -740,8 +429,6 @@ define void @global_sextload_v32i8_to_v32i64(<32 x i64> addrspace(1)* %out, <32 
 
 ; GCN-HSA: flat_load_ubyte v[[VAL:[0-9]+]],
 ; GCN-HSA: flat_store_short v{{\[[0-9]+:[0-9]+\]}}, v[[VAL]]
-
-; EG: VTX_READ_8 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
 define void @global_zextload_i8_to_i16(i16 addrspace(1)* %out, i8 addrspace(1)* %in) #0 {
   %a = load i8, i8 addrspace(1)* %in
   %ext = zext i8 %a to i16
@@ -755,9 +442,6 @@ define void @global_zextload_i8_to_i16(i16 addrspace(1)* %out, i8 addrspace(1)* 
 
 ; GCN-NOHSA: buffer_store_short v[[VAL]]
 ; GCN-HSA: flat_store_short v{{\[[0-9]+:[0-9]+\]}}, v[[VAL]]
-
-; EG: VTX_READ_8 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
 define void @global_sextload_i8_to_i16(i16 addrspace(1)* %out, i8 addrspace(1)* %in) #0 {
   %a = load i8, i8 addrspace(1)* %in
   %ext = sext i8 %a to i16
@@ -766,8 +450,6 @@ define void @global_sextload_i8_to_i16(i16 addrspace(1)* %out, i8 addrspace(1)* 
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v1i8_to_v1i16:
-
-; EG: VTX_READ_8 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
 define void @global_zextload_v1i8_to_v1i16(<1 x i16> addrspace(1)* %out, <1 x i8> addrspace(1)* %in) #0 {
   %load = load <1 x i8>, <1 x i8> addrspace(1)* %in
   %ext = zext <1 x i8> %load to <1 x i16>
@@ -776,9 +458,6 @@ define void @global_zextload_v1i8_to_v1i16(<1 x i16> addrspace(1)* %out, <1 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v1i8_to_v1i16:
-
-; EG: VTX_READ_8 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
 define void @global_sextload_v1i8_to_v1i16(<1 x i16> addrspace(1)* %out, <1 x i8> addrspace(1)* %in) #0 {
   %load = load <1 x i8>, <1 x i8> addrspace(1)* %in
   %ext = sext <1 x i8> %load to <1 x i16>
@@ -787,8 +466,6 @@ define void @global_sextload_v1i8_to_v1i16(<1 x i16> addrspace(1)* %out, <1 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v2i8_to_v2i16:
-
-; EG: VTX_READ_16 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
 define void @global_zextload_v2i8_to_v2i16(<2 x i16> addrspace(1)* %out, <2 x i8> addrspace(1)* %in) #0 {
   %load = load <2 x i8>, <2 x i8> addrspace(1)* %in
   %ext = zext <2 x i8> %load to <2 x i16>
@@ -797,10 +474,6 @@ define void @global_zextload_v2i8_to_v2i16(<2 x i16> addrspace(1)* %out, <2 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v2i8_to_v2i16:
-
-; EG: VTX_READ_16 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
 define void @global_sextload_v2i8_to_v2i16(<2 x i16> addrspace(1)* %out, <2 x i8> addrspace(1)* %in) #0 {
   %load = load <2 x i8>, <2 x i8> addrspace(1)* %in
   %ext = sext <2 x i8> %load to <2 x i16>
@@ -809,8 +482,6 @@ define void @global_sextload_v2i8_to_v2i16(<2 x i16> addrspace(1)* %out, <2 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v4i8_to_v4i16:
-
-; EG: VTX_READ_32 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
 define void @global_zextload_v4i8_to_v4i16(<4 x i16> addrspace(1)* %out, <4 x i8> addrspace(1)* %in) #0 {
   %load = load <4 x i8>, <4 x i8> addrspace(1)* %in
   %ext = zext <4 x i8> %load to <4 x i16>
@@ -819,12 +490,6 @@ define void @global_zextload_v4i8_to_v4i16(<4 x i16> addrspace(1)* %out, <4 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v4i8_to_v4i16:
-
-; EG: VTX_READ_32 T{{[0-9]+}}.X, T{{[0-9]+}}.X, 0, #1
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
 define void @global_sextload_v4i8_to_v4i16(<4 x i16> addrspace(1)* %out, <4 x i8> addrspace(1)* %in) #0 {
   %load = load <4 x i8>, <4 x i8> addrspace(1)* %in
   %ext = sext <4 x i8> %load to <4 x i16>
@@ -833,8 +498,6 @@ define void @global_sextload_v4i8_to_v4i16(<4 x i16> addrspace(1)* %out, <4 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v8i8_to_v8i16:
-
-; EG: VTX_READ_64 T{{[0-9]+}}.XY, T{{[0-9]+}}.X, 0, #1
 define void @global_zextload_v8i8_to_v8i16(<8 x i16> addrspace(1)* %out, <8 x i8> addrspace(1)* %in) #0 {
   %load = load <8 x i8>, <8 x i8> addrspace(1)* %in
   %ext = zext <8 x i8> %load to <8 x i16>
@@ -843,16 +506,6 @@ define void @global_zextload_v8i8_to_v8i16(<8 x i16> addrspace(1)* %out, <8 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v8i8_to_v8i16:
-
-; EG: VTX_READ_64 T{{[0-9]+}}.XY, T{{[0-9]+}}.X, 0, #1
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
 define void @global_sextload_v8i8_to_v8i16(<8 x i16> addrspace(1)* %out, <8 x i8> addrspace(1)* %in) #0 {
   %load = load <8 x i8>, <8 x i8> addrspace(1)* %in
   %ext = sext <8 x i8> %load to <8 x i16>
@@ -861,8 +514,6 @@ define void @global_sextload_v8i8_to_v8i16(<8 x i16> addrspace(1)* %out, <8 x i8
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v16i8_to_v16i16:
-
-; EG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 0, #1
 define void @global_zextload_v16i8_to_v16i16(<16 x i16> addrspace(1)* %out, <16 x i8> addrspace(1)* %in) #0 {
   %load = load <16 x i8>, <16 x i8> addrspace(1)* %in
   %ext = zext <16 x i8> %load to <16 x i16>
@@ -871,24 +522,6 @@ define void @global_zextload_v16i8_to_v16i16(<16 x i16> addrspace(1)* %out, <16 
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v16i8_to_v16i16:
-
-; EG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 0, #1
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
 define void @global_sextload_v16i8_to_v16i16(<16 x i16> addrspace(1)* %out, <16 x i8> addrspace(1)* %in) #0 {
   %load = load <16 x i8>, <16 x i8> addrspace(1)* %in
   %ext = sext <16 x i8> %load to <16 x i16>
@@ -897,9 +530,6 @@ define void @global_sextload_v16i8_to_v16i16(<16 x i16> addrspace(1)* %out, <16 
 }
 
 ; FUNC-LABEL: {{^}}global_zextload_v32i8_to_v32i16:
-
-; EG-DAG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 0, #1
-; EG-DAG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 16, #1
 define void @global_zextload_v32i8_to_v32i16(<32 x i16> addrspace(1)* %out, <32 x i8> addrspace(1)* %in) #0 {
   %load = load <32 x i8>, <32 x i8> addrspace(1)* %in
   %ext = zext <32 x i8> %load to <32 x i16>
@@ -908,41 +538,6 @@ define void @global_zextload_v32i8_to_v32i16(<32 x i16> addrspace(1)* %out, <32 
 }
 
 ; FUNC-LABEL: {{^}}global_sextload_v32i8_to_v32i16:
-
-; EG-DAG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 0, #1
-; EG-DAG: VTX_READ_128 T{{[0-9]+}}.XYZW, T{{[0-9]+}}.X, 16, #1
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
-; EG-DAG: BFE_INT {{[* ]*}}T{{[0-9].[XYZW]}}, {{.*}}, 0.0, literal
 define void @global_sextload_v32i8_to_v32i16(<32 x i16> addrspace(1)* %out, <32 x i8> addrspace(1)* %in) #0 {
   %load = load <32 x i8>, <32 x i8> addrspace(1)* %in
   %ext = sext <32 x i8> %load to <32 x i16>

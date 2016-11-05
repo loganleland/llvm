@@ -59,7 +59,6 @@ enum Directive {
   DotResult = UINT64_MAX - 1,  ///< .result
   DotLocal = UINT64_MAX - 2,   ///< .local
   DotEndFunc = UINT64_MAX - 3, ///< .endfunc
-  DotIndIdx = UINT64_MAX - 4,  /// < .indidx
 };
 
 } // end namespace WebAssembly
@@ -124,8 +123,7 @@ inline unsigned GetDefaultP2Align(unsigned Opcode) {
   case WebAssembly::STORE_I64:
   case WebAssembly::STORE_F64:
     return 3;
-  default:
-    llvm_unreachable("Only loads and stores have p2align values");
+  default: llvm_unreachable("Only loads and stores have p2align values");
   }
 }
 

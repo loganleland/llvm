@@ -116,8 +116,7 @@ AMDGPUSubtarget::AMDGPUSubtarget(const Triple &TT, StringRef GPU, StringRef FS,
     TexVTXClauseSize(0),
 
     FeatureDisable(false),
-    InstrItins(getInstrItineraryForCPU(GPU)),
-    TSInfo() {
+    InstrItins(getInstrItineraryForCPU(GPU)) {
   initializeSubtargetDependencies(TT, GPU, FS);
 }
 
@@ -194,6 +193,19 @@ SISubtarget::SISubtarget(const Triple &TT, StringRef GPU, StringRef FS,
   TLInfo(TM, *this),
   GISel() {}
 
+unsigned R600Subtarget::getStackEntrySize() const {
+  switch (getWavefrontSize()) {
+  case 16:
+    return 8;
+  case 32:
+    return hasCaymanISA() ? 4 : 8;
+  case 64:
+    return 4;
+  default:
+    llvm_unreachable("Illegal wavefront size.");
+  }
+}
+
 void SISubtarget::overrideSchedPolicy(MachineSchedPolicy &Policy,
                                       unsigned NumRegionInstrs) const {
   // Track register pressure so the scheduler can try to decrease
@@ -215,47 +227,15 @@ bool SISubtarget::isVGPRSpillingEnabled(const Function& F) const {
   return EnableVGPRSpilling || !AMDGPU::isShader(F.getCallingConv());
 }
 
-unsigned SISubtarget::getOccupancyWithNumSGPRs(unsigned SGPRs) const {
-  if (getGeneration() >= SISubtarget::VOLCANIC_ISLANDS) {
-    if (SGPRs <= 80)
-      return 10;
-    if (SGPRs <= 88)
-      return 9;
-    if (SGPRs <= 100)
-      return 8;
-    return 7;
+unsigned SISubtarget::getAmdKernelCodeChipID() const {
+  switch (getGeneration()) {
+  case SEA_ISLANDS:
+    return 12;
+  default:
+    llvm_unreachable("ChipID unknown");
   }
-  if (SGPRs <= 48)
-    return 10;
-  if (SGPRs <= 56)
-    return 9;
-  if (SGPRs <= 64)
-    return 8;
-  if (SGPRs <= 72)
-    return 7;
-  if (SGPRs <= 80)
-    return 6;
-  return 5;
 }
 
-unsigned SISubtarget::getOccupancyWithNumVGPRs(unsigned VGPRs) const {
-  if (VGPRs <= 24)
-    return 10;
-  if (VGPRs <= 28)
-    return 9;
-  if (VGPRs <= 32)
-    return 8;
-  if (VGPRs <= 36)
-    return 7;
-  if (VGPRs <= 40)
-    return 6;
-  if (VGPRs <= 48)
-    return 5;
-  if (VGPRs <= 64)
-    return 4;
-  if (VGPRs <= 84)
-    return 3;
-  if (VGPRs <= 128)
-    return 2;
-  return 1;
+AMDGPU::IsaVersion SISubtarget::getIsaVersion() const {
+  return AMDGPU::getIsaVersion(getFeatureBits());
 }

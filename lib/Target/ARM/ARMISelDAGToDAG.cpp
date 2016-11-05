@@ -476,9 +476,7 @@ bool ARMDAGToDAGISel::isShifterOpProfitable(const SDValue &Shift,
 unsigned ARMDAGToDAGISel::ConstantMaterializationCost(unsigned Val) const {
   if (Subtarget->isThumb()) {
     if (Val <= 255) return 1;                               // MOV
-    if (Subtarget->hasV6T2Ops() &&
-        (Val <= 0xffff || ARM_AM::getT2SOImmValSplatVal(Val) != -1))
-      return 1; // MOVW
+    if (Subtarget->hasV6T2Ops() && Val <= 0xffff) return 1; // MOVW
     if (Val <= 510) return 2;                               // MOV + ADDi8
     if (~Val <= 255) return 2;                              // MOV + MVN
     if (ARM_AM::isThumbImmShiftedVal(Val)) return 2;        // MOV + LSL
@@ -1234,9 +1232,9 @@ bool ARMDAGToDAGISel::SelectThumbAddrModeSP(SDValue N,
     int FI = cast<FrameIndexSDNode>(N)->getIndex();
     // Only multiples of 4 are allowed for the offset, so the frame object
     // alignment must be at least 4.
-    MachineFrameInfo &MFI = MF->getFrameInfo();
-    if (MFI.getObjectAlignment(FI) < 4)
-      MFI.setObjectAlignment(FI, 4);
+    MachineFrameInfo *MFI = MF->getFrameInfo();
+    if (MFI->getObjectAlignment(FI) < 4)
+      MFI->setObjectAlignment(FI, 4);
     Base = CurDAG->getTargetFrameIndex(
         FI, TLI->getPointerTy(CurDAG->getDataLayout()));
     OffImm = CurDAG->getTargetConstant(0, SDLoc(N), MVT::i32);
@@ -1257,9 +1255,9 @@ bool ARMDAGToDAGISel::SelectThumbAddrModeSP(SDValue N,
         int FI = cast<FrameIndexSDNode>(Base)->getIndex();
         // For LHS+RHS to result in an offset that's a multiple of 4 the object
         // indexed by the LHS must be 4-byte aligned.
-        MachineFrameInfo &MFI = MF->getFrameInfo();
-        if (MFI.getObjectAlignment(FI) < 4)
-          MFI.setObjectAlignment(FI, 4);
+        MachineFrameInfo *MFI = MF->getFrameInfo();
+        if (MFI->getObjectAlignment(FI) < 4)
+          MFI->setObjectAlignment(FI, 4);
         Base = CurDAG->getTargetFrameIndex(
             FI, TLI->getPointerTy(CurDAG->getDataLayout()));
       }
@@ -2614,10 +2612,6 @@ static bool SearchSignedMulLong(SDValue OR, unsigned *Opc, SDValue &Src0,
 }
 
 bool ARMDAGToDAGISel::trySMLAWSMULW(SDNode *N) {
-  if (!Subtarget->hasV6Ops() ||
-      (Subtarget->isThumb() && !Subtarget->hasThumb2()))
-    return false;
-
   SDLoc dl(N);
   SDValue Src0 = N->getOperand(0);
   SDValue Src1 = N->getOperand(1);
@@ -2767,9 +2761,9 @@ void ARMDAGToDAGISel::Select(SDNode *N) {
     if (Subtarget->isThumb1Only()) {
       // Set the alignment of the frame object to 4, to avoid having to generate
       // more than one ADD
-      MachineFrameInfo &MFI = MF->getFrameInfo();
-      if (MFI.getObjectAlignment(FI) < 4)
-        MFI.setObjectAlignment(FI, 4);
+      MachineFrameInfo *MFI = MF->getFrameInfo();
+      if (MFI->getObjectAlignment(FI) < 4)
+        MFI->setObjectAlignment(FI, 4);
       CurDAG->SelectNodeTo(N, ARM::tADDframe, MVT::i32, TFI,
                            CurDAG->getTargetConstant(0, dl, MVT::i32));
       return;
@@ -3042,37 +3036,6 @@ void ARMDAGToDAGISel::Select(SDNode *N) {
                          MVT::i32, MVT::i32, Ops));
       return;
     }
-  }
-  case ARMISD::SUBE: {
-    if (!Subtarget->hasV6Ops())
-      break;
-    // Look for a pattern to match SMMLS
-    // (sube a, (smul_loHi a, b), (subc 0, (smul_LOhi(a, b))))
-    if (N->getOperand(1).getOpcode() != ISD::SMUL_LOHI ||
-        N->getOperand(2).getOpcode() != ARMISD::SUBC ||
-        !SDValue(N, 1).use_empty())
-      break;
-
-    if (Subtarget->isThumb())
-      assert(Subtarget->hasThumb2() &&
-             "This pattern should not be generated for Thumb");
-
-    SDValue SmulLoHi = N->getOperand(1);
-    SDValue Subc = N->getOperand(2);
-    auto *Zero = dyn_cast<ConstantSDNode>(Subc.getOperand(0));
-
-    if (!Zero || Zero->getZExtValue() != 0 ||
-        Subc.getOperand(1) != SmulLoHi.getValue(0) ||
-        N->getOperand(1) != SmulLoHi.getValue(1) ||
-        N->getOperand(2) != Subc.getValue(1))
-      break;
-
-    unsigned Opc = Subtarget->isThumb2() ? ARM::t2SMMLS : ARM::SMMLS;
-    SDValue Ops[] = { SmulLoHi.getOperand(0), SmulLoHi.getOperand(1),
-                      N->getOperand(0), getAL(CurDAG, dl),
-                      CurDAG->getRegister(0, MVT::i32) };
-    ReplaceNode(N, CurDAG->getMachineNode(Opc, dl, MVT::i32, Ops));
-    return;
   }
   case ISD::LOAD: {
     if (Subtarget->isThumb() && Subtarget->hasThumb2()) {
@@ -4420,7 +4383,7 @@ SelectInlineAsmMemoryOperand(const SDValue &Op, unsigned ConstraintID,
   case InlineAsm::Constraint_i:
     // FIXME: It seems strange that 'i' is needed here since it's supposed to
     //        be an immediate and not a memory constraint.
-    LLVM_FALLTHROUGH;
+    // Fallthrough.
   case InlineAsm::Constraint_m:
   case InlineAsm::Constraint_o:
   case InlineAsm::Constraint_Q:

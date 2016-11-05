@@ -141,10 +141,7 @@ class RegisterWithSubRegs<string n, list<Register> subregs> : Register<n> {
 // of Operand's that are legal as type qualifiers in DAG patterns.  This should
 // only ever be used for defining multiclasses that are polymorphic over both
 // RegisterClass's and other Operand's.
-class DAGOperand {
-  string OperandNamespace = "MCOI";
-  string DecoderMethod = "";
-}
+class DAGOperand { }
 
 // RegisterClass - Now that all of the registers are defined, and aliases
 // between registers are defined, specify which registers belong to which
@@ -642,7 +639,9 @@ class Operand<ValueType ty> : DAGOperand {
   ValueType Type = ty;
   string PrintMethod = "printOperand";
   string EncoderMethod = "";
+  string DecoderMethod = "";
   bit hasCompleteDecoder = 1;
+  string OperandNamespace = "MCOI";
   string OperandType = "OPERAND_UNKNOWN";
   dag MIOperandInfo = (ops);
 
@@ -680,6 +679,7 @@ class RegisterOperand<RegisterClass regclass, string pm = "printOperand">
   // should declare the other operand as one of its super classes.
   AsmOperandClass ParserMatchClass;
 
+  string OperandNamespace = "MCOI";
   string OperandType = "OPERAND_REGISTER";
 }
 
@@ -957,14 +957,6 @@ def PATCHABLE_RET : Instruction {
   let OutOperandList = (outs unknown:$dst);
   let InOperandList = (ins variable_ops);
   let AsmString = "# XRay Function Exit.";
-  let usesCustomInserter = 1;
-  let hasSideEffects = 1;
-  let isReturn = 1;
-}
-def PATCHABLE_TAIL_CALL : Instruction {
-  let OutOperandList = (outs unknown:$dst);
-  let InOperandList = (ins variable_ops);
-  let AsmString = "# XRay Tail Call Exit.";
   let usesCustomInserter = 1;
   let hasSideEffects = 1;
   let isReturn = 1;

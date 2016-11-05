@@ -1,4 +1,4 @@
-; RUN: llc -verify-machineinstrs -mtriple=powerpc64le-unknown-linux-gnu < %s | FileCheck %s
+; RUN: llc -mtriple=powerpc64le-unknown-linux-gnu < %s | FileCheck %s
 
 ; CHECK-LABEL: TestFoo:
 ; CHECK: std

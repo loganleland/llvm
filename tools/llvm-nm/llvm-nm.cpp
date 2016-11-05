@@ -198,14 +198,13 @@ static void error(llvm::Error E, StringRef FileName, const Archive::Child &C,
   HadError = true;
   errs() << ToolName << ": " << FileName;
 
-  Expected<StringRef> NameOrErr = C.getName();
+  ErrorOr<StringRef> NameOrErr = C.getName();
   // TODO: if we have a error getting the name then it would be nice to print
   // the index of which archive member this is and or its offset in the
   // archive instead of "???" as the name.
-  if (!NameOrErr) {
-    consumeError(NameOrErr.takeError());
+  if (NameOrErr.getError())
     errs() << "(" << "???" << ")";
-  } else
+  else
     errs() << "(" << NameOrErr.get() << ")";
 
   if (!ArchitectureName.empty())
@@ -1066,9 +1065,9 @@ static bool checkMachOAndArchFlags(SymbolicFile *O, std::string &Filename) {
     H = MachO->MachOObjectFile::getHeader();
     T = MachOObjectFile::getArchTriple(H.cputype, H.cpusubtype);
   }
-  if (none_of(ArchFlags, [&](const std::string &Name) {
-        return Name == T.getArchName();
-      })) {
+  if (std::none_of(
+          ArchFlags.begin(), ArchFlags.end(),
+          [&](const std::string &Name) { return Name == T.getArchName(); })) {
     error("No architecture specified", Filename);
     return false;
   }
@@ -1085,7 +1084,7 @@ static void dumpSymbolNamesFromFile(std::string &Filename) {
   Expected<std::unique_ptr<Binary>> BinaryOrErr = createBinary(
       BufferOrErr.get()->getMemBufferRef(), NoLLVMBitcode ? nullptr : &Context);
   if (!BinaryOrErr) {
-    error(BinaryOrErr.takeError(), Filename);
+    error(errorToErrorCode(BinaryOrErr.takeError()), Filename);
     return;
   }
   Binary &Bin = *BinaryOrErr.get();
@@ -1097,14 +1096,12 @@ static void dumpSymbolNamesFromFile(std::string &Filename) {
       if (I != E) {
         outs() << "Archive map\n";
         for (; I != E; ++I) {
-          Expected<Archive::Child> C = I->getMember();
-          if (!C)
-            error(C.takeError(), Filename);
-          Expected<StringRef> FileNameOrErr = C->getName();
-          if (!FileNameOrErr) {
-            error(FileNameOrErr.takeError(), Filename);
+          ErrorOr<Archive::Child> C = I->getMember();
+          if (error(C.getError()))
             return;
-          }
+          ErrorOr<StringRef> FileNameOrErr = C->getName();
+          if (error(FileNameOrErr.getError()))
+            return;
           StringRef SymName = I->getName();
           outs() << SymName << " in " << FileNameOrErr.get() << "\n";
         }

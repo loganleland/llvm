@@ -113,9 +113,10 @@ bool doesStoreDominatesAllLatches(BasicBlock *StoreBlock, Loop *L,
                                   DominatorTree *DT) {
   SmallVector<BasicBlock *, 8> Latches;
   L->getLoopLatches(Latches);
-  return all_of(Latches, [&](const BasicBlock *Latch) {
-    return DT->dominates(StoreBlock, Latch);
-  });
+  return std::all_of(Latches.begin(), Latches.end(),
+                     [&](const BasicBlock *Latch) {
+                       return DT->dominates(StoreBlock, Latch);
+                     });
 }
 
 /// \brief Return true if the load is not executed on all paths in the loop.
@@ -347,7 +348,7 @@ public:
     // Collect the pointers of the candidate loads.
     // FIXME: SmallSet does not work with std::inserter.
     std::set<Value *> CandLoadPtrs;
-    transform(Candidates,
+    std::transform(Candidates.begin(), Candidates.end(),
                    std::inserter(CandLoadPtrs, CandLoadPtrs.begin()),
                    std::mem_fn(&StoreToLoadForwardingCandidate::getLoadPtr));
 

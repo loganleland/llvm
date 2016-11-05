@@ -8,9 +8,6 @@
 //===----------------------------------------------------------------------===//
 //
 // This file implements the PIC16 specific subclass of TargetSubtargetInfo.
-// Currently there is only one subtarget, (PIC16F877). This will allow
-// more features/other chips in the same family to be added later more
-// easily.
 //
 //===----------------------------------------------------------------------===//
 

@@ -48,9 +48,7 @@ endif()
 
 
 add_llvm_library(LLVMLTO
-  Caching.cpp
   LTO.cpp
-  LTOBackend.cpp
   LTOModule.cpp
   LTOCodeGenerator.cpp
   UpdateCompilerUsed.cpp

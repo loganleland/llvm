@@ -101,12 +101,11 @@ CodeGenOpt::Level getOptLevel();
 
 
 template <typename PtrTy>
-static PtrTy fromTargetAddress(JITTargetAddress Addr) {
+static PtrTy fromTargetAddress(orc::TargetAddress Addr) {
   return reinterpret_cast<PtrTy>(static_cast<uintptr_t>(Addr));
 }
 
-int llvm::runOrcLazyJIT(std::vector<std::unique_ptr<Module>> Ms, int ArgC,
-                        char* ArgV[]) {
+int llvm::runOrcLazyJIT(std::unique_ptr<Module> M, int ArgC, char* ArgV[]) {
   // Add the program's symbols into the JIT's search space.
   if (sys::DynamicLibrary::LoadLibraryPermanently(nullptr)) {
     errs() << "Error loading program symbols.\n";
@@ -144,8 +143,8 @@ int llvm::runOrcLazyJIT(std::vector<std::unique_ptr<Module>> Ms, int ArgC,
                OrcInlineStubs);
 
   // Add the module, look up main and run it.
-  J.addModuleSet(std::move(Ms));
-  auto MainSym = J.findSymbol("main");
+  auto MainHandle = J.addModule(std::move(M));
+  auto MainSym = J.findSymbolIn(MainHandle, "main");
 
   if (!MainSym) {
     errs() << "Could not find main function.\n";

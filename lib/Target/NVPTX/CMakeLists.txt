@@ -21,7 +21,7 @@ set(NVPTXCodeGen_sources
   NVPTXInferAddressSpaces.cpp
   NVPTXInstrInfo.cpp
   NVPTXLowerAggrCopies.cpp
-  NVPTXLowerArgs.cpp
+  NVPTXLowerKernelArgs.cpp
   NVPTXLowerAlloca.cpp
   NVPTXPeephole.cpp
   NVPTXMCExpr.cpp

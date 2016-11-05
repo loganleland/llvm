@@ -42,7 +42,6 @@ using namespace llvm;
 STATISTIC(NumReadNone, "Number of functions marked readnone");
 STATISTIC(NumReadOnly, "Number of functions marked readonly");
 STATISTIC(NumNoCapture, "Number of arguments marked nocapture");
-STATISTIC(NumReturned, "Number of arguments marked returned");
 STATISTIC(NumReadNoneArg, "Number of arguments marked readnone");
 STATISTIC(NumReadOnlyArg, "Number of arguments marked readonly");
 STATISTIC(NumNoAlias, "Number of function returns marked noalias");
@@ -332,16 +331,23 @@ struct ArgumentUsesTracker : public CaptureTracker {
 
 namespace llvm {
 template <> struct GraphTraits<ArgumentGraphNode *> {
+  typedef ArgumentGraphNode NodeType;
   typedef ArgumentGraphNode *NodeRef;
   typedef SmallVectorImpl<ArgumentGraphNode *>::iterator ChildIteratorType;
 
-  static NodeRef getEntryNode(NodeRef A) { return A; }
-  static ChildIteratorType child_begin(NodeRef N) { return N->Uses.begin(); }
-  static ChildIteratorType child_end(NodeRef N) { return N->Uses.end(); }
+  static inline NodeType *getEntryNode(NodeType *A) { return A; }
+  static inline ChildIteratorType child_begin(NodeType *N) {
+    return N->Uses.begin();
+  }
+  static inline ChildIteratorType child_end(NodeType *N) {
+    return N->Uses.end();
+  }
 };
 template <>
 struct GraphTraits<ArgumentGraph *> : public GraphTraits<ArgumentGraphNode *> {
-  static NodeRef getEntryNode(ArgumentGraph *AG) { return AG->getEntryNode(); }
+  static NodeType *getEntryNode(ArgumentGraph *AG) {
+    return AG->getEntryNode();
+  }
   static ChildIteratorType nodes_begin(ArgumentGraph *AG) {
     return AG->begin();
   }
@@ -441,8 +447,8 @@ determinePointerReadAttrs(Argument *A,
       // to a operand bundle use, these cannot participate in the optimistic SCC
       // analysis.  Instead, we model the operand bundle uses as arguments in
       // call to a function external to the SCC.
-      if (IsOperandBundleUse ||
-          !SCCNodes.count(&*std::next(F->arg_begin(), UseIndex))) {
+      if (!SCCNodes.count(&*std::next(F->arg_begin(), UseIndex)) ||
+          IsOperandBundleUse) {
 
         // The accessors used on CallSite here do the right thing for calls and
         // invokes with operand bundles.
@@ -476,54 +482,6 @@ determinePointerReadAttrs(Argument *A,
   }
 
   return IsRead ? Attribute::ReadOnly : Attribute::ReadNone;
-}
-
-/// Deduce returned attributes for the SCC.
-static bool addArgumentReturnedAttrs(const SCCNodeSet &SCCNodes) {
-  bool Changed = false;
-
-  AttrBuilder B;
-  B.addAttribute(Attribute::Returned);
-
-  // Check each function in turn, determining if an argument is always returned.
-  for (Function *F : SCCNodes) {
-    // We can infer and propagate function attributes only when we know that the
-    // definition we'll get at link time is *exactly* the definition we see now.
-    // For more details, see GlobalValue::mayBeDerefined.
-    if (!F->hasExactDefinition())
-      continue;
-
-    if (F->getReturnType()->isVoidTy())
-      continue;
-
-    auto FindRetArg = [&]() -> Value * {
-      Value *RetArg = nullptr;
-      for (BasicBlock &BB : *F)
-        if (auto *Ret = dyn_cast<ReturnInst>(BB.getTerminator())) {
-          // Note that stripPointerCasts should look through functions with
-          // returned arguments.
-          Value *RetVal = Ret->getReturnValue()->stripPointerCasts();
-          if (!isa<Argument>(RetVal) || RetVal->getType() != F->getReturnType())
-            return nullptr;
-
-          if (!RetArg)
-            RetArg = RetVal;
-          else if (RetArg != RetVal)
-            return nullptr;
-        }
-
-      return RetArg;
-    };
-
-    if (Value *RetArg = FindRetArg()) {
-      auto *A = cast<Argument>(RetArg);
-      A->addAttr(AttributeSet::get(F->getContext(), A->getArgNo() + 1, B));
-      ++NumReturned;
-      Changed = true;
-    }
-  }
-
-  return Changed;
 }
 
 /// Deduce nocapture attributes for the SCC.
@@ -768,8 +726,7 @@ static bool isFunctionMallocLike(Function *F, const SCCNodeSet &SCCNodes) {
           break;
         if (CS.getCalledFunction() && SCCNodes.count(CS.getCalledFunction()))
           break;
-        LLVM_FALLTHROUGH;
-      }
+      } // fall-through
       default:
         return false; // Did not come from an allocation.
       }
@@ -1029,11 +986,9 @@ static bool addNoRecurseAttrs(const SCCNodeSet &SCCNodes) {
 }
 
 PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
-                                                  CGSCCAnalysisManager &AM,
-                                                  LazyCallGraph &CG,
-                                                  CGSCCUpdateResult &) {
+                                                  CGSCCAnalysisManager &AM) {
   FunctionAnalysisManager &FAM =
-      AM.getResult<FunctionAnalysisManagerCGSCCProxy>(C, CG).getManager();
+      AM.getResult<FunctionAnalysisManagerCGSCCProxy>(C).getManager();
 
   // We pass a lambda into functions to wire them up to the analysis manager
   // for getting function analyses.
@@ -1070,7 +1025,6 @@ PreservedAnalyses PostOrderFunctionAttrsPass::run(LazyCallGraph::SCC &C,
   }
 
   bool Changed = false;
-  Changed |= addArgumentReturnedAttrs(SCCNodes);
   Changed |= addReadAttrs(SCCNodes, AARGetter);
   Changed |= addArgumentAttrs(SCCNodes);
 
@@ -1136,7 +1090,6 @@ static bool runImpl(CallGraphSCC &SCC, AARGetterT AARGetter) {
     SCCNodes.insert(F);
   }
 
-  Changed |= addArgumentReturnedAttrs(SCCNodes);
   Changed |= addReadAttrs(SCCNodes, AARGetter);
   Changed |= addArgumentAttrs(SCCNodes);
 
@@ -1263,17 +1216,10 @@ bool ReversePostOrderFunctionAttrsLegacyPass::runOnModule(Module &M) {
 }
 
 PreservedAnalyses
-ReversePostOrderFunctionAttrsPass::run(Module &M, ModuleAnalysisManager &AM) {
+ReversePostOrderFunctionAttrsPass::run(Module &M, AnalysisManager<Module> &AM) {
   auto &CG = AM.getResult<CallGraphAnalysis>(M);
 
   bool Changed = deduceFunctionAttributeInRPO(M, CG);
-
-  // CallGraphAnalysis holds AssertingVH and must be invalidated eagerly so
-  // that other passes don't delete stuff from under it.
-  // FIXME: We need to invalidate this to avoid PR28400. Is there a better
-  // solution?
-  AM.invalidate<CallGraphAnalysis>(M);
-
   if (!Changed)
     return PreservedAnalyses::all();
   PreservedAnalyses PA;

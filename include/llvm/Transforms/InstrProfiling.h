@@ -29,7 +29,7 @@ public:
   InstrProfiling() {}
   InstrProfiling(const InstrProfOptions &Options) : Options(Options) {}
 
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  PreservedAnalyses run(Module &M, AnalysisManager<Module> &AM);
   bool run(Module &M);
 
 private:

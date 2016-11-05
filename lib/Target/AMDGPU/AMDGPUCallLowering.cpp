@@ -36,7 +36,7 @@ bool AMDGPUCallLowering::lowerReturn(MachineIRBuilder &MIRBuilder,
 
 bool AMDGPUCallLowering::lowerFormalArguments(
     MachineIRBuilder &MIRBuilder, const Function::ArgumentListType &Args,
-    ArrayRef<unsigned> VRegs) const {
+    const SmallVectorImpl<unsigned> &VRegs) const {
   // TODO: Implement once there are generic loads/stores.
   return true;
 }

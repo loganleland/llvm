@@ -16,7 +16,7 @@
 ;===------------------------------------------------------------------------===;
 
 [common]
-subdirectories = InstPrinter TargetInfo
+subdirectories = InstPrinter MCTargetDesc TargetInfo
 
 [component_0]
 type = TargetGroup
@@ -28,5 +28,5 @@ has_asmprinter = 1
 type = Library
 name = PIC16CodeGen
 parent = PIC16
-required_libraries = AsmPrinter CodeGen Core PIC16AsmPrinter PIC16Info Support Target
+required_libraries = AsmPrinter CodeGen Core MC PIC16AsmPrinter PIC16Desc PIC16Info SelectionDAG Support Target
 add_to_library_groups = PIC16

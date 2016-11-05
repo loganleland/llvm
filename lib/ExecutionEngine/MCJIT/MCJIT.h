@@ -26,22 +26,23 @@ class MCJIT;
 // functions across modules that it owns.  It aggregates the memory manager
 // that is passed in to the MCJIT constructor and defers most functionality
 // to that object.
-class LinkingSymbolResolver : public JITSymbolResolver {
+class LinkingSymbolResolver : public RuntimeDyld::SymbolResolver {
 public:
   LinkingSymbolResolver(MCJIT &Parent,
-                        std::shared_ptr<JITSymbolResolver> Resolver)
+                        std::shared_ptr<RuntimeDyld::SymbolResolver> Resolver)
     : ParentEngine(Parent), ClientResolver(std::move(Resolver)) {}
 
-  JITSymbol findSymbol(const std::string &Name) override;
+  RuntimeDyld::SymbolInfo findSymbol(const std::string &Name) override;
 
   // MCJIT doesn't support logical dylibs.
-  JITSymbol findSymbolInLogicalDylib(const std::string &Name) override {
+  RuntimeDyld::SymbolInfo
+  findSymbolInLogicalDylib(const std::string &Name) override {
     return nullptr;
   }
 
 private:
   MCJIT &ParentEngine;
-  std::shared_ptr<JITSymbolResolver> ClientResolver;
+  std::shared_ptr<RuntimeDyld::SymbolResolver> ClientResolver;
 };
 
 // About Module states: added->loaded->finalized.
@@ -67,7 +68,7 @@ private:
 class MCJIT : public ExecutionEngine {
   MCJIT(std::unique_ptr<Module> M, std::unique_ptr<TargetMachine> tm,
         std::shared_ptr<MCJITMemoryManager> MemMgr,
-        std::shared_ptr<JITSymbolResolver> Resolver);
+        std::shared_ptr<RuntimeDyld::SymbolResolver> Resolver);
 
   typedef llvm::SmallPtrSet<Module *, 4> ModulePtrSet;
 
@@ -304,12 +305,13 @@ public:
   createJIT(std::unique_ptr<Module> M,
             std::string *ErrorStr,
             std::shared_ptr<MCJITMemoryManager> MemMgr,
-            std::shared_ptr<JITSymbolResolver> Resolver,
+            std::shared_ptr<RuntimeDyld::SymbolResolver> Resolver,
             std::unique_ptr<TargetMachine> TM);
 
   // @}
 
-  JITSymbol findSymbol(const std::string &Name, bool CheckFunctionsOnly);
+  RuntimeDyld::SymbolInfo findSymbol(const std::string &Name,
+                                     bool CheckFunctionsOnly);
   // DEPRECATED - Please use findSymbol instead.
   // This is not directly exposed via the ExecutionEngine API, but it is
   // used by the LinkingMemoryManager.
@@ -328,8 +330,9 @@ protected:
                            const RuntimeDyld::LoadedObjectInfo &L);
   void NotifyFreeingObject(const object::ObjectFile& Obj);
 
-  JITSymbol findExistingSymbol(const std::string &Name);
-  Module *findModuleForSymbol(const std::string &Name, bool CheckFunctionsOnly);
+  RuntimeDyld::SymbolInfo findExistingSymbol(const std::string &Name);
+  Module *findModuleForSymbol(const std::string &Name,
+                              bool CheckFunctionsOnly);
 };
 
 } // end llvm namespace

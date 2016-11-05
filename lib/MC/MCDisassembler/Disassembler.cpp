@@ -9,9 +9,6 @@
 
 #include "Disassembler.h"
 #include "llvm-c/Disassembler.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCDisassembler/MCDisassembler.h"
@@ -19,19 +16,12 @@
 #include "llvm/MC/MCDisassembler/MCSymbolizer.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstPrinter.h"
-#include "llvm/MC/MCInstrDesc.h"
 #include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCInstrItineraries.h"
 #include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCSchedule.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetRegistry.h"
-#include <cassert>
-#include <cstddef>
-#include <cstring>
 
 using namespace llvm;
 
@@ -126,7 +116,7 @@ LLVMDisasmContextRef LLVMCreateDisasm(const char *TT, void *DisInfo,
 // LLVMDisasmDispose() disposes of the disassembler specified by the context.
 //
 void LLVMDisasmDispose(LLVMDisasmContextRef DCR){
-  LLVMDisasmContext *DC = static_cast<LLVMDisasmContext *>(DCR);
+  LLVMDisasmContext *DC = (LLVMDisasmContext *)DCR;
   delete DC;
 }
 
@@ -221,6 +211,7 @@ static int getLatency(LLVMDisasmContext *DC, const MCInst &Inst) {
   return Latency;
 }
 
+
 /// \brief Emits latency information in DC->CommentStream for \p Inst, based
 /// on the information available in \p DC.
 static void emitLatency(LLVMDisasmContext *DC, const MCInst &Inst) {
@@ -248,7 +239,7 @@ static void emitLatency(LLVMDisasmContext *DC, const MCInst &Inst) {
 size_t LLVMDisasmInstruction(LLVMDisasmContextRef DCR, uint8_t *Bytes,
                              uint64_t BytesSize, uint64_t PC, char *OutString,
                              size_t OutStringSize){
-  LLVMDisasmContext *DC = static_cast<LLVMDisasmContext *>(DCR);
+  LLVMDisasmContext *DC = (LLVMDisasmContext *)DCR;
   // Wrap the pointer to the Bytes, BytesSize and PC in a MemoryObject.
   ArrayRef<uint8_t> Data(Bytes, BytesSize);
 
@@ -297,21 +288,21 @@ size_t LLVMDisasmInstruction(LLVMDisasmContextRef DCR, uint8_t *Bytes,
 //
 int LLVMSetDisasmOptions(LLVMDisasmContextRef DCR, uint64_t Options){
   if (Options & LLVMDisassembler_Option_UseMarkup){
-      LLVMDisasmContext *DC = static_cast<LLVMDisasmContext *>(DCR);
+      LLVMDisasmContext *DC = (LLVMDisasmContext *)DCR;
       MCInstPrinter *IP = DC->getIP();
-      IP->setUseMarkup(true);
+      IP->setUseMarkup(1);
       DC->addOptions(LLVMDisassembler_Option_UseMarkup);
       Options &= ~LLVMDisassembler_Option_UseMarkup;
   }
   if (Options & LLVMDisassembler_Option_PrintImmHex){
-      LLVMDisasmContext *DC = static_cast<LLVMDisasmContext *>(DCR);
+      LLVMDisasmContext *DC = (LLVMDisasmContext *)DCR;
       MCInstPrinter *IP = DC->getIP();
-      IP->setPrintImmHex(true);
+      IP->setPrintImmHex(1);
       DC->addOptions(LLVMDisassembler_Option_PrintImmHex);
       Options &= ~LLVMDisassembler_Option_PrintImmHex;
   }
   if (Options & LLVMDisassembler_Option_AsmPrinterVariant){
-      LLVMDisasmContext *DC = static_cast<LLVMDisasmContext *>(DCR);
+      LLVMDisasmContext *DC = (LLVMDisasmContext *)DCR;
       // Try to set up the new instruction printer.
       const MCAsmInfo *MAI = DC->getAsmInfo();
       const MCInstrInfo *MII = DC->getInstrInfo();
@@ -327,14 +318,14 @@ int LLVMSetDisasmOptions(LLVMDisasmContextRef DCR, uint64_t Options){
       }
   }
   if (Options & LLVMDisassembler_Option_SetInstrComments) {
-    LLVMDisasmContext *DC = static_cast<LLVMDisasmContext *>(DCR);
+    LLVMDisasmContext *DC = (LLVMDisasmContext *)DCR;
     MCInstPrinter *IP = DC->getIP();
     IP->setCommentStream(DC->CommentStream);
     DC->addOptions(LLVMDisassembler_Option_SetInstrComments);
     Options &= ~LLVMDisassembler_Option_SetInstrComments;
   }
   if (Options & LLVMDisassembler_Option_PrintLatency) {
-    LLVMDisasmContext *DC = static_cast<LLVMDisasmContext *>(DCR);
+    LLVMDisasmContext *DC = (LLVMDisasmContext *)DCR;
     DC->addOptions(LLVMDisassembler_Option_PrintLatency);
     Options &= ~LLVMDisassembler_Option_PrintLatency;
   }

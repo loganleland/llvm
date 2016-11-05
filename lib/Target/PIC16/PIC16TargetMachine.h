@@ -21,6 +21,8 @@
 
 namespace llvm {
 
+/// PIC16TargetMachine
+///
 class PIC16TargetMachine : public LLVMTargetMachine {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
   PIC16Subtarget        Subtarget;

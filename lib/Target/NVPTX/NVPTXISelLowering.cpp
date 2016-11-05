@@ -206,7 +206,7 @@ NVPTXTargetLowering::NVPTXTargetLowering(const NVPTXTargetMachine &TM,
   // intrinsics.
   setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::Other, Custom);
 
-  // Turn FP extload into load/fpextend
+  // Turn FP extload into load/fextend
   setLoadExtAction(ISD::EXTLOAD, MVT::f32, MVT::f16, Expand);
   setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f16, Expand);
   setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f32, Expand);
@@ -1337,15 +1337,11 @@ SDValue NVPTXTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     // The ByValAlign in the Outs[OIdx].Flags is alway set at this point,
     // so we don't need to worry about natural alignment or not.
     // See TargetLowering::LowerCallTo().
-
-    // Enforce minumum alignment of 4 to work around ptxas miscompile
-    // for sm_50+. See corresponding alignment adjustment in
-    // emitFunctionParamList() for details.
-    if (ArgAlign < 4)
-      ArgAlign = 4;
-    SDValue DeclareParamOps[] = {Chain, DAG.getConstant(ArgAlign, dl, MVT::i32),
-                                 DAG.getConstant(paramCount, dl, MVT::i32),
-                                 DAG.getConstant(sz, dl, MVT::i32), InFlag};
+    SDValue DeclareParamOps[] = {
+      Chain, DAG.getConstant(Outs[OIdx].Flags.getByValAlign(), dl, MVT::i32),
+      DAG.getConstant(paramCount, dl, MVT::i32),
+      DAG.getConstant(sz, dl, MVT::i32), InFlag
+    };
     Chain = DAG.getNode(NVPTXISD::DeclareParam, dl, DeclareParamVTs,
                         DeclareParamOps);
     InFlag = Chain.getValue(1);
@@ -2077,6 +2073,7 @@ SDValue NVPTXTargetLowering::LowerFormalArguments(
   SDValue Root = DAG.getRoot();
   std::vector<SDValue> OutChains;
 
+  bool isKernel = llvm::isKernelFunction(*F);
   bool isABI = (STI.getSmVersion() >= 20);
   assert(isABI && "Non-ABI compilation is not supported");
   if (!isABI)
@@ -2110,8 +2107,7 @@ SDValue NVPTXTargetLowering::LowerFormalArguments(
             theArgs[i],
             (theArgs[i]->getParent() ? theArgs[i]->getParent()->getParent()
                                      : nullptr))) {
-      assert(llvm::isKernelFunction(*F) &&
-             "Only kernels can have image/sampler params");
+      assert(isKernel && "Only kernels can have image/sampler params");
       InVals.push_back(DAG.getConstant(i + 1, dl, MVT::i32));
       continue;
     }
@@ -2336,7 +2332,14 @@ SDValue NVPTXTargetLowering::LowerFormalArguments(
     SDValue p = DAG.getNode(NVPTXISD::MoveParam, dl, ObjectVT, Arg);
     if (p.getNode())
       p.getNode()->setIROrder(idx + 1);
-    InVals.push_back(p);
+    if (isKernel)
+      InVals.push_back(p);
+    else {
+      SDValue p2 = DAG.getNode(
+          ISD::INTRINSIC_WO_CHAIN, dl, ObjectVT,
+          DAG.getConstant(Intrinsic::nvvm_ptr_local_to_gen, dl, MVT::i32), p);
+      InVals.push_back(p2);
+    }
   }
 
   // Clang will check explicit VarArg and issue error if any. However, Clang

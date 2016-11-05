@@ -535,7 +535,7 @@ bool AMDGPUPromoteAlloca::collectUsesWithPtrTypes(
   std::vector<Value*> &WorkList) const {
 
   for (User *User : Val->users()) {
-    if (is_contained(WorkList, User))
+    if (std::find(WorkList.begin(), WorkList.end(), User) != WorkList.end())
       continue;
 
     if (CallInst *CI = dyn_cast<CallInst>(User)) {
@@ -550,7 +550,7 @@ bool AMDGPUPromoteAlloca::collectUsesWithPtrTypes(
     if (UseInst->getOpcode() == Instruction::PtrToInt)
       return false;
 
-    if (LoadInst *LI = dyn_cast<LoadInst>(UseInst)) {
+    if (LoadInst *LI = dyn_cast_or_null<LoadInst>(UseInst)) {
       if (LI->isVolatile())
         return false;
 
@@ -564,10 +564,11 @@ bool AMDGPUPromoteAlloca::collectUsesWithPtrTypes(
       // Reject if the stored value is not the pointer operand.
       if (SI->getPointerOperand() != Val)
         return false;
-    } else if (AtomicRMWInst *RMW = dyn_cast<AtomicRMWInst>(UseInst)) {
+    } else if (AtomicRMWInst *RMW = dyn_cast_or_null<AtomicRMWInst>(UseInst)) {
       if (RMW->isVolatile())
         return false;
-    } else if (AtomicCmpXchgInst *CAS = dyn_cast<AtomicCmpXchgInst>(UseInst)) {
+    } else if (AtomicCmpXchgInst *CAS
+               = dyn_cast_or_null<AtomicCmpXchgInst>(UseInst)) {
       if (CAS->isVolatile())
         return false;
     }

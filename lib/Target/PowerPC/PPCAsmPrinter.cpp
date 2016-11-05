@@ -347,10 +347,11 @@ void PPCAsmPrinter::LowerPATCHPOINT(StackMaps &SM, const MachineInstr &MI) {
   PatchPointOpers Opers(&MI);
 
   unsigned EncodedBytes = 0;
-  const MachineOperand &CalleeMO = Opers.getCallTarget();
+  const MachineOperand &CalleeMO =
+    Opers.getMetaOper(PatchPointOpers::TargetPos);
 
   if (CalleeMO.isImm()) {
-    int64_t CallTarget = CalleeMO.getImm();
+    int64_t CallTarget = Opers.getMetaOper(PatchPointOpers::TargetPos).getImm();
     if (CallTarget) {
       assert((CallTarget & 0xFFFFFFFFFFFF) == CallTarget &&
              "High 16 bits of call target should be zero.");
@@ -429,7 +430,7 @@ void PPCAsmPrinter::LowerPATCHPOINT(StackMaps &SM, const MachineInstr &MI) {
   EncodedBytes *= 4;
 
   // Emit padding.
-  unsigned NumBytes = Opers.getNumPatchBytes();
+  unsigned NumBytes = Opers.getMetaOper(PatchPointOpers::NBytesPos).getImm();
   assert(NumBytes >= EncodedBytes &&
          "Patchpoint can't request size less than the length of a call.");
   assert((NumBytes - EncodedBytes) % 4 == 0 &&
@@ -1146,12 +1147,10 @@ bool PPCLinuxAsmPrinter::doFinalization(Module &M) {
          E = TOC.end(); I != E; ++I) {
       OutStreamer->EmitLabel(I->second);
       MCSymbol *S = I->first;
-      if (isPPC64) {
+      if (isPPC64)
         TS.emitTCEntry(*S);
-      } else {
-        OutStreamer->EmitValueToAlignment(4);
+      else
         OutStreamer->EmitSymbolValue(S, 4);
-      }
     }
   }
 

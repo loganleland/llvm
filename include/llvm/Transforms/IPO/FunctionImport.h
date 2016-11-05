@@ -13,7 +13,6 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/ModuleSummaryIndex.h"
-#include "llvm/IR/PassManager.h"
 
 #include <functional>
 #include <map>
@@ -64,17 +63,6 @@ private:
   std::function<std::unique_ptr<Module>(StringRef Identifier)> ModuleLoader;
 };
 
-/// The function importing pass
-class FunctionImportPass : public PassInfoMixin<FunctionImportPass> {
-public:
-  FunctionImportPass(const ModuleSummaryIndex *Index = nullptr)
-      : Index(Index) {}
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-
-private:
-  const ModuleSummaryIndex *Index;
-};
-
 /// Compute all the imports and exports for every module in the Index.
 ///
 /// \p ModuleToDefinedGVSummaries contains for each Module a map
@@ -114,13 +102,12 @@ void ComputeCrossModuleImportForModule(
 void gatherImportedSummariesForModule(
     StringRef ModulePath,
     const StringMap<GVSummaryMapTy> &ModuleToDefinedGVSummaries,
-    const FunctionImporter::ImportMapTy &ImportList,
+    const StringMap<FunctionImporter::ImportMapTy> &ImportLists,
     std::map<std::string, GVSummaryMapTy> &ModuleToSummariesForIndex);
 
-/// Emit into \p OutputFilename the files module \p ModulePath will import from.
 std::error_code
 EmitImportsFiles(StringRef ModulePath, StringRef OutputFilename,
-                 const FunctionImporter::ImportMapTy &ModuleImports);
+                 const StringMap<FunctionImporter::ImportMapTy> &ImportLists);
 
 /// Resolve WeakForLinker values in \p TheModule based on the information
 /// recorded in the summaries during global summary-based analysis.

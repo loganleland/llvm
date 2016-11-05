@@ -80,7 +80,7 @@ private:
   /// \returns true if a value was vectorized.
   bool tryToVectorizeList(ArrayRef<Value *> VL, slpvectorizer::BoUpSLP &R,
                           ArrayRef<Value *> BuildVector = None,
-                          bool AllowReorder = false);
+                          bool allowReorder = false);
 
   /// \brief Try to vectorize a chain that may start at the operands of \V;
   bool tryToVectorize(BinaryOperator *V, slpvectorizer::BoUpSLP &R);

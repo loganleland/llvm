@@ -74,7 +74,7 @@ namespace {
 
     MachineFunctionProperties getRequiredProperties() const override {
       return MachineFunctionProperties().set(
-          MachineFunctionProperties::Property::NoVRegs);
+          MachineFunctionProperties::Property::AllVRegsAllocated);
     }
 
   private:
@@ -179,7 +179,7 @@ void MipsLongBranch::initMBBInfo() {
     // Compute size of MBB.
     for (MachineBasicBlock::instr_iterator MI = MBB->instr_begin();
          MI != MBB->instr_end(); ++MI)
-      MBBInfos[I].Size += TII->getInstSizeInBytes(*MI);
+      MBBInfos[I].Size += TII->GetInstSizeInBytes(*MI);
 
     // Search for MBB's branch instruction.
     ReverseIter End = MBB->rend();

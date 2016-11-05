@@ -569,8 +569,8 @@ public:
     if (!Resolved) {
       switch ((unsigned)Fixup.getKind()) {
       case fixup_Hexagon_B22_PCREL:
-        // GetFixupCount assumes B22 won't relax
-        LLVM_FALLTHROUGH;
+      // GetFixupCount assumes B22 won't relax
+      // Fallthrough
       default:
         return false;
         break;
@@ -745,8 +745,7 @@ public:
 namespace llvm {
 MCAsmBackend *createHexagonAsmBackend(Target const &T,
                                       MCRegisterInfo const & /*MRI*/,
-                                      const Triple &TT, StringRef CPU,
-                                      const MCTargetOptions &Options) {
+                                      const Triple &TT, StringRef CPU) {
   uint8_t OSABI = MCELFObjectTargetWriter::getOSABI(TT.getOS());
   return new HexagonAsmBackend(T, OSABI, CPU);
 }

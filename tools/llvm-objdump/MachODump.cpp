@@ -862,9 +862,9 @@ static void DumpLiteralPointerSection(MachOObjectFile *O,
     }
 
     // First look for an external relocation entry for this literal pointer.
-    auto Reloc = find_if(Relocs, [&](const std::pair<uint64_t, SymbolRef> &P) {
-      return P.first == i;
-    });
+    auto Reloc = std::find_if(
+        Relocs.begin(), Relocs.end(),
+        [&](const std::pair<uint64_t, SymbolRef> &P) { return P.first == i; });
     if (Reloc != Relocs.end()) {
       symbol_iterator RelocSym = Reloc->second;
       Expected<StringRef> SymName = RelocSym->getName();
@@ -880,9 +880,11 @@ static void DumpLiteralPointerSection(MachOObjectFile *O,
     }
 
     // For local references see what the section the literal pointer points to.
-    auto Sect = find_if(LiteralSections, [&](const SectionRef &R) {
-      return lp >= R.getAddress() && lp < R.getAddress() + R.getSize();
-    });
+    auto Sect = std::find_if(LiteralSections.begin(), LiteralSections.end(),
+                             [&](const SectionRef &R) {
+                               return lp >= R.getAddress() &&
+                                      lp < R.getAddress() + R.getSize();
+                             });
     if (Sect == LiteralSections.end()) {
       outs() << format("0x%" PRIx64, lp) << " (not in a literal section)\n";
       continue;
@@ -1470,15 +1472,11 @@ static void printMachOUniversalHeaders(const object::MachOUniversalBinary *UB,
   }
 }
 
-static void printArchiveChild(StringRef Filename, const Archive::Child &C,
-                              bool verbose, bool print_offset,
-                              StringRef ArchitectureName = StringRef()) {
+static void printArchiveChild(const Archive::Child &C, bool verbose,
+                              bool print_offset) {
   if (print_offset)
     outs() << C.getChildOffset() << "\t";
-  Expected<sys::fs::perms> ModeOrErr = C.getAccessMode();
-  if (!ModeOrErr)
-    report_error(Filename, C, ModeOrErr.takeError(), ArchitectureName);
-  sys::fs::perms Mode = ModeOrErr.get();
+  sys::fs::perms Mode = C.getAccessMode();
   if (verbose) {
     // FIXME: this first dash, "-", is for (Mode & S_IFMT) == S_IFREG.
     // But there is nothing in sys::fs::perms for S_IFMT or S_IFREG.
@@ -1496,27 +1494,20 @@ static void printArchiveChild(StringRef Filename, const Archive::Child &C,
     outs() << format("0%o ", Mode);
   }
 
-  Expected<unsigned> UIDOrErr = C.getUID();
-  if (!UIDOrErr)
-    report_error(Filename, C, UIDOrErr.takeError(), ArchitectureName);
-  unsigned UID = UIDOrErr.get();
+  unsigned UID = C.getUID();
   outs() << format("%3d/", UID);
-  Expected<unsigned> GIDOrErr = C.getGID();
-  if (!GIDOrErr)
-    report_error(Filename, C, GIDOrErr.takeError(), ArchitectureName);
-  unsigned GID = GIDOrErr.get();
+  unsigned GID = C.getGID();
   outs() << format("%-3d ", GID);
-  Expected<uint64_t> Size = C.getRawSize();
-  if (!Size)
-    report_error(Filename, C, Size.takeError(), ArchitectureName);
+  ErrorOr<uint64_t> Size = C.getRawSize();
+  if (std::error_code EC = Size.getError())
+    report_fatal_error(EC.message());
   outs() << format("%5" PRId64, Size.get()) << " ";
 
   StringRef RawLastModified = C.getRawLastModified();
   if (verbose) {
     unsigned Seconds;
     if (RawLastModified.getAsInteger(10, Seconds))
-      outs() << "(date: \"" << RawLastModified
-             << "\" contains non-decimal chars) ";
+      outs() << "(date: \"%s\" contains non-decimal chars) " << RawLastModified;
     else {
       // Since cime(3) returns a 26 character string of the form:
       // "Sun Sep 16 01:03:52 1973\n\0"
@@ -1529,36 +1520,26 @@ static void printArchiveChild(StringRef Filename, const Archive::Child &C,
   }
 
   if (verbose) {
-    Expected<StringRef> NameOrErr = C.getName();
-    if (!NameOrErr) {
-      consumeError(NameOrErr.takeError());
-      Expected<StringRef> NameOrErr = C.getRawName();
-      if (!NameOrErr)
-        report_error(Filename, C, NameOrErr.takeError(), ArchitectureName);
-      StringRef RawName = NameOrErr.get();
+    ErrorOr<StringRef> NameOrErr = C.getName();
+    if (NameOrErr.getError()) {
+      StringRef RawName = C.getRawName();
       outs() << RawName << "\n";
     } else {
       StringRef Name = NameOrErr.get();
       outs() << Name << "\n";
     }
   } else {
-    Expected<StringRef> NameOrErr = C.getRawName();
-    if (!NameOrErr)
-      report_error(Filename, C, NameOrErr.takeError(), ArchitectureName);
-    StringRef RawName = NameOrErr.get();
+    StringRef RawName = C.getRawName();
     outs() << RawName << "\n";
   }
 }
 
-static void printArchiveHeaders(StringRef Filename, Archive *A, bool verbose,
-                                bool print_offset,
-                                StringRef ArchitectureName = StringRef()) {
+static void printArchiveHeaders(Archive *A, bool verbose, bool print_offset) {
   Error Err;
   for (const auto &C : A->children(Err, false))
-    printArchiveChild(Filename, C, verbose, print_offset, ArchitectureName);
-
+    printArchiveChild(C, verbose, print_offset);
   if (Err)
-    report_error(Filename, std::move(Err));
+    report_fatal_error(std::move(Err));
 }
 
 // ParseInputMachO() parses the named Mach-O file in Filename and handles the
@@ -1588,8 +1569,7 @@ void llvm::ParseInputMachO(StringRef Filename) {
   if (Archive *A = dyn_cast<Archive>(&Bin)) {
     outs() << "Archive : " << Filename << "\n";
     if (ArchiveHeaders)
-      printArchiveHeaders(Filename, A, !NonVerbose, ArchiveMemberOffsets);
-
+      printArchiveHeaders(A, !NonVerbose, ArchiveMemberOffsets);
     Error Err;
     for (auto &C : A->children(Err)) {
       Expected<std::unique_ptr<Binary>> ChildOrErr = C.getAsBinary();
@@ -1646,8 +1626,7 @@ void llvm::ParseInputMachO(StringRef Filename) {
                 outs() << " (architecture " << ArchitectureName << ")";
               outs() << "\n";
               if (ArchiveHeaders)
-                printArchiveHeaders(Filename, A.get(), !NonVerbose,
-                                    ArchiveMemberOffsets, ArchitectureName);
+                printArchiveHeaders(A.get(), !NonVerbose, ArchiveMemberOffsets);
               Error Err;
               for (auto &C : A->children(Err)) {
                 Expected<std::unique_ptr<Binary>> ChildOrErr = C.getAsBinary();
@@ -1702,8 +1681,7 @@ void llvm::ParseInputMachO(StringRef Filename) {
             std::unique_ptr<Archive> &A = *AOrErr;
             outs() << "Archive : " << Filename << "\n";
             if (ArchiveHeaders)
-              printArchiveHeaders(Filename, A.get(), !NonVerbose,
-                                  ArchiveMemberOffsets);
+              printArchiveHeaders(A.get(), !NonVerbose, ArchiveMemberOffsets);
             Error Err;
             for (auto &C : A->children(Err)) {
               Expected<std::unique_ptr<Binary>> ChildOrErr = C.getAsBinary();
@@ -1754,8 +1732,7 @@ void llvm::ParseInputMachO(StringRef Filename) {
           outs() << " (architecture " << ArchitectureName << ")";
         outs() << "\n";
         if (ArchiveHeaders)
-          printArchiveHeaders(Filename, A.get(), !NonVerbose,
-                              ArchiveMemberOffsets, ArchitectureName);
+          printArchiveHeaders(A.get(), !NonVerbose, ArchiveMemberOffsets);
         Error Err;
         for (auto &C : A->children(Err)) {
           Expected<std::unique_ptr<Binary>> ChildOrErr = C.getAsBinary();
@@ -2038,10 +2015,11 @@ static int SymbolizerGetOpInfo(void *DisInfo, uint64_t Pc, uint64_t Offset,
     bool r_scattered = false;
     uint32_t r_value, pair_r_value, r_type, r_length, other_half;
     auto Reloc =
-        find_if(info->S.relocations(), [&](const RelocationRef &Reloc) {
-          uint64_t RelocOffset = Reloc.getOffset();
-          return RelocOffset == sect_offset;
-        });
+        std::find_if(info->S.relocations().begin(), info->S.relocations().end(),
+                     [&](const RelocationRef &Reloc) {
+                       uint64_t RelocOffset = Reloc.getOffset();
+                       return RelocOffset == sect_offset;
+                     });
 
     if (Reloc == info->S.relocations().end())
       return 0;
@@ -2176,10 +2154,11 @@ static int SymbolizerGetOpInfo(void *DisInfo, uint64_t Pc, uint64_t Offset,
     uint64_t sect_addr = info->S.getAddress();
     uint64_t sect_offset = (Pc + Offset) - sect_addr;
     auto Reloc =
-        find_if(info->S.relocations(), [&](const RelocationRef &Reloc) {
-          uint64_t RelocOffset = Reloc.getOffset();
-          return RelocOffset == sect_offset;
-        });
+        std::find_if(info->S.relocations().begin(), info->S.relocations().end(),
+                     [&](const RelocationRef &Reloc) {
+                       uint64_t RelocOffset = Reloc.getOffset();
+                       return RelocOffset == sect_offset;
+                     });
 
     if (Reloc == info->S.relocations().end())
       return 0;

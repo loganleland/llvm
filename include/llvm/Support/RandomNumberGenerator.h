@@ -19,7 +19,6 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/DataTypes.h" // Needed for uint64_t on Windows.
 #include <random>
-#include <system_error>
 
 namespace llvm {
 class StringRef;
@@ -54,9 +53,6 @@ private:
 
   friend class Module;
 };
-
-// Get random vector of specified size
-std::error_code getRandomBytes(void *Buffer, size_t Size);
 }
 
 #endif

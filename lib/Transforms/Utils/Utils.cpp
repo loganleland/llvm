@@ -26,9 +26,9 @@ void llvm::initializeTransformUtils(PassRegistry &Registry) {
   initializeInstNamerPass(Registry);
   initializeLCSSAWrapperPassPass(Registry);
   initializeLoopSimplifyPass(Registry);
-  initializeLowerInvokeLegacyPassPass(Registry);
+  initializeLowerInvokePass(Registry);
   initializeLowerSwitchPass(Registry);
-  initializeNameAnonFunctionLegacyPassPass(Registry);
+  initializeNameAnonFunctionPass(Registry);
   initializePromoteLegacyPassPass(Registry);
   initializeUnifyFunctionExitNodesPass(Registry);
   initializeInstSimplifierPass(Registry);

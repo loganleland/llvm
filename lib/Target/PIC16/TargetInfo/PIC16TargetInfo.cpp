@@ -1,4 +1,4 @@
-//===-- PIC16TargetInfo.cpp - PIC16 Target Implementation -------------------===//
+//===-- PIC16TargetInfo.cpp - PIC16 Target Implementation ---------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -13,6 +13,8 @@
 using namespace llvm;
 
 Target llvm::ThePIC16Target;
-extern "C" void LLVMInitializePIC16TargetInfo() {
-  RegisterTarget<Triple::pic16> X(ThePIC16Target, "pic16", "PIC16");
+
+extern "C" void LLVMInitializePIC16TargetInfo() { 
+  RegisterTarget<Triple::pic16> 
+    X(ThePIC16Target, "pic16", "PIC16 [experimental]");
 }

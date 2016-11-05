@@ -694,10 +694,9 @@ llvm::getFuncletMembership(const MachineFunction &MF) {
     }
 
     MachineBasicBlock::const_iterator MBBI = MBB.getFirstTerminator();
-
     // CatchPads are not funclets for SEH so do not consider CatchRet to
     // transfer control to another funclet.
-    if (MBBI == MBB.end() || MBBI->getOpcode() != TII->getCatchReturnOpcode())
+    if (MBBI->getOpcode() != TII->getCatchReturnOpcode())
       continue;
 
     // FIXME: SEH CatchPads are not necessarily in the parent function:

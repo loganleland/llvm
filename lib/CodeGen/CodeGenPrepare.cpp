@@ -3665,7 +3665,8 @@ isProfitableToFoldIntoAddressingMode(Instruction *I, ExtAddrMode &AMBefore,
     TPT.rollback(LastKnownGood);
 
     // If the match didn't cover I, then it won't be shared by it.
-    if (!is_contained(MatchedAddrModeInsts, I))
+    if (std::find(MatchedAddrModeInsts.begin(), MatchedAddrModeInsts.end(),
+                  I) == MatchedAddrModeInsts.end())
       return false;
 
     MatchedAddrModeInsts.clear();

@@ -805,9 +805,9 @@ inline Value **unwrap(LLVMValueRef *Vals) {
 
 template<typename T>
 inline T **unwrap(LLVMValueRef *Vals, unsigned Length) {
-#ifndef NDEBUG
+#ifdef DEBUG
   for (LLVMValueRef *I = Vals, *E = Vals + Length; I != E; ++I)
-    unwrap<T>(*I); // For side effect of calling assert on invalid usage.
+    cast<T>(*I);
 #endif
   (void)Length;
   return reinterpret_cast<T**>(Vals);

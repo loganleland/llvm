@@ -38,9 +38,10 @@ PIC16TargetMachine::PIC16TargetMachine(const Target &T, const Triple &TT,
                                          Optional<Reloc::Model> RM,
                                          CodeModel::Model CM,
                                          CodeGenOpt::Level OL)
-    : LLVMTargetMachine(T, "e-p:7:7-i8:8:8", TT, CPU, FS,
+    : LLVMTargetMachine(T, "e-m:e-p:16:16-i32:16:32-a:16-n8:16", TT, CPU, FS,
                         Options, getEffectiveRelocModel(RM), CM, OL),
       TLOF(make_unique<TargetLoweringObjectFileELF>()),
+      // FIXME: Check DataLayout string.
       Subtarget(TT, CPU, FS, *this) {
   initAsmInfo();
 }

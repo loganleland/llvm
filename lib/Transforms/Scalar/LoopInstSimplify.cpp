@@ -184,7 +184,7 @@ public:
 }
 
 PreservedAnalyses LoopInstSimplifyPass::run(Loop &L,
-                                            LoopAnalysisManager &AM) {
+                                            AnalysisManager<Loop> &AM) {
   const auto &FAM =
       AM.getResult<FunctionAnalysisManagerLoopProxy>(L).getManager();
   Function *F = L.getHeader()->getParent();

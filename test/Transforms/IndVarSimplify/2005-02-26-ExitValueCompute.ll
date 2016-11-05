@@ -1,8 +1,7 @@
-; RUN: opt < %s -indvars -S | FileCheck %s
+; RUN: opt < %s -indvars -S | \
+; RUN:   grep "ret i32 152"
 
 define i32 @main() {
-; CHECK-LABEL: @main(
-; CHECK: ret i32 152
 entry:
         br label %no_exit
 

@@ -47,12 +47,13 @@ bool TailDuplicatePass::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(*MF.getFunction()))
     return false;
 
+  auto MMI = getAnalysisIfAvailable<MachineModuleInfo>();
   auto MBPI = &getAnalysis<MachineBranchProbabilityInfo>();
 
-  Duplicator.initMF(MF, MBPI);
+  Duplicator.initMF(MF, MMI, MBPI);
 
   bool MadeChange = false;
-  while (Duplicator.tailDuplicateBlocks())
+  while (Duplicator.tailDuplicateBlocks(MF))
     MadeChange = true;
 
   return MadeChange;

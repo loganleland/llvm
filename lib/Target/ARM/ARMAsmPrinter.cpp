@@ -249,7 +249,7 @@ bool ARMAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
           << "]";
         return false;
       }
-      LLVM_FALLTHROUGH;
+      // Fallthrough
     case 'c': // Don't print "#" before an immediate operand.
       if (!MI->getOperand(OpNum).isImm())
         return true;
@@ -451,16 +451,8 @@ void ARMAsmPrinter::EmitStartOfAsmFile(Module &M) {
   OutStreamer->EmitAssemblerFlag(MCAF_SyntaxUnified);
 
   // Emit ARM Build Attributes
-  if (TT.isOSBinFormatELF()) {
-    if (!M.empty()) {
-      // FIXME: this is a hack, but it is not more broken than
-      // resetTargetOptions already was. The purpose of reading the target
-      // options here is to read function attributes denormal and trapping-math
-      // that we want to map onto build attributes.
-      TM.resetTargetOptions(*M.begin());
-    }
+  if (TT.isOSBinFormatELF())
     emitAttributes();
-  }
 
   // Use the triple's architecture and subarchitecture to determine
   // if we're thumb for the purposes of the top level code16 assembler
@@ -733,42 +725,31 @@ void ARMAsmPrinter::emitAttributes() {
       ATS.emitFPU(ARM::FK_VFPV2);
   }
 
-  // RW data addressing.
   if (isPositionIndependent()) {
+    // PIC specific attributes.
     ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_RW_data,
                       ARMBuildAttrs::AddressRWPCRel);
-  } else if (STI.isRWPI()) {
-    // RWPI specific attributes.
-    ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_RW_data,
-                      ARMBuildAttrs::AddressRWSBRel);
-  }
-
-  // RO data addressing.
-  if (isPositionIndependent() || STI.isROPI()) {
     ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_RO_data,
                       ARMBuildAttrs::AddressROPCRel);
-  }
-
-  // GOT use.
-  if (isPositionIndependent()) {
     ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_GOT_use,
                       ARMBuildAttrs::AddressGOT);
   } else {
+    // Allow direct addressing of imported data for all other relocation models.
     ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_GOT_use,
                       ARMBuildAttrs::AddressDirect);
   }
 
-  // Set FP Denormals.
-  if (TM.Options.FPDenormalType == FPDenormal::PreserveSign)
-      ATS.emitAttribute(ARMBuildAttrs::ABI_FP_denormal,
-                        ARMBuildAttrs::PreserveFPSign);
-  else if (TM.Options.FPDenormalType == FPDenormal::PositiveZero)
-      ATS.emitAttribute(ARMBuildAttrs::ABI_FP_denormal,
-                        ARMBuildAttrs::PositiveZero);
-  else if (!TM.Options.UnsafeFPMath)
+  // Signal various FP modes.
+  if (!TM.Options.UnsafeFPMath) {
     ATS.emitAttribute(ARMBuildAttrs::ABI_FP_denormal,
                       ARMBuildAttrs::IEEEDenormals);
-  else {
+    ATS.emitAttribute(ARMBuildAttrs::ABI_FP_exceptions, ARMBuildAttrs::Allowed);
+
+    // If the user has permitted this code to choose the IEEE 754
+    // rounding at run-time, emit the rounding attribute.
+    if (TM.Options.HonorSignDependentRoundingFPMathOption)
+      ATS.emitAttribute(ARMBuildAttrs::ABI_FP_rounding, ARMBuildAttrs::Allowed);
+  } else {
     if (!STI.hasVFP2()) {
       // When the target doesn't have an FPU (by design or
       // intention), the assumptions made on the software support
@@ -792,19 +773,6 @@ void ARMAsmPrinter::emitAttributes() {
     // LLVM has chosen to flush this to positive zero (most likely for
     // GCC compatibility), so that's the chosen value here (the
     // absence of its emission implies zero).
-  }
-
-  // Set FP exceptions and rounding
-  if (TM.Options.NoTrappingFPMath)
-    ATS.emitAttribute(ARMBuildAttrs::ABI_FP_exceptions,
-                      ARMBuildAttrs::Not_Allowed);
-  else if (!TM.Options.UnsafeFPMath) {
-    ATS.emitAttribute(ARMBuildAttrs::ABI_FP_exceptions, ARMBuildAttrs::Allowed);
-
-    // If the user has permitted this code to choose the IEEE 754
-    // rounding at run-time, emit the rounding attribute.
-    if (TM.Options.HonorSignDependentRoundingFPMathOption)
-      ATS.emitAttribute(ARMBuildAttrs::ABI_FP_rounding, ARMBuildAttrs::Allowed);
   }
 
   // TM.Options.NoInfsFPMath && TM.Options.NoNaNsFPMath is the
@@ -890,16 +858,14 @@ void ARMAsmPrinter::emitAttributes() {
     }
   }
 
-  // We currently do not support using R9 as the TLS pointer.
-  if (STI.isRWPI())
-    ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_R9_use,
-                      ARMBuildAttrs::R9IsSB);
-  else if (STI.isR9Reserved())
-    ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_R9_use,
-                      ARMBuildAttrs::R9Reserved);
+  // TODO: We currently only support either reserving the register, or treating
+  // it as another callee-saved register, but not as SB or a TLS pointer; It
+  // would instead be nicer to push this from the frontend as metadata, as we do
+  // for the wchar and enum size tags
+  if (STI.isR9Reserved())
+    ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_R9_use, ARMBuildAttrs::R9Reserved);
   else
-    ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_R9_use,
-                      ARMBuildAttrs::R9IsGPR);
+    ATS.emitAttribute(ARMBuildAttrs::ABI_PCS_R9_use, ARMBuildAttrs::R9IsGPR);
 
   if (STI.hasTrustZone() && STI.hasVirtualization())
     ATS.emitAttribute(ARMBuildAttrs::Virtualization_use,
@@ -933,8 +899,6 @@ getModifierVariantKind(ARMCP::ARMCPModifier Modifier) {
     return MCSymbolRefExpr::VK_TPOFF;
   case ARMCP::GOTTPOFF:
     return MCSymbolRefExpr::VK_GOTTPOFF;
-  case ARMCP::SBREL:
-    return MCSymbolRefExpr::VK_ARM_SBREL;
   case ARMCP::GOT_PREL:
     return MCSymbolRefExpr::VK_ARM_GOT_PREL;
   case ARMCP::SECREL:
@@ -1073,7 +1037,7 @@ void ARMAsmPrinter::EmitJumpTableAddrs(const MachineInstr *MI) {
     //    .word (LBB1 - LJTI_0_0)
     const MCExpr *Expr = MCSymbolRefExpr::create(MBB->getSymbol(), OutContext);
 
-    if (isPositionIndependent() || Subtarget->isROPI())
+    if (isPositionIndependent())
       Expr = MCBinaryExpr::createSub(Expr, MCSymbolRefExpr::create(JTISymbol,
                                                                    OutContext),
                                      OutContext);

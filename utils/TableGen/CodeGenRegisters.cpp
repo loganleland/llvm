@@ -1756,7 +1756,8 @@ void CodeGenRegBank::computeRegUnitSets() {
     std::vector<unsigned> RUSets;
     for (unsigned i = 0, e = RegUnitSets.size(); i != e; ++i) {
       RegUnitSet &RUSet = RegUnitSets[i];
-      if (!is_contained(RUSet.Units, UnitIdx))
+      if (std::find(RUSet.Units.begin(), RUSet.Units.end(), UnitIdx)
+          == RUSet.Units.end())
         continue;
       RUSets.push_back(i);
     }

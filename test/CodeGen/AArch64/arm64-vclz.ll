@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=arm64-eabi -aarch64-neon-syntax=apple | FileCheck %s
+; RUN: llc -march=arm64 -aarch64-neon-syntax=apple < %s | FileCheck %s
 
 define <8 x i8> @test_vclz_u8(<8 x i8> %a) nounwind readnone ssp {
   ; CHECK-LABEL: test_vclz_u8:

@@ -1,4 +1,4 @@
-;===- ./lib/Target/PIC16/TargetInfo/LLVMBuild.txt ---------------*- Conf -*--===;
+;===- ./lib/Target/PIC16/TargetInfo/LLVMBuild.txt -------------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -18,6 +18,6 @@
 [component_0]
 type = Library
 name = PIC16Info
-parent = PIC16 
+parent = PIC16
 required_libraries = Support
-add_to_library_groups = PIC16 
+add_to_library_groups = PIC16

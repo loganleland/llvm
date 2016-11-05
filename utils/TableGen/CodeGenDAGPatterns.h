@@ -412,7 +412,8 @@ public:
   }
   void addPredicateFn(const TreePredicateFn &Fn) {
     assert(!Fn.isAlwaysTrue() && "Empty predicate string!");
-    if (!is_contained(PredicateFns, Fn))
+    if (std::find(PredicateFns.begin(), PredicateFns.end(), Fn) ==
+          PredicateFns.end())
       PredicateFns.push_back(Fn);
   }
 

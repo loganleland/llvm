@@ -29,8 +29,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Config/config.h"
-#include "llvm/DebugInfo/MSF/ByteStream.h"
-#include "llvm/DebugInfo/MSF/MSFBuilder.h"
+#include "llvm/DebugInfo/CodeView/ByteStream.h"
 #include "llvm/DebugInfo/PDB/GenericError.h"
 #include "llvm/DebugInfo/PDB/IPDBEnumChildren.h"
 #include "llvm/DebugInfo/PDB/IPDBRawSymbol.h"
@@ -66,8 +65,28 @@
 
 using namespace llvm;
 using namespace llvm::codeview;
-using namespace llvm::msf;
 using namespace llvm::pdb;
+
+namespace {
+// A simple adapter that acts like a ByteStream but holds ownership over
+// and underlying FileOutputBuffer.
+class FileBufferByteStream : public ByteStream<true> {
+public:
+  FileBufferByteStream(std::unique_ptr<FileOutputBuffer> Buffer)
+      : ByteStream(MutableArrayRef<uint8_t>(Buffer->getBufferStart(),
+                                            Buffer->getBufferEnd())),
+        FileBuffer(std::move(Buffer)) {}
+
+  Error commit() const override {
+    if (FileBuffer->commit())
+      return llvm::make_error<RawError>(raw_error_code::not_writable);
+    return Error::success();
+  }
+
+private:
+  std::unique_ptr<FileOutputBuffer> FileBuffer;
+};
+}
 
 namespace opts {
 
@@ -167,10 +186,6 @@ cl::opt<bool> DumpStreamBlocks("stream-blocks",
 cl::opt<bool> DumpStreamSummary("stream-summary",
                                 cl::desc("dump summary of the PDB streams"),
                                 cl::cat(MsfOptions), cl::sub(RawSubcommand));
-cl::opt<bool> DumpPageStats(
-    "page-stats",
-    cl::desc("dump allocation stats of the pages in the MSF file"),
-    cl::cat(MsfOptions), cl::sub(RawSubcommand));
 
 // TYPE OPTIONS
 cl::opt<bool>
@@ -270,20 +285,6 @@ cl::opt<bool> PdbStream("pdb-stream",
 cl::opt<bool> DbiStream("dbi-stream",
                         cl::desc("Dump the DBI Stream (Stream 2)"),
                         cl::sub(PdbToYamlSubcommand), cl::init(false));
-cl::opt<bool>
-    DbiModuleInfo("dbi-module-info",
-                  cl::desc("Dump DBI Module Information (implies -dbi-stream)"),
-                  cl::sub(PdbToYamlSubcommand), cl::init(false));
-
-cl::opt<bool> DbiModuleSourceFileInfo(
-    "dbi-module-source-info",
-    cl::desc(
-        "Dump DBI Module Source File Information (implies -dbi-module-info"),
-    cl::sub(PdbToYamlSubcommand), cl::init(false));
-
-cl::opt<bool> TpiStream("tpi-stream",
-                        cl::desc("Dump the TPI Stream (Stream 3)"),
-                        cl::sub(PdbToYamlSubcommand), cl::init(false));
 
 cl::list<std::string> InputFilename(cl::Positional,
                                     cl::desc("<input PDB file>"), cl::Required,
@@ -294,7 +295,6 @@ cl::list<std::string> InputFilename(cl::Positional,
 static ExitOnError ExitOnErr;
 
 static void yamlToPdb(StringRef Path) {
-  BumpPtrAllocator Allocator;
   ErrorOr<std::unique_ptr<MemoryBuffer>> ErrorOrBuffer =
       MemoryBuffer::getFileOrSTDIN(Path, /*FileSize=*/-1,
                                    /*RequiresNullTerminator=*/false);
@@ -320,7 +320,7 @@ static void yamlToPdb(StringRef Path) {
 
   auto FileByteStream =
       llvm::make_unique<FileBufferByteStream>(std::move(*OutFileOrError));
-  PDBFileBuilder Builder(Allocator);
+  PDBFileBuilder Builder(std::move(FileByteStream));
 
   ExitOnErr(Builder.initialize(YamlObj.Headers->SuperBlock));
   ExitOnErr(Builder.getMsfBuilder().setDirectoryBlocksHint(
@@ -375,14 +375,13 @@ static void yamlToPdb(StringRef Path) {
     DbiBuilder.setPdbDllRbld(YamlObj.DbiStream->PdbDllRbld);
     DbiBuilder.setPdbDllVersion(YamlObj.DbiStream->PdbDllVersion);
     DbiBuilder.setVersionHeader(YamlObj.DbiStream->VerHeader);
-    for (const auto &MI : YamlObj.DbiStream->ModInfos) {
-      ExitOnErr(DbiBuilder.addModuleInfo(MI.Obj, MI.Mod));
-      for (auto S : MI.SourceFiles)
-        ExitOnErr(DbiBuilder.addModuleSourceFile(MI.Mod, S));
-    }
   }
 
-  ExitOnErr(Builder.commit(*FileByteStream));
+  auto Pdb = Builder.build();
+  ExitOnErr(Pdb.takeError());
+
+  auto &PdbFile = *Pdb;
+  ExitOnErr(PdbFile->commit());
 }
 
 static void pdb2Yaml(StringRef Path) {
@@ -541,7 +540,8 @@ int main(int argc_, const char *argv_[]) {
 
   cl::ParseCommandLineOptions(argv.size(), argv.data(), "LLVM PDB Dumper\n");
 
-  if (opts::RawSubcommand && opts::raw::RawAll) {
+  // These options are shared by two subcommands.
+  if ((opts::PdbToYamlSubcommand || opts::RawSubcommand) && opts::raw::RawAll) {
     opts::raw::DumpHeaders = true;
     opts::raw::DumpModules = true;
     opts::raw::DumpModuleFiles = true;
@@ -549,7 +549,6 @@ int main(int argc_, const char *argv_[]) {
     opts::raw::DumpPublics = true;
     opts::raw::DumpSectionHeaders = true;
     opts::raw::DumpStreamSummary = true;
-    opts::raw::DumpPageStats = true;
     opts::raw::DumpStreamBlocks = true;
     opts::raw::DumpTpiRecords = true;
     opts::raw::DumpTpiHash = true;

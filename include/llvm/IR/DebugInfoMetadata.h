@@ -904,7 +904,7 @@ public:
   void replaceElements(DINodeArray Elements) {
 #ifndef NDEBUG
     for (DINode *Op : getElements())
-      assert(is_contained(Elements->operands(), Op) &&
+      assert(std::find(Elements->op_begin(), Elements->op_end(), Op) &&
              "Lost a member during member list replacement");
 #endif
     replaceOperandWith(4, Elements.get());
@@ -997,16 +997,14 @@ private:
   unsigned RuntimeVersion;
   unsigned EmissionKind;
   uint64_t DWOId;
-  bool SplitDebugInlining;
 
   DICompileUnit(LLVMContext &C, StorageType Storage, unsigned SourceLanguage,
                 bool IsOptimized, unsigned RuntimeVersion,
-                unsigned EmissionKind, uint64_t DWOId, bool SplitDebugInlining,
-                ArrayRef<Metadata *> Ops)
+                unsigned EmissionKind, uint64_t DWOId, ArrayRef<Metadata *> Ops)
       : DIScope(C, DICompileUnitKind, Storage, dwarf::DW_TAG_compile_unit, Ops),
         SourceLanguage(SourceLanguage), IsOptimized(IsOptimized),
         RuntimeVersion(RuntimeVersion), EmissionKind(EmissionKind),
-        DWOId(DWOId), SplitDebugInlining(SplitDebugInlining) {
+        DWOId(DWOId) {
     assert(Storage != Uniqued);
   }
   ~DICompileUnit() = default;
@@ -1018,15 +1016,13 @@ private:
           unsigned EmissionKind, DICompositeTypeArray EnumTypes,
           DIScopeArray RetainedTypes, DIGlobalVariableArray GlobalVariables,
           DIImportedEntityArray ImportedEntities, DIMacroNodeArray Macros,
-          uint64_t DWOId, bool SplitDebugInlining, StorageType Storage,
-          bool ShouldCreate = true) {
-    return getImpl(Context, SourceLanguage, File,
-                   getCanonicalMDString(Context, Producer), IsOptimized,
-                   getCanonicalMDString(Context, Flags), RuntimeVersion,
-                   getCanonicalMDString(Context, SplitDebugFilename),
-                   EmissionKind, EnumTypes.get(), RetainedTypes.get(),
-                   GlobalVariables.get(), ImportedEntities.get(), Macros.get(),
-                   DWOId, SplitDebugInlining, Storage, ShouldCreate);
+          uint64_t DWOId, StorageType Storage, bool ShouldCreate = true) {
+    return getImpl(
+        Context, SourceLanguage, File, getCanonicalMDString(Context, Producer),
+        IsOptimized, getCanonicalMDString(Context, Flags), RuntimeVersion,
+        getCanonicalMDString(Context, SplitDebugFilename), EmissionKind,
+        EnumTypes.get(), RetainedTypes.get(), GlobalVariables.get(),
+        ImportedEntities.get(), Macros.get(), DWOId, Storage, ShouldCreate);
   }
   static DICompileUnit *
   getImpl(LLVMContext &Context, unsigned SourceLanguage, Metadata *File,
@@ -1034,16 +1030,15 @@ private:
           unsigned RuntimeVersion, MDString *SplitDebugFilename,
           unsigned EmissionKind, Metadata *EnumTypes, Metadata *RetainedTypes,
           Metadata *GlobalVariables, Metadata *ImportedEntities,
-          Metadata *Macros, uint64_t DWOId, bool SplitDebugInlining,
-          StorageType Storage, bool ShouldCreate = true);
+          Metadata *Macros, uint64_t DWOId, StorageType Storage,
+          bool ShouldCreate = true);
 
   TempDICompileUnit cloneImpl() const {
-    return getTemporary(getContext(), getSourceLanguage(), getFile(),
-                        getProducer(), isOptimized(), getFlags(),
-                        getRuntimeVersion(), getSplitDebugFilename(),
-                        getEmissionKind(), getEnumTypes(), getRetainedTypes(),
-                        getGlobalVariables(), getImportedEntities(),
-                        getMacros(), DWOId, getSplitDebugInlining());
+    return getTemporary(
+        getContext(), getSourceLanguage(), getFile(), getProducer(),
+        isOptimized(), getFlags(), getRuntimeVersion(), getSplitDebugFilename(),
+        getEmissionKind(), getEnumTypes(), getRetainedTypes(),
+        getGlobalVariables(), getImportedEntities(), getMacros(), DWOId);
   }
 
   static void get() = delete;
@@ -1058,21 +1053,20 @@ public:
        DICompositeTypeArray EnumTypes, DIScopeArray RetainedTypes,
        DIGlobalVariableArray GlobalVariables,
        DIImportedEntityArray ImportedEntities, DIMacroNodeArray Macros,
-       uint64_t DWOId, bool SplitDebugInlining),
+       uint64_t DWOId),
       (SourceLanguage, File, Producer, IsOptimized, Flags, RuntimeVersion,
        SplitDebugFilename, EmissionKind, EnumTypes, RetainedTypes,
-       GlobalVariables, ImportedEntities, Macros, DWOId, SplitDebugInlining))
+       GlobalVariables, ImportedEntities, Macros, DWOId))
   DEFINE_MDNODE_GET_DISTINCT_TEMPORARY(
       DICompileUnit,
       (unsigned SourceLanguage, Metadata *File, MDString *Producer,
        bool IsOptimized, MDString *Flags, unsigned RuntimeVersion,
        MDString *SplitDebugFilename, unsigned EmissionKind, Metadata *EnumTypes,
        Metadata *RetainedTypes, Metadata *GlobalVariables,
-       Metadata *ImportedEntities, Metadata *Macros, uint64_t DWOId,
-       bool SplitDebugInlining),
+       Metadata *ImportedEntities, Metadata *Macros, uint64_t DWOId),
       (SourceLanguage, File, Producer, IsOptimized, Flags, RuntimeVersion,
        SplitDebugFilename, EmissionKind, EnumTypes, RetainedTypes,
-       GlobalVariables, ImportedEntities, Macros, DWOId, SplitDebugInlining))
+       GlobalVariables, ImportedEntities, Macros, DWOId))
 
   TempDICompileUnit clone() const { return cloneImpl(); }
 
@@ -1102,10 +1096,6 @@ public:
   }
   uint64_t getDWOId() const { return DWOId; }
   void setDWOId(uint64_t DwoId) { DWOId = DwoId; }
-  bool getSplitDebugInlining() const { return SplitDebugInlining; }
-  void setSplitDebugInlining(bool SplitDebugInlining) {
-    this->SplitDebugInlining = SplitDebugInlining;
-  }
 
   MDString *getRawProducer() const { return getOperandAs<MDString>(1); }
   MDString *getRawFlags() const { return getOperandAs<MDString>(2); }
@@ -1427,13 +1417,6 @@ public:
   /// non-static member function (void foo() &&).
   unsigned isRValueReference() const {
     return getFlags() & FlagRValueReference;
-  }
-
-  /// \brief Check if this is marked as noreturn.
-  ///
-  /// Return true if this subprogram is C++11 noreturn or C11 _Noreturn
-  unsigned isNoReturn() const {
-    return getFlags() & FlagNoReturn;
   }
 
   DIScopeRef getScope() const { return DIScopeRef(getRawScope()); }
@@ -2172,11 +2155,6 @@ public:
   static bool classof(const Metadata *MD) {
     return MD->getMetadataID() == DIExpressionKind;
   }
-
-  /// \brief Is the first element a DW_OP_deref?.
-  bool startsWithDeref() const {
-    return getNumElements() > 0 && getElement(0) == dwarf::DW_OP_deref;
-  }
 };
 
 class DIObjCProperty : public DINode {
@@ -2455,7 +2433,7 @@ public:
   void replaceElements(DIMacroNodeArray Elements) {
 #ifndef NDEBUG
     for (DIMacroNode *Op : getElements())
-      assert(is_contained(Elements->operands(), Op) &&
+      assert(std::find(Elements->op_begin(), Elements->op_end(), Op) &&
              "Lost a macro node during macro node list replacement");
 #endif
     replaceOperandWith(1, Elements.get());

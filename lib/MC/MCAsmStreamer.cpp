@@ -14,7 +14,6 @@
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeEmitter.h"
-#include "llvm/MC/MCCodeView.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCFixupKindInfo.h"
@@ -181,11 +180,6 @@ public:
 
   void EmitSLEB128Value(const MCExpr *Value) override;
 
-  void EmitDTPRel32Value(const MCExpr *Value) override;
-  void EmitDTPRel64Value(const MCExpr *Value) override;
-  void EmitTPRel32Value(const MCExpr *Value) override;
-  void EmitTPRel64Value(const MCExpr *Value) override;
-
   void EmitGPRel64Value(const MCExpr *Value) override;
 
   void EmitGPRel32Value(const MCExpr *Value) override;
@@ -221,7 +215,7 @@ public:
                              StringRef FileName) override;
   MCSymbol *getDwarfLineTableSymbol(unsigned CUID) override;
 
-  bool EmitCVFileDirective(unsigned FileNo, StringRef Filename) override;
+  unsigned EmitCVFileDirective(unsigned FileNo, StringRef Filename) override;
   void EmitCVLocDirective(unsigned FunctionId, unsigned FileNo, unsigned Line,
                           unsigned Column, bool PrologueEnd, bool IsStmt,
                           StringRef FileName) override;
@@ -363,10 +357,9 @@ void MCAsmStreamer::addExplicitComment(const Twine &T) {
     ExplicitCommentToEmit.append("\t");
     ExplicitCommentToEmit.append(c.str());
   } else if (c.front() == '#') {
-
-    ExplicitCommentToEmit.append("\t");
-    ExplicitCommentToEmit.append(MAI->getCommentString());
-    ExplicitCommentToEmit.append(c.slice(1, c.size()).str());
+    // # are comments for ## commentString. Output extra #.
+    ExplicitCommentToEmit.append("\t#");
+    ExplicitCommentToEmit.append(c.str());
   } else
     assert(false && "Unexpected Assembly Comment");
   // full line comments immediately output
@@ -862,34 +855,6 @@ void MCAsmStreamer::EmitSLEB128Value(const MCExpr *Value) {
   EmitEOL();
 }
 
-void MCAsmStreamer::EmitDTPRel64Value(const MCExpr *Value) {
-  assert(MAI->getDTPRel64Directive() != nullptr);
-  OS << MAI->getDTPRel64Directive();
-  Value->print(OS, MAI);
-  EmitEOL();
-}
-
-void MCAsmStreamer::EmitDTPRel32Value(const MCExpr *Value) {
-  assert(MAI->getDTPRel32Directive() != nullptr);
-  OS << MAI->getDTPRel32Directive();
-  Value->print(OS, MAI);
-  EmitEOL();
-}
-
-void MCAsmStreamer::EmitTPRel64Value(const MCExpr *Value) {
-  assert(MAI->getTPRel64Directive() != nullptr);
-  OS << MAI->getTPRel64Directive();
-  Value->print(OS, MAI);
-  EmitEOL();
-}
-
-void MCAsmStreamer::EmitTPRel32Value(const MCExpr *Value) {
-  assert(MAI->getTPRel32Directive() != nullptr);
-  OS << MAI->getTPRel32Directive();
-  Value->print(OS, MAI);
-  EmitEOL();
-}
-
 void MCAsmStreamer::EmitGPRel64Value(const MCExpr *Value) {
   assert(MAI->getGPRel64Directive() != nullptr);
   OS << MAI->getGPRel64Directive();
@@ -1103,15 +1068,17 @@ MCSymbol *MCAsmStreamer::getDwarfLineTableSymbol(unsigned CUID) {
   return MCStreamer::getDwarfLineTableSymbol(0);
 }
 
-bool MCAsmStreamer::EmitCVFileDirective(unsigned FileNo, StringRef Filename) {
-  if (!getContext().getCVContext().addFile(FileNo, Filename))
-    return false;
+unsigned MCAsmStreamer::EmitCVFileDirective(unsigned FileNo,
+                                            StringRef Filename) {
+  if (!getContext().getCVFile(Filename, FileNo))
+    return 0;
 
   OS << "\t.cv_file\t" << FileNo << ' ';
 
   PrintQuotedString(Filename, OS);
   EmitEOL();
-  return true;
+
+  return FileNo;
 }
 
 void MCAsmStreamer::EmitCVLocDirective(unsigned FunctionId, unsigned FileNo,
@@ -1123,7 +1090,7 @@ void MCAsmStreamer::EmitCVLocDirective(unsigned FunctionId, unsigned FileNo,
   if (PrologueEnd)
     OS << " prologue_end";
 
-  unsigned OldIsStmt = getContext().getCVContext().getCurrentCVLoc().isStmt();
+  unsigned OldIsStmt = getContext().getCurrentCVLoc().isStmt();
   if (IsStmt != OldIsStmt) {
     OS << " is_stmt ";
 

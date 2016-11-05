@@ -63,13 +63,9 @@ void SourceCoverageViewText::renderViewHeader(raw_ostream &) {}
 
 void SourceCoverageViewText::renderViewFooter(raw_ostream &) {}
 
-void SourceCoverageViewText::renderSourceName(raw_ostream &OS, bool WholeFile) {
+void SourceCoverageViewText::renderSourceName(raw_ostream &OS) {
   getOptions().colored_ostream(OS, raw_ostream::CYAN) << getSourceName()
                                                       << ":\n";
-  if (WholeFile) {
-    getOptions().colored_ostream(OS, raw_ostream::CYAN)
-        << getOptions().ObjectFilename << ":\n";
-  }
 }
 
 void SourceCoverageViewText::renderLinePrefix(raw_ostream &OS,
@@ -215,18 +211,3 @@ void SourceCoverageViewText::renderInstantiationView(raw_ostream &OS,
   OS << ' ';
   ISV.View->print(OS, /*WholeFile=*/false, /*ShowSourceName=*/true, ViewDepth);
 }
-
-void SourceCoverageViewText::renderCellInTitle(raw_ostream &OS,
-                                               StringRef CellText) {
-  if (getOptions().hasProjectTitle())
-    getOptions().colored_ostream(OS, raw_ostream::CYAN)
-        << getOptions().ProjectTitle << "\n";
-
-  getOptions().colored_ostream(OS, raw_ostream::CYAN) << CellText << "\n";
-
-  if (getOptions().hasCreatedTime())
-    getOptions().colored_ostream(OS, raw_ostream::CYAN)
-        << getOptions().CreatedTimeStr << "\n";
-}
-
-void SourceCoverageViewText::renderTableHeader(raw_ostream &, unsigned) {}

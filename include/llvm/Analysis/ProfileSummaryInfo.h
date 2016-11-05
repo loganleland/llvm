@@ -105,7 +105,7 @@ class ProfileSummaryPrinterPass
 
 public:
   explicit ProfileSummaryPrinterPass(raw_ostream &OS) : OS(OS) {}
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  PreservedAnalyses run(Module &M, AnalysisManager<Module> &AM);
 };
 
 } // end namespace llvm

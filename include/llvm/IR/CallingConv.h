@@ -193,6 +193,8 @@ namespace CallingConv {
     /// Calling convention for AMDGPU code object kernels.
     AMDGPU_KERNEL = 91,
 
+    PIC16_INTR = 99,
+
     /// The highest possible calling convention ID. Must be some 2^k - 1.
     MaxID = 1023
   };

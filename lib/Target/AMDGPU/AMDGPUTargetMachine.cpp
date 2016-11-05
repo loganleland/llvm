@@ -18,19 +18,25 @@
 #include "AMDGPUCallLowering.h"
 #include "AMDGPUTargetObjectFile.h"
 #include "AMDGPUTargetTransformInfo.h"
-#include "GCNSchedStrategy.h"
 #include "R600ISelLowering.h"
 #include "R600InstrInfo.h"
 #include "R600MachineScheduler.h"
 #include "SIISelLowering.h"
 #include "SIInstrInfo.h"
-#include "SIMachineScheduler.h"
+
+#include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
+#include "llvm/CodeGen/MachineFunctionAnalysis.h"
+#include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/Passes.h"
+#include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/MC/MCAsmInfo.h"
+#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Vectorize.h"
@@ -78,10 +84,10 @@ extern "C" void LLVMInitializeAMDGPUTarget() {
   initializeAMDGPUPromoteAllocaPass(*PR);
   initializeAMDGPUCodeGenPreparePass(*PR);
   initializeSIAnnotateControlFlowPass(*PR);
+  initializeSIDebuggerInsertNopsPass(*PR);
   initializeSIInsertWaitsPass(*PR);
   initializeSIWholeQuadModePass(*PR);
   initializeSILowerControlFlowPass(*PR);
-  initializeSIInsertSkipsPass(*PR);
   initializeSIDebuggerInsertNopsPass(*PR);
 }
 
@@ -93,18 +99,6 @@ static ScheduleDAGInstrs *createR600MachineScheduler(MachineSchedContext *C) {
   return new ScheduleDAGMILive(C, make_unique<R600SchedStrategy>());
 }
 
-static ScheduleDAGInstrs *createSIMachineScheduler(MachineSchedContext *C) {
-  return new SIScheduleDAGMI(C);
-}
-
-static ScheduleDAGInstrs *
-createGCNMaxOccupancyMachineScheduler(MachineSchedContext *C) {
-  ScheduleDAGMILive *DAG =
-      new ScheduleDAGMILive(C, make_unique<GCNMaxOccupancySchedStrategy>(C));
-  DAG->addMutation(createLoadClusterDAGMutation(DAG->TII, DAG->TRI));
-  return DAG;
-}
-
 static MachineSchedRegistry
 R600SchedRegistry("r600", "Run R600's custom scheduler",
                    createR600MachineScheduler);
@@ -112,11 +106,6 @@ R600SchedRegistry("r600", "Run R600's custom scheduler",
 static MachineSchedRegistry
 SISchedRegistry("si", "Run SI's custom scheduler",
                 createSIMachineScheduler);
-
-static MachineSchedRegistry
-GCNMaxOccupancySchedRegistry("gcn-max-occupancy",
-                             "Run GCN scheduler to maximize occupancy",
-                             createGCNMaxOccupancyMachineScheduler);
 
 static StringRef computeDataLayout(const Triple &TT) {
   if (TT.getArch() == Triple::r600) {
@@ -326,9 +315,7 @@ public:
   bool addInstSelector() override;
 #ifdef LLVM_BUILD_GLOBAL_ISEL
   bool addIRTranslator() override;
-  bool addLegalizeMachineIR() override;
   bool addRegBankSelect() override;
-  bool addGlobalInstructionSelect() override;
 #endif
   void addFastRegAlloc(FunctionPass *RegAllocPass) override;
   void addOptimizedRegAlloc(FunctionPass *RegAllocPass) override;
@@ -376,7 +363,7 @@ void AMDGPUPassConfig::addIRPasses() {
 
   // Function calls are not supported, so make sure we inline everything.
   addPass(createAMDGPUAlwaysInlinePass());
-  addPass(createAlwaysInlinerLegacyPass());
+  addPass(createAlwaysInlinerPass());
   // We need to add the barrier noop pass, otherwise adding the function
   // inlining pass will cause all of the PassConfigs passes to be run
   // one function at a time, which means if we have a nodule with two
@@ -481,7 +468,7 @@ ScheduleDAGInstrs *GCNPassConfig::createMachineScheduler(
   const SISubtarget &ST = C->MF->getSubtarget<SISubtarget>();
   if (ST.enableSIScheduler())
     return createSIMachineScheduler(C);
-  return createGCNMaxOccupancyMachineScheduler(C);
+  return nullptr;
 }
 
 bool GCNPassConfig::addPreISel() {
@@ -511,7 +498,6 @@ void GCNPassConfig::addMachineSSAOptimization() {
   // XXX - Can we get away without running DeadMachineInstructionElim again?
   addPass(&SIFoldOperandsID);
   addPass(&DeadMachineInstructionElimID);
-  addPass(&SILoadStoreOptimizerID);
 }
 
 void GCNPassConfig::addIRPasses() {
@@ -534,42 +520,40 @@ bool GCNPassConfig::addIRTranslator() {
   return false;
 }
 
-bool GCNPassConfig::addLegalizeMachineIR() {
-  return false;
-}
-
 bool GCNPassConfig::addRegBankSelect() {
-  return false;
-}
-
-bool GCNPassConfig::addGlobalInstructionSelect() {
   return false;
 }
 #endif
 
 void GCNPassConfig::addPreRegAlloc() {
+  // This needs to be run directly before register allocation because
+  // earlier passes might recompute live intervals.
+  // TODO: handle CodeGenOpt::None; fast RA ignores spill weights set by the pass
+  if (getOptLevel() > CodeGenOpt::None) {
+    insertPass(&MachineSchedulerID, &SIFixControlFlowLiveIntervalsID);
+  }
+
+  if (getOptLevel() > CodeGenOpt::None) {
+    // Don't do this with no optimizations since it throws away debug info by
+    // merging nonadjacent loads.
+
+    // This should be run after scheduling, but before register allocation. It
+    // also need extra copies to the address operand to be eliminated.
+
+    // FIXME: Move pre-RA and remove extra reg coalescer run.
+    insertPass(&MachineSchedulerID, &SILoadStoreOptimizerID);
+    insertPass(&MachineSchedulerID, &RegisterCoalescerID);
+  }
 
   addPass(createSIShrinkInstructionsPass());
   addPass(createSIWholeQuadModePass());
 }
 
 void GCNPassConfig::addFastRegAlloc(FunctionPass *RegAllocPass) {
-  // FIXME: We have to disable the verifier here because of PHIElimination +
-  // TwoAddressInstructions disabling it.
-  insertPass(&TwoAddressInstructionPassID, &SILowerControlFlowID, false);
-
   TargetPassConfig::addFastRegAlloc(RegAllocPass);
 }
 
 void GCNPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
-  // This needs to be run directly before register allocation because earlier
-  // passes might recompute live intervals.
-  insertPass(&MachineSchedulerID, &SIFixControlFlowLiveIntervalsID);
-
-  // TODO: It might be better to run this right after phi elimination, but for
-  // now that would require not running the verifier.
-  insertPass(&RenameIndependentSubregsID, &SILowerControlFlowID);
-
   TargetPassConfig::addOptimizedRegAlloc(RegAllocPass);
 }
 
@@ -589,7 +573,7 @@ void GCNPassConfig::addPreEmitPass() {
 
   addPass(createSIInsertWaitsPass());
   addPass(createSIShrinkInstructionsPass());
-  addPass(&SIInsertSkipsPassID);
+  addPass(createSILowerControlFlowPass());
   addPass(createSIDebuggerInsertNopsPass());
 }
 

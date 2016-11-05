@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPU.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -189,8 +188,7 @@ bool AMDGPUAnnotateKernelFeatures::runOnModule(Module &M) {
 
   static const StringRef HSAIntrinsicToAttr[][2] = {
     { "llvm.amdgcn.dispatch.ptr", "amdgpu-dispatch-ptr" },
-    { "llvm.amdgcn.queue.ptr", "amdgpu-queue-ptr" },
-    { "llvm.amdgcn.dispatch.id", "amdgpu-dispatch-id" }
+    { "llvm.amdgcn.queue.ptr", "amdgpu-queue-ptr" }
   };
 
   // TODO: We should not add the attributes if the known compile time workgroup

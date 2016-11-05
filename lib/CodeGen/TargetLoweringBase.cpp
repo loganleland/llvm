@@ -807,6 +807,7 @@ TargetLoweringBase::TargetLoweringBase(const TargetMachine &tm) : TM(tm) {
   SelectIsExpensive = false;
   HasMultipleConditionRegisters = false;
   HasExtractBitsInsn = false;
+  FsqrtIsCheap = false;
   JumpIsExpensive = JumpIsExpensiveOverride;
   PredictableSelectIsExpensive = false;
   MaskAndBranchFoldingIsLegal = false;
@@ -955,11 +956,15 @@ EVT TargetLoweringBase::getShiftAmountTy(EVT LHSTy,
   return getScalarShiftAmountTy(DL, LHSTy);
 }
 
+/// canOpTrap - Returns true if the operation can trap for the value type.
+/// VT must be a legal type.
 bool TargetLoweringBase::canOpTrap(unsigned Op, EVT VT) const {
   assert(isTypeLegal(VT));
   switch (Op) {
   default:
     return false;
+  case ISD::FDIV:
+  case ISD::FREM:
   case ISD::SDIV:
   case ISD::UDIV:
   case ISD::SREM:
@@ -1172,7 +1177,7 @@ TargetLoweringBase::emitPatchPoint(MachineInstr &InitialMI,
                                    MachineBasicBlock *MBB) const {
   MachineInstr *MI = &InitialMI;
   MachineFunction &MF = *MI->getParent()->getParent();
-  MachineFrameInfo &MFI = MF.getFrameInfo();
+  MachineFrameInfo &MFI = *MF.getFrameInfo();
 
   // We're handling multiple types of operands here:
   // PATCHPOINT MetaArgs - live-in, read only, direct
@@ -1813,7 +1818,9 @@ Value *TargetLoweringBase::getIRStackGuard(IRBuilder<> &IRB) const {
   if (getTargetMachine().getTargetTriple().isOSOpenBSD()) {
     Module &M = *IRB.GetInsertBlock()->getParent()->getParent();
     PointerType *PtrTy = Type::getInt8PtrTy(M.getContext());
-    return M.getOrInsertGlobal("__guard_local", PtrTy);
+    auto Guard = cast<GlobalValue>(M.getOrInsertGlobal("__guard_local", PtrTy));
+    Guard->setVisibility(GlobalValue::HiddenVisibility);
+    return Guard;
   }
   return nullptr;
 }

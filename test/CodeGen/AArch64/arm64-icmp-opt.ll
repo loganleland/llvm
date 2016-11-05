@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=arm64-eabi | FileCheck %s
+; RUN: llc < %s -march=arm64 | FileCheck %s
 
 ; Optimize (x > -1) to (x >= 0) etc.
 ; Optimize (cmp (add / sub), 0): eliminate the subs used to update flag

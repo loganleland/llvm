@@ -571,7 +571,8 @@ declare i32 @someVariadicFunc(i32, ...)
 ; CHECK-LABEL: noreturn:
 ; DISABLE: push
 ;
-; CHECK: cmp r0, #0
+; CHECK: movs [[TMP:r[0-9]+]], #255
+; CHECK-NEXT: tst  r0, [[TMP]]
 ; CHECK-NEXT: bne      [[ABORT:LBB[0-9_]+]]
 ;
 ; CHECK: movs r0, #42

@@ -27,7 +27,7 @@ namespace llvm {
 class AArch64Subtarget;
 class AArch64TargetMachine;
 
-class AArch64InstrInfo final : public AArch64GenInstrInfo {
+class AArch64InstrInfo : public AArch64GenInstrInfo {
   const AArch64RegisterInfo RI;
   const AArch64Subtarget &Subtarget;
 
@@ -39,7 +39,7 @@ public:
   /// always be able to get register info as well (through this method).
   const AArch64RegisterInfo &getRegisterInfo() const { return RI; }
 
-  unsigned getInstSizeInBytes(const MachineInstr &MI) const override;
+  unsigned GetInstSizeInBytes(const MachineInstr &MI) const;
 
   bool isAsCheapAsAMove(const MachineInstr &MI) const override;
 
@@ -86,38 +86,6 @@ public:
 
   /// Return true if this is an unscaled load/store.
   bool isUnscaledLdSt(MachineInstr &MI) const;
-
-  static bool isPairableLdStInst(const MachineInstr &MI) {
-    switch (MI.getOpcode()) {
-    default:
-      return false;
-    // Scaled instructions.
-    case AArch64::STRSui:
-    case AArch64::STRDui:
-    case AArch64::STRQui:
-    case AArch64::STRXui:
-    case AArch64::STRWui:
-    case AArch64::LDRSui:
-    case AArch64::LDRDui:
-    case AArch64::LDRQui:
-    case AArch64::LDRXui:
-    case AArch64::LDRWui:
-    case AArch64::LDRSWui:
-    // Unscaled instructions.
-    case AArch64::STURSi:
-    case AArch64::STURDi:
-    case AArch64::STURQi:
-    case AArch64::STURWi:
-    case AArch64::STURXi:
-    case AArch64::LDURSi:
-    case AArch64::LDURDi:
-    case AArch64::LDURQi:
-    case AArch64::LDURWi:
-    case AArch64::LDURXi:
-    case AArch64::LDURSWi:
-      return true;
-    }
-  }
 
   /// Return true if this is a load/store that can be potentially paired/merged.
   bool isCandidateToMergeOrPair(MachineInstr &MI) const;
@@ -172,12 +140,6 @@ public:
                         ArrayRef<unsigned> Ops,
                         MachineBasicBlock::iterator InsertPt, int FrameIndex,
                         LiveIntervals *LIS = nullptr) const override;
-
-  /// \returns true if a branch from an instruction with opcode \p BranchOpc
-  /// located at \p BrOffset bytes is capable of jumping to a position at \p
-  /// DestOffset.
-  bool isBranchInRange(unsigned BranchOpc, uint64_t BrOffset,
-                       uint64_t DestOffset) const;
 
   bool analyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
                      MachineBasicBlock *&FBB,

@@ -124,13 +124,15 @@ struct SampleProfTest : ::testing::Test {
         return PE.Cutoff == Cutoff;
       };
       std::vector<ProfileSummaryEntry> &Details = Summary.getDetailedSummary();
-      auto EightyPerc = find_if(Details, Predicate);
+      auto EightyPerc = std::find_if(Details.begin(), Details.end(), Predicate);
       Cutoff = 900000;
-      auto NinetyPerc = find_if(Details, Predicate);
+      auto NinetyPerc = std::find_if(Details.begin(), Details.end(), Predicate);
       Cutoff = 950000;
-      auto NinetyFivePerc = find_if(Details, Predicate);
+      auto NinetyFivePerc =
+          std::find_if(Details.begin(), Details.end(), Predicate);
       Cutoff = 990000;
-      auto NinetyNinePerc = find_if(Details, Predicate);
+      auto NinetyNinePerc =
+          std::find_if(Details.begin(), Details.end(), Predicate);
       ASSERT_EQ(60000u, EightyPerc->MinCount);
       ASSERT_EQ(60000u, NinetyPerc->MinCount);
       ASSERT_EQ(60000u, NinetyFivePerc->MinCount);

@@ -50,9 +50,10 @@ void PIC16InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   if (Op.isReg()) {
     O << getRegisterName(Op.getReg());
   } else if (Op.isImm()) {
-    O << Op.getImm();
+    O << '#' << Op.getImm();
   } else {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
+    O << '#';
     Op.getExpr()->print(O, &MAI);
   }
 }
@@ -63,6 +64,17 @@ void PIC16InstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
   const MCOperand &Base = MI->getOperand(OpNo);
   const MCOperand &Disp = MI->getOperand(OpNo+1);
 
+  // Print displacement first
+
+  // If the global address expression is a part of displacement field with a
+  // register base, we should not emit any prefix symbol here, e.g.
+  //   mov.w &foo, r1
+  // vs
+  //   mov.w glb(r1), r2
+  // Otherwise (!) pic16-as will silently miscompile the output :(
+  if (!Base.getReg())
+    O << '&';
+
   if (Disp.isExpr())
     Disp.getExpr()->print(O, &MAI);
   else {
@@ -72,7 +84,7 @@ void PIC16InstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
 
   // Print register base field
   if (Base.getReg())
-    O << getRegisterName(Base.getReg());
+    O << '(' << getRegisterName(Base.getReg()) << ')';
 }
 
 void PIC16InstPrinter::printCCOperand(const MCInst *MI, unsigned OpNo,
@@ -82,29 +94,23 @@ void PIC16InstPrinter::printCCOperand(const MCInst *MI, unsigned OpNo,
   switch (CC) {
   default:
    llvm_unreachable("Unsupported CC code");
-  case PIC16CC::COND_DECFSZ:
-   O << "decfsz";
+  case PIC16CC::COND_E:
+   O << "eq";
    break;
-  case PIC16CC::COND_INCFSZ:
-   O << "incfsz";
+  case PIC16CC::COND_NE:
+   O << "ne";
    break;
-  case PIC16CC::COND_IORWF:
-   O << "iorwf";
+  case PIC16CC::COND_HS:
+   O << "hs";
    break;
-  case PIC16CC::COND_XORWF:
-   O << "xorwf";
+  case PIC16CC::COND_LO:
+   O << "lo";
    break;
-  case PIC16CC::COND_BTFSC:
-   O << "btfsc";
+  case PIC16CC::COND_GE:
+   O << "ge";
    break;
-  case PIC16CC::COND_BTFSS:
-   O << "btfss";
-   break;
-  case PIC16CC::COND_IORLW:
-   O << "iorlw";
-   break;
-  case PIC16CC::COND_XORLW:
-   O << "xorlw";
+  case PIC16CC::COND_L:
+   O << 'l';
    break;
   }
 }

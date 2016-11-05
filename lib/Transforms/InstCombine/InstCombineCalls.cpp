@@ -12,47 +12,17 @@
 //===----------------------------------------------------------------------===//
 
 #include "InstCombineInternal.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/None.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
-#include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CallSite.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Metadata.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Statepoint.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Value.h"
-#include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/MathExtras.h"
+#include "llvm/Transforms/Utils/BuildLibCalls.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/SimplifyLibCalls.h"
-#include <algorithm>
-#include <cassert>
-#include <cstdint>
-#include <cstring>
-#include <vector>
-
 using namespace llvm;
 using namespace PatternMatch;
 
@@ -109,8 +79,8 @@ static Constant *getNegativeIsTrueBoolVec(ConstantDataVector *V) {
 }
 
 Instruction *InstCombiner::SimplifyMemTransfer(MemIntrinsic *MI) {
-  unsigned DstAlign = getKnownAlignment(MI->getArgOperand(0), DL, MI, &AC, &DT);
-  unsigned SrcAlign = getKnownAlignment(MI->getArgOperand(1), DL, MI, &AC, &DT);
+  unsigned DstAlign = getKnownAlignment(MI->getArgOperand(0), DL, MI, AC, DT);
+  unsigned SrcAlign = getKnownAlignment(MI->getArgOperand(1), DL, MI, AC, DT);
   unsigned MinAlign = std::min(DstAlign, SrcAlign);
   unsigned CopyAlign = MI->getAlignment();
 
@@ -203,7 +173,7 @@ Instruction *InstCombiner::SimplifyMemTransfer(MemIntrinsic *MI) {
 }
 
 Instruction *InstCombiner::SimplifyMemSet(MemSetInst *MI) {
-  unsigned Alignment = getKnownAlignment(MI->getDest(), DL, MI, &AC, &DT);
+  unsigned Alignment = getKnownAlignment(MI->getDest(), DL, MI, AC, DT);
   if (MI->getAlignment() < Alignment) {
     MI->setAlignment(ConstantInt::get(MI->getAlignmentType(),
                                              Alignment, false));
@@ -430,7 +400,7 @@ static Value *simplifyX86varShift(const IntrinsicInst &II,
   // If all elements out of range or UNDEF, return vector of zeros/undefs.
   // ArithmeticShift should only hit this if they are all UNDEF.
   auto OutOfRange = [&](int Idx) { return (Idx < 0) || (BitWidth <= Idx); };
-  if (all_of(ShiftAmts, OutOfRange)) {
+  if (llvm::all_of(ShiftAmts, OutOfRange)) {
     SmallVector<Constant *, 8> ConstantVec;
     for (int Idx : ShiftAmts) {
       if (Idx < 0) {
@@ -660,6 +630,7 @@ static Value *simplifyX86extrq(IntrinsicInst &II, Value *Op0,
 static Value *simplifyX86insertq(IntrinsicInst &II, Value *Op0, Value *Op1,
                                  APInt APLength, APInt APIndex,
                                  InstCombiner::BuilderTy &Builder) {
+
   // From AMD documentation: "The bit index and field length are each six bits
   // in length other bits of the field are ignored."
   APIndex = APIndex.zextOrTrunc(6);
@@ -765,7 +736,7 @@ static Value *simplifyX86pshufb(const IntrinsicInst &II,
          "Unexpected number of elements in shuffle mask!");
 
   // Construct a shuffle mask from constant integers or UNDEFs.
-  Constant *Indexes[32] = {nullptr};
+  Constant *Indexes[32] = {NULL};
 
   // Each byte in the shuffle control mask forms an index to permute the
   // corresponding byte in the destination operand.
@@ -810,7 +781,7 @@ static Value *simplifyX86vpermilvar(const IntrinsicInst &II,
   assert(NumElts == 8 || NumElts == 4 || NumElts == 2);
 
   // Construct a shuffle mask from constant integers or UNDEFs.
-  Constant *Indexes[8] = {nullptr};
+  Constant *Indexes[8] = {NULL};
 
   // The intrinsics only read one or two bits, clear the rest.
   for (unsigned I = 0; I < NumElts; ++I) {
@@ -863,7 +834,7 @@ static Value *simplifyX86vpermv(const IntrinsicInst &II,
   assert(Size == 8 && "Unexpected shuffle mask size");
 
   // Construct a shuffle mask from constant integers or UNDEFs.
-  Constant *Indexes[8] = {nullptr};
+  Constant *Indexes[8] = {NULL};
 
   for (unsigned I = 0; I < Size; ++I) {
     Constant *COp = V->getAggregateElement(I);
@@ -1133,50 +1104,6 @@ static Instruction *simplifyMaskedScatter(IntrinsicInst &II, InstCombiner &IC) {
   return nullptr;
 }
 
-static Instruction *foldCttzCtlz(IntrinsicInst &II, InstCombiner &IC) {
-  assert((II.getIntrinsicID() == Intrinsic::cttz ||
-          II.getIntrinsicID() == Intrinsic::ctlz) &&
-         "Expected cttz or ctlz intrinsic");
-  Value *Op0 = II.getArgOperand(0);
-  // FIXME: Try to simplify vectors of integers.
-  auto *IT = dyn_cast<IntegerType>(Op0->getType());
-  if (!IT)
-    return nullptr;
-
-  unsigned BitWidth = IT->getBitWidth();
-  APInt KnownZero(BitWidth, 0);
-  APInt KnownOne(BitWidth, 0);
-  IC.computeKnownBits(Op0, KnownZero, KnownOne, 0, &II);
-
-  // Create a mask for bits above (ctlz) or below (cttz) the first known one.
-  bool IsTZ = II.getIntrinsicID() == Intrinsic::cttz;
-  unsigned NumMaskBits = IsTZ ? KnownOne.countTrailingZeros()
-                              : KnownOne.countLeadingZeros();
-  APInt Mask = IsTZ ? APInt::getLowBitsSet(BitWidth, NumMaskBits)
-                    : APInt::getHighBitsSet(BitWidth, NumMaskBits);
-
-  // If all bits above (ctlz) or below (cttz) the first known one are known
-  // zero, this value is constant.
-  // FIXME: This should be in InstSimplify because we're replacing an
-  // instruction with a constant.
-  if ((Mask & KnownZero) == Mask) {
-    auto *C = ConstantInt::get(IT, APInt(BitWidth, NumMaskBits));
-    return IC.replaceInstUsesWith(II, C);
-  }
-
-  // If the input to cttz/ctlz is known to be non-zero,
-  // then change the 'ZeroIsUndef' parameter to 'true'
-  // because we know the zero behavior can't affect the result.
-  if (KnownOne != 0 || isKnownNonZero(Op0, IC.getDataLayout())) {
-    if (!match(II.getArgOperand(1), m_One())) {
-      II.setOperand(1, IC.Builder->getTrue());
-      return &II;
-    }
-  }
-
-  return nullptr;
-}
-
 // TODO: If the x86 backend knew how to convert a bool vector mask back to an
 // XMM register mask efficiently, we could transform all x86 masked intrinsics
 // to LLVM masked intrinsics and remove the x86 masked intrinsic defs.
@@ -1316,15 +1243,16 @@ Instruction *InstCombiner::visitVACopyInst(VACopyInst &I) {
 Instruction *InstCombiner::visitCallInst(CallInst &CI) {
   auto Args = CI.arg_operands();
   if (Value *V = SimplifyCall(CI.getCalledValue(), Args.begin(), Args.end(), DL,
-                              &TLI, &DT, &AC))
+                              TLI, DT, AC))
     return replaceInstUsesWith(CI, V);
 
-  if (isFreeCall(&CI, &TLI))
+  if (isFreeCall(&CI, TLI))
     return visitFree(CI);
 
   // If the caller function is nounwind, mark the call as nounwind, even if the
   // callee isn't.
-  if (CI.getFunction()->doesNotThrow() && !CI.doesNotThrow()) {
+  if (CI.getParent()->getParent()->doesNotThrow() &&
+      !CI.doesNotThrow()) {
     CI.setDoesNotThrow();
     return &CI;
   }
@@ -1406,7 +1334,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
   default: break;
   case Intrinsic::objectsize: {
     uint64_t Size;
-    if (getObjectSize(II->getArgOperand(0), Size, DL, &TLI)) {
+    if (getObjectSize(II->getArgOperand(0), Size, DL, TLI)) {
       APInt APSize(II->getType()->getIntegerBitWidth(), Size);
       // Equality check to be sure that `Size` can fit in a value of type
       // `II->getType()`
@@ -1469,11 +1397,41 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
                                           II->getArgOperand(0));
     }
     break;
+  case Intrinsic::cttz: {
+    // If all bits below the first known one are known zero,
+    // this value is constant.
+    IntegerType *IT = dyn_cast<IntegerType>(II->getArgOperand(0)->getType());
+    // FIXME: Try to simplify vectors of integers.
+    if (!IT) break;
+    uint32_t BitWidth = IT->getBitWidth();
+    APInt KnownZero(BitWidth, 0);
+    APInt KnownOne(BitWidth, 0);
+    computeKnownBits(II->getArgOperand(0), KnownZero, KnownOne, 0, II);
+    unsigned TrailingZeros = KnownOne.countTrailingZeros();
+    APInt Mask(APInt::getLowBitsSet(BitWidth, TrailingZeros));
+    if ((Mask & KnownZero) == Mask)
+      return replaceInstUsesWith(CI, ConstantInt::get(IT,
+                                 APInt(BitWidth, TrailingZeros)));
 
-  case Intrinsic::cttz:
-  case Intrinsic::ctlz:
-    if (auto *I = foldCttzCtlz(*II, *this))
-      return I;
+    }
+    break;
+  case Intrinsic::ctlz: {
+    // If all bits above the first known one are known zero,
+    // this value is constant.
+    IntegerType *IT = dyn_cast<IntegerType>(II->getArgOperand(0)->getType());
+    // FIXME: Try to simplify vectors of integers.
+    if (!IT) break;
+    uint32_t BitWidth = IT->getBitWidth();
+    APInt KnownZero(BitWidth, 0);
+    APInt KnownOne(BitWidth, 0);
+    computeKnownBits(II->getArgOperand(0), KnownZero, KnownOne, 0, II);
+    unsigned LeadingZeros = KnownOne.countLeadingZeros();
+    APInt Mask(APInt::getHighBitsSet(BitWidth, LeadingZeros));
+    if ((Mask & KnownZero) == Mask)
+      return replaceInstUsesWith(CI, ConstantInt::get(IT,
+                                 APInt(BitWidth, LeadingZeros)));
+
+    }
     break;
 
   case Intrinsic::uadd_with_overflow:
@@ -1488,7 +1446,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
       II->setArgOperand(1, LHS);
       return II;
     }
-    LLVM_FALLTHROUGH;
+    // fall through
 
   case Intrinsic::usub_with_overflow:
   case Intrinsic::ssub_with_overflow: {
@@ -1522,8 +1480,8 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
   case Intrinsic::ppc_altivec_lvx:
   case Intrinsic::ppc_altivec_lvxl:
     // Turn PPC lvx -> load if the pointer is known aligned.
-    if (getOrEnforceKnownAlignment(II->getArgOperand(0), 16, DL, II, &AC,
-                                   &DT) >= 16) {
+    if (getOrEnforceKnownAlignment(II->getArgOperand(0), 16, DL, II, AC, DT) >=
+        16) {
       Value *Ptr = Builder->CreateBitCast(II->getArgOperand(0),
                                          PointerType::getUnqual(II->getType()));
       return new LoadInst(Ptr);
@@ -1539,8 +1497,8 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
   case Intrinsic::ppc_altivec_stvx:
   case Intrinsic::ppc_altivec_stvxl:
     // Turn stvx -> store if the pointer is known aligned.
-    if (getOrEnforceKnownAlignment(II->getArgOperand(1), 16, DL, II, &AC,
-                                   &DT) >= 16) {
+    if (getOrEnforceKnownAlignment(II->getArgOperand(1), 16, DL, II, AC, DT) >=
+        16) {
       Type *OpPtrTy =
         PointerType::getUnqual(II->getArgOperand(0)->getType());
       Value *Ptr = Builder->CreateBitCast(II->getArgOperand(1), OpPtrTy);
@@ -1556,8 +1514,8 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
   }
   case Intrinsic::ppc_qpx_qvlfs:
     // Turn PPC QPX qvlfs -> load if the pointer is known aligned.
-    if (getOrEnforceKnownAlignment(II->getArgOperand(0), 16, DL, II, &AC,
-                                   &DT) >= 16) {
+    if (getOrEnforceKnownAlignment(II->getArgOperand(0), 16, DL, II, AC, DT) >=
+        16) {
       Type *VTy = VectorType::get(Builder->getFloatTy(),
                                   II->getType()->getVectorNumElements());
       Value *Ptr = Builder->CreateBitCast(II->getArgOperand(0),
@@ -1568,8 +1526,8 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     break;
   case Intrinsic::ppc_qpx_qvlfd:
     // Turn PPC QPX qvlfd -> load if the pointer is known aligned.
-    if (getOrEnforceKnownAlignment(II->getArgOperand(0), 32, DL, II, &AC,
-                                   &DT) >= 32) {
+    if (getOrEnforceKnownAlignment(II->getArgOperand(0), 32, DL, II, AC, DT) >=
+        32) {
       Value *Ptr = Builder->CreateBitCast(II->getArgOperand(0),
                                          PointerType::getUnqual(II->getType()));
       return new LoadInst(Ptr);
@@ -1577,8 +1535,8 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     break;
   case Intrinsic::ppc_qpx_qvstfs:
     // Turn PPC QPX qvstfs -> store if the pointer is known aligned.
-    if (getOrEnforceKnownAlignment(II->getArgOperand(1), 16, DL, II, &AC,
-                                   &DT) >= 16) {
+    if (getOrEnforceKnownAlignment(II->getArgOperand(1), 16, DL, II, AC, DT) >=
+        16) {
       Type *VTy = VectorType::get(Builder->getFloatTy(),
           II->getArgOperand(0)->getType()->getVectorNumElements());
       Value *TOp = Builder->CreateFPTrunc(II->getArgOperand(0), VTy);
@@ -1589,8 +1547,8 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     break;
   case Intrinsic::ppc_qpx_qvstfd:
     // Turn PPC QPX qvstfd -> store if the pointer is known aligned.
-    if (getOrEnforceKnownAlignment(II->getArgOperand(1), 32, DL, II, &AC,
-                                   &DT) >= 32) {
+    if (getOrEnforceKnownAlignment(II->getArgOperand(1), 32, DL, II, AC, DT) >=
+        32) {
       Type *OpPtrTy =
         PointerType::getUnqual(II->getArgOperand(0)->getType());
       Value *Ptr = Builder->CreateBitCast(II->getArgOperand(1), OpPtrTy);
@@ -2146,8 +2104,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
   case Intrinsic::arm_neon_vst2lane:
   case Intrinsic::arm_neon_vst3lane:
   case Intrinsic::arm_neon_vst4lane: {
-    unsigned MemAlign =
-        getKnownAlignment(II->getArgOperand(0), DL, II, &AC, &DT);
+    unsigned MemAlign = getKnownAlignment(II->getArgOperand(0), DL, II, AC, DT);
     unsigned AlignArg = II->getNumArgOperands() - 1;
     ConstantInt *IntrAlign = dyn_cast<ConstantInt>(II->getArgOperand(AlignArg));
     if (IntrAlign && IntrAlign->getZExtValue() < MemAlign) {
@@ -2286,11 +2243,6 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     break;
   }
   case Intrinsic::lifetime_start:
-    // Asan needs to poison memory to detect invalid access which is possible
-    // even for empty lifetime range.
-    if (II->getFunction()->hasFnAttribute(Attribute::SanitizeAddress))
-      break;
-
     if (removeTriviallyEmptyRange(*II, Intrinsic::lifetime_start,
                                   Intrinsic::lifetime_end, *this))
       return nullptr;
@@ -2331,7 +2283,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
           RHS->getType()->isPointerTy() &&
           cast<Constant>(RHS)->isNullValue()) {
         LoadInst* LI = cast<LoadInst>(LHS);
-        if (isValidAssumeForContext(II, LI, &DT)) {
+        if (isValidAssumeForContext(II, LI, DT)) {
           MDNode *MD = MDNode::get(II->getContext(), None);
           LI->setMetadata(LLVMContext::MD_nonnull, MD);
           return eraseInstFromFunction(*II);
@@ -2377,7 +2329,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
         return replaceInstUsesWith(*II, ConstantPointerNull::get(PT));
 
       // isKnownNonNull -> nonnull attribute
-      if (isKnownNonNullAt(DerivedPtr, II, &DT))
+      if (isKnownNonNullAt(DerivedPtr, II, DT))
         II->addAttribute(AttributeSet::ReturnIndex, Attribute::NonNull);
     }
 
@@ -2437,7 +2389,7 @@ Instruction *InstCombiner::tryOptimizeCall(CallInst *CI) {
   auto InstCombineRAUW = [this](Instruction *From, Value *With) {
     replaceInstUsesWith(*From, With);
   };
-  LibCallSimplifier Simplifier(DL, &TLI, InstCombineRAUW);
+  LibCallSimplifier Simplifier(DL, TLI, InstCombineRAUW);
   if (Value *With = Simplifier.optimizeCall(CI)) {
     ++NumSimplified;
     return CI->use_empty() ? CI : replaceInstUsesWith(*CI, With);
@@ -2525,7 +2477,8 @@ static IntrinsicInst *findInitTrampoline(Value *Callee) {
 
 /// Improvements for call and invoke instructions.
 Instruction *InstCombiner::visitCallSite(CallSite CS) {
-  if (isAllocLikeFn(CS.getInstruction(), &TLI))
+
+  if (isAllocLikeFn(CS.getInstruction(), TLI))
     return visitAllocSite(*CS.getInstruction());
 
   bool Changed = false;
@@ -2539,7 +2492,7 @@ Instruction *InstCombiner::visitCallSite(CallSite CS) {
   for (Value *V : CS.args()) {
     if (V->getType()->isPointerTy() &&
         !CS.paramHasAttr(ArgNo + 1, Attribute::NonNull) &&
-        isKnownNonNullAt(V, CS.getInstruction(), &DT))
+        isKnownNonNullAt(V, CS.getInstruction(), DT))
       Indices.push_back(ArgNo + 1);
     ArgNo++;
   }
@@ -2660,14 +2613,14 @@ Instruction *InstCombiner::visitCallSite(CallSite CS) {
 /// If the callee is a constexpr cast of a function, attempt to move the cast to
 /// the arguments of the call/invoke.
 bool InstCombiner::transformConstExprCastCall(CallSite CS) {
-  auto *Callee = dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
+  Function *Callee =
+    dyn_cast<Function>(CS.getCalledValue()->stripPointerCasts());
   if (!Callee)
     return false;
-
-  // The prototype of a thunk is a lie. Don't directly call such a function.
+  // The prototype of thunks are a lie, don't try to directly call such
+  // functions.
   if (Callee->hasFnAttribute("thunk"))
     return false;
-
   Instruction *Caller = CS.getInstruction();
   const AttributeSet &CallerPAL = CS.getAttributes();
 
@@ -3013,7 +2966,7 @@ InstCombiner::transformCallThroughTrampoline(CallSite CS,
 
           ++Idx;
           ++I;
-        } while (true);
+        } while (1);
       }
 
       // Add any function attributes.
@@ -3048,7 +3001,7 @@ InstCombiner::transformCallThroughTrampoline(CallSite CS,
 
           ++Idx;
           ++I;
-        } while (true);
+        } while (1);
       }
 
       // Replace the trampoline call with a direct call.  Let the generic

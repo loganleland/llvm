@@ -501,8 +501,7 @@ static bool shouldSpeculateInstrs(BasicBlock::iterator Begin,
       // GEPs are cheap if all indices are constant.
       if (!cast<GEPOperator>(I)->hasAllConstantIndices())
         return false;
-      // fall-thru to increment case
-      LLVM_FALLTHROUGH;
+    // fall-thru to increment case
     case Instruction::Add:
     case Instruction::Sub:
     case Instruction::And:
@@ -620,7 +619,7 @@ bool LoopRotate::processLoop(Loop *L) {
 
 LoopRotatePass::LoopRotatePass() {}
 
-PreservedAnalyses LoopRotatePass::run(Loop &L, LoopAnalysisManager &AM) {
+PreservedAnalyses LoopRotatePass::run(Loop &L, AnalysisManager<Loop> &AM) {
   auto &FAM = AM.getResult<FunctionAnalysisManagerLoopProxy>(L).getManager();
   Function *F = L.getHeader()->getParent();
 

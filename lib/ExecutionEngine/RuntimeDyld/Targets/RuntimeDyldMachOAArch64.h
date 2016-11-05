@@ -24,7 +24,7 @@ public:
   typedef uint64_t TargetPtrT;
 
   RuntimeDyldMachOAArch64(RuntimeDyld::MemoryManager &MM,
-                          JITSymbolResolver &Resolver)
+                          RuntimeDyld::SymbolResolver &Resolver)
       : RuntimeDyldMachOCRTPBase(MM, Resolver) {}
 
   unsigned getMaxStubSize() override { return 8; }
@@ -97,8 +97,7 @@ public:
       (void)p;
       assert((*p & 0x3B000000) == 0x39000000 &&
              "Only expected load / store instructions.");
-      LLVM_FALLTHROUGH;
-    }
+    } // fall-through
     case MachO::ARM64_RELOC_PAGEOFF12: {
       // Verify that the relocation points to one of the expected load / store
       // or add / sub instructions.
@@ -197,8 +196,7 @@ public:
       assert((*p & 0x3B000000) == 0x39000000 &&
              "Only expected load / store instructions.");
       (void)p;
-      LLVM_FALLTHROUGH;
-    }
+    } // fall-through
     case MachO::ARM64_RELOC_PAGEOFF12: {
       // Verify that the relocation points to one of the expected load / store
       // or add / sub instructions.

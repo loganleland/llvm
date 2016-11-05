@@ -57,6 +57,10 @@ public:
   bool runOnMachineFunction(MachineFunction &MF) override;
 
   static char ID;
+
+private:
+  void markRegClobbered(const TargetRegisterInfo *TRI, uint32_t *RegMask,
+                        unsigned PReg);
 };
 } // end of anonymous namespace
 
@@ -70,6 +74,13 @@ INITIALIZE_PASS_END(RegUsageInfoCollector, "RegUsageInfoCollector",
 
 FunctionPass *llvm::createRegUsageInfoCollector() {
   return new RegUsageInfoCollector();
+}
+
+void RegUsageInfoCollector::markRegClobbered(const TargetRegisterInfo *TRI,
+                                             uint32_t *RegMask, unsigned PReg) {
+  // If PReg is clobbered then all of its alias are also clobbered.
+  for (MCRegAliasIterator AI(PReg, TRI, true); AI.isValid(); ++AI)
+    RegMask[*AI / 32] &= ~(1u << *AI % 32);
 }
 
 void RegUsageInfoCollector::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -105,7 +116,7 @@ bool RegUsageInfoCollector::runOnMachineFunction(MachineFunction &MF) {
 
   for (unsigned PReg = 1, PRegE = TRI->getNumRegs(); PReg < PRegE; ++PReg)
     if (MRI->isPhysRegModified(PReg, true))
-      RegMask[PReg / 32] &= ~(1u << PReg % 32);
+      markRegClobbered(TRI, &RegMask[0], PReg);
 
   if (!TargetFrameLowering::isSafeForNoCSROpt(F)) {
     const uint32_t *CallPreservedMask =

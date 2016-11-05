@@ -259,25 +259,19 @@ SelectionDAGLegalize::ExpandConstantFP(ConstantFPSDNode *CFP, bool UseCP) {
                            (VT == MVT::f64) ? MVT::i64 : MVT::i32);
   }
 
-  APFloat APF = CFP->getValueAPF();
   EVT OrigVT = VT;
   EVT SVT = VT;
-
-  // We don't want to shrink SNaNs. Converting the SNaN back to its real type
-  // can cause it to be changed into a QNaN on some platforms (e.g. on SystemZ).
-  if (!APF.isSignaling()) {
-    while (SVT != MVT::f32 && SVT != MVT::f16) {
-      SVT = (MVT::SimpleValueType)(SVT.getSimpleVT().SimpleTy - 1);
-      if (ConstantFPSDNode::isValueValidForType(SVT, APF) &&
-          // Only do this if the target has a native EXTLOAD instruction from
-          // smaller type.
-          TLI.isLoadExtLegal(ISD::EXTLOAD, OrigVT, SVT) &&
-          TLI.ShouldShrinkFPConstant(OrigVT)) {
-        Type *SType = SVT.getTypeForEVT(*DAG.getContext());
-        LLVMC = cast<ConstantFP>(ConstantExpr::getFPTrunc(LLVMC, SType));
-        VT = SVT;
-        Extend = true;
-      }
+  while (SVT != MVT::f32 && SVT != MVT::f16) {
+    SVT = (MVT::SimpleValueType)(SVT.getSimpleVT().SimpleTy - 1);
+    if (ConstantFPSDNode::isValueValidForType(SVT, CFP->getValueAPF()) &&
+        // Only do this if the target has a native EXTLOAD instruction from
+        // smaller type.
+        TLI.isLoadExtLegal(ISD::EXTLOAD, OrigVT, SVT) &&
+        TLI.ShouldShrinkFPConstant(OrigVT)) {
+      Type *SType = SVT.getTypeForEVT(*DAG.getContext());
+      LLVMC = cast<ConstantFP>(ConstantExpr::getFPTrunc(LLVMC, SType));
+      VT = SVT;
+      Extend = true;
     }
   }
 
@@ -801,7 +795,7 @@ void SelectionDAGLegalize::LegalizeLoadOps(SDNode *Node) {
     default: llvm_unreachable("This action is not supported yet!");
     case TargetLowering::Custom:
       isCustom = true;
-      LLVM_FALLTHROUGH;
+      // FALLTHROUGH
     case TargetLowering::Legal: {
       Value = SDValue(Node, 0);
       Chain = SDValue(Node, 1);
@@ -1005,7 +999,6 @@ void SelectionDAGLegalize::LegalizeOp(SDNode *Node) {
   case ISD::MERGE_VALUES:
   case ISD::EH_RETURN:
   case ISD::FRAME_TO_ARGS_OFFSET:
-  case ISD::EH_DWARF_CFA:
   case ISD::EH_SJLJ_SETJMP:
   case ISD::EH_SJLJ_LONGJMP:
   case ISD::EH_SJLJ_SETUP_DISPATCH:
@@ -1124,12 +1117,12 @@ void SelectionDAGLegalize::LegalizeOp(SDNode *Node) {
         ReplaceNode(Node, ResultVals.data());
         return;
       }
-      LLVM_FALLTHROUGH;
     }
+      // FALL THROUGH
     case TargetLowering::Expand:
       if (ExpandNode(Node))
         return;
-      LLVM_FALLTHROUGH;
+      // FALL THROUGH
     case TargetLowering::LibCall:
       ConvertNodeToLibcall(Node);
       return;
@@ -1599,7 +1592,6 @@ bool SelectionDAGLegalize::LegalizeSetCCCondCode(EVT VT, SDValue &LHS,
           break;
         }
         // Fallthrough if we are unsigned integer.
-        LLVM_FALLTHROUGH;
     case ISD::SETLE:
     case ISD::SETGT:
     case ISD::SETGE:
@@ -2528,56 +2520,13 @@ SDValue SelectionDAGLegalize::PromoteLegalFP_TO_INT(SDValue LegalOp, EVT DestVT,
   return DAG.getNode(ISD::TRUNCATE, dl, DestVT, Operation);
 }
 
-/// Legalize a BITREVERSE scalar/vector operation as a series of mask + shifts.
+/// Open code the operations for BITREVERSE.
 SDValue SelectionDAGLegalize::ExpandBITREVERSE(SDValue Op, const SDLoc &dl) {
   EVT VT = Op.getValueType();
   EVT SHVT = TLI.getShiftAmountTy(VT, DAG.getDataLayout());
   unsigned Sz = VT.getScalarSizeInBits();
 
-  SDValue Tmp, Tmp2, Tmp3;
-
-  // If we can, perform BSWAP first and then the mask+swap the i4, then i2
-  // and finally the i1 pairs.
-  // TODO: We can easily support i4/i2 legal types if any target ever does.
-  if (Sz >= 8 && isPowerOf2_32(Sz)) {
-    // Create the masks - repeating the pattern every byte.
-    APInt MaskHi4(Sz, 0), MaskHi2(Sz, 0), MaskHi1(Sz, 0);
-    APInt MaskLo4(Sz, 0), MaskLo2(Sz, 0), MaskLo1(Sz, 0);
-    for (unsigned J = 0; J != Sz; J += 8) {
-      MaskHi4 = MaskHi4.Or(APInt(Sz, 0xF0ull << J));
-      MaskLo4 = MaskLo4.Or(APInt(Sz, 0x0Full << J));
-      MaskHi2 = MaskHi2.Or(APInt(Sz, 0xCCull << J));
-      MaskLo2 = MaskLo2.Or(APInt(Sz, 0x33ull << J));
-      MaskHi1 = MaskHi1.Or(APInt(Sz, 0xAAull << J));
-      MaskLo1 = MaskLo1.Or(APInt(Sz, 0x55ull << J));
-    }
-
-    // BSWAP if the type is wider than a single byte.
-    Tmp = (Sz > 8 ? DAG.getNode(ISD::BSWAP, dl, VT, Op) : Op);
-
-    // swap i4: ((V & 0xF0) >> 4) | ((V & 0x0F) << 4)
-    Tmp2 = DAG.getNode(ISD::AND, dl, VT, Tmp, DAG.getConstant(MaskHi4, dl, VT));
-    Tmp3 = DAG.getNode(ISD::AND, dl, VT, Tmp, DAG.getConstant(MaskLo4, dl, VT));
-    Tmp2 = DAG.getNode(ISD::SRL, dl, VT, Tmp2, DAG.getConstant(4, dl, VT));
-    Tmp3 = DAG.getNode(ISD::SHL, dl, VT, Tmp3, DAG.getConstant(4, dl, VT));
-    Tmp = DAG.getNode(ISD::OR, dl, VT, Tmp2, Tmp3);
-
-    // swap i2: ((V & 0xCC) >> 2) | ((V & 0x33) << 2)
-    Tmp2 = DAG.getNode(ISD::AND, dl, VT, Tmp, DAG.getConstant(MaskHi2, dl, VT));
-    Tmp3 = DAG.getNode(ISD::AND, dl, VT, Tmp, DAG.getConstant(MaskLo2, dl, VT));
-    Tmp2 = DAG.getNode(ISD::SRL, dl, VT, Tmp2, DAG.getConstant(2, dl, VT));
-    Tmp3 = DAG.getNode(ISD::SHL, dl, VT, Tmp3, DAG.getConstant(2, dl, VT));
-    Tmp = DAG.getNode(ISD::OR, dl, VT, Tmp2, Tmp3);
-
-    // swap i1: ((V & 0xAA) >> 1) | ((V & 0x55) << 1)
-    Tmp2 = DAG.getNode(ISD::AND, dl, VT, Tmp, DAG.getConstant(MaskHi1, dl, VT));
-    Tmp3 = DAG.getNode(ISD::AND, dl, VT, Tmp, DAG.getConstant(MaskLo1, dl, VT));
-    Tmp2 = DAG.getNode(ISD::SRL, dl, VT, Tmp2, DAG.getConstant(1, dl, VT));
-    Tmp3 = DAG.getNode(ISD::SHL, dl, VT, Tmp3, DAG.getConstant(1, dl, VT));
-    Tmp = DAG.getNode(ISD::OR, dl, VT, Tmp2, Tmp3);
-    return Tmp;
-  }
-
+  SDValue Tmp, Tmp2;
   Tmp = DAG.getConstant(0, dl, VT);
   for (unsigned I = 0, J = Sz-1; I < Sz; ++I, --J) {
     if (I < J)
@@ -2601,7 +2550,7 @@ SDValue SelectionDAGLegalize::ExpandBSWAP(SDValue Op, const SDLoc &dl) {
   EVT VT = Op.getValueType();
   EVT SHVT = TLI.getShiftAmountTy(VT, DAG.getDataLayout());
   SDValue Tmp1, Tmp2, Tmp3, Tmp4, Tmp5, Tmp6, Tmp7, Tmp8;
-  switch (VT.getSimpleVT().getScalarType().SimpleTy) {
+  switch (VT.getSimpleVT().SimpleTy) {
   default: llvm_unreachable("Unhandled Expand type in BSWAP!");
   case MVT::i16:
     Tmp2 = DAG.getNode(ISD::SHL, dl, VT, Op, DAG.getConstant(8, dl, SHVT));
@@ -2783,21 +2732,6 @@ bool SelectionDAGLegalize::ExpandNode(SDNode *Node) {
   case ISD::FRAME_TO_ARGS_OFFSET:
     Results.push_back(DAG.getConstant(0, dl, Node->getValueType(0)));
     break;
-  case ISD::EH_DWARF_CFA: {
-    SDValue CfaArg = DAG.getSExtOrTrunc(Node->getOperand(0), dl,
-                                        TLI.getPointerTy(DAG.getDataLayout()));
-    SDValue Offset = DAG.getNode(ISD::ADD, dl,
-                                 CfaArg.getValueType(),
-                                 DAG.getNode(ISD::FRAME_TO_ARGS_OFFSET, dl,
-                                             CfaArg.getValueType()),
-                                 CfaArg);
-    SDValue FA = DAG.getNode(
-        ISD::FRAMEADDR, dl, TLI.getPointerTy(DAG.getDataLayout()),
-        DAG.getConstant(0, dl, TLI.getPointerTy(DAG.getDataLayout())));
-    Results.push_back(DAG.getNode(ISD::ADD, dl, FA.getValueType(),
-                                  FA, Offset));
-    break;
-  }
   case ISD::FLT_ROUNDS_:
     Results.push_back(DAG.getConstant(1, dl, Node->getValueType(0)));
     break;

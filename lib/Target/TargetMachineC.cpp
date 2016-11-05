@@ -59,8 +59,9 @@ LLVMTargetRef LLVMGetNextTarget(LLVMTargetRef T) {
 
 LLVMTargetRef LLVMGetTargetFromName(const char *Name) {
   StringRef NameRef = Name;
-  auto I = find_if(TargetRegistry::targets(),
-                   [&](const Target &T) { return T.getName() == NameRef; });
+  auto I = std::find_if(
+      TargetRegistry::targets().begin(), TargetRegistry::targets().end(),
+      [&](const Target &T) { return T.getName() == NameRef; });
   return I != TargetRegistry::targets().end() ? wrap(&*I) : nullptr;
 }
 

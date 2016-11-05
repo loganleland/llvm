@@ -36,7 +36,7 @@
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
-#define DEBUG_TYPE "PIC16-lower"
+#define DEBUG_TYPE "pic16-lower"
 
 typedef enum {
   NoHWMult,
@@ -45,7 +45,7 @@ typedef enum {
 } HWMultUseMode;
 
 static cl::opt<HWMultUseMode>
-HWMultMode("PIC16-hwmult-mode", cl::Hidden,
+HWMultMode("pic16-hwmult-mode", cl::Hidden,
            cl::desc("Hardware multiplier use mode"),
            cl::init(HWMultNoIntr),
            cl::values(

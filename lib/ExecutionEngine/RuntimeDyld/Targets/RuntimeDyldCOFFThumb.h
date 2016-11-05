@@ -25,7 +25,7 @@ namespace llvm {
 class RuntimeDyldCOFFThumb : public RuntimeDyldCOFF {
 public:
   RuntimeDyldCOFFThumb(RuntimeDyld::MemoryManager &MM,
-                       JITSymbolResolver &Resolver)
+                       RuntimeDyld::SymbolResolver &Resolver)
       : RuntimeDyldCOFF(MM, Resolver) {}
 
   unsigned getMaxStubSize() override {
@@ -225,7 +225,7 @@ public:
         Bytes[0] |= ((Immediate & 0xf000) >> 12);
         Bytes[1] |= ((Immediate & 0x0800) >> 11);
         Bytes[2] |= ((Immediate & 0x00ff) >>  0);
-        Bytes[3] |= (((Immediate & 0x0700) >>  8) << 4);
+        Bytes[3] |= ((Immediate & 0x0700) >>  8);
       };
 
       EncodeImmediate(&Target[0], static_cast<uint32_t>(Result) >> 00);

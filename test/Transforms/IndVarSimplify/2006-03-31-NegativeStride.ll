@@ -1,11 +1,10 @@
 ; PR726
-; RUN: opt < %s -indvars -S | FileCheck %s
+; RUN: opt < %s -indvars -S | \
+; RUN:   grep "ret i32 27"
 
 ; Make sure to compute the right exit value based on negative strides.
 
 define i32 @test() {
-; CHECK-LABEL: @test(
-; CHECK: ret i32 27
 entry:
         br label %cond_true
 

@@ -105,11 +105,10 @@ public:
 
   /// \name Scalar TTI Implementations
   /// @{
-  bool allowsMisalignedMemoryAccesses(LLVMContext &Context,
-                                      unsigned BitWidth, unsigned AddressSpace,
+  bool allowsMisalignedMemoryAccesses(unsigned BitWidth, unsigned AddressSpace,
                                       unsigned Alignment, bool *Fast) const {
-    EVT E = EVT::getIntegerVT(Context, BitWidth);
-    return getTLI()->allowsMisalignedMemoryAccesses(E, AddressSpace, Alignment, Fast);
+    MVT M = MVT::getIntegerVT(BitWidth);
+    return getTLI()->allowsMisalignedMemoryAccesses(M, AddressSpace, Alignment, Fast);
   }
 
   bool hasBranchDivergence() { return false; }
@@ -143,10 +142,6 @@ public:
     AM.HasBaseReg = HasBaseReg;
     AM.Scale = Scale;
     return getTLI()->getScalingFactorCost(DL, AM, Ty, AddrSpace);
-  }
-
-  bool isFoldableMemAccessOffset(Instruction *I, int64_t Offset) {
-    return getTLI()->isFoldableMemAccessOffset(I, Offset);
   }
 
   bool isTruncateFree(Type *Ty1, Type *Ty2) {
@@ -285,11 +280,7 @@ public:
 
     // Enable runtime and partial unrolling up to the specified size.
     UP.Partial = UP.Runtime = true;
-    UP.PartialThreshold = MaxOps;
-
-    // Avoid unrolling when optimizing for size.
-    UP.OptSizeThreshold = 0;
-    UP.PartialOptSizeThreshold = 0;
+    UP.PartialThreshold = UP.PartialOptSizeThreshold = MaxOps;
   }
 
   /// @}

@@ -159,7 +159,7 @@ class RuntimeDyldELF : public RuntimeDyldImpl {
 
 public:
   RuntimeDyldELF(RuntimeDyld::MemoryManager &MemMgr,
-                 JITSymbolResolver &Resolver);
+                 RuntimeDyld::SymbolResolver &Resolver);
   ~RuntimeDyldELF() override;
 
   std::unique_ptr<RuntimeDyld::LoadedObjectInfo>

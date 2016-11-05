@@ -65,7 +65,8 @@ void RegisterBankInfo::createRegisterBank(unsigned ID, const char *Name) {
 }
 
 void RegisterBankInfo::addRegBankCoverage(unsigned ID, unsigned RCId,
-                                          const TargetRegisterInfo &TRI) {
+                                          const TargetRegisterInfo &TRI,
+                                          bool AddTypeMapping) {
   RegisterBank &RB = getRegBank(ID);
   unsigned NbOfRegClasses = TRI.getNumRegClasses();
 
@@ -96,6 +97,13 @@ void RegisterBankInfo::addRegBankCoverage(unsigned ID, unsigned RCId,
 
     // Remember the biggest size in bits.
     MaxSize = std::max(MaxSize, CurRC.getSize() * 8);
+
+    // If we have been asked to record the type supported by this
+    // register bank, do it now.
+    if (AddTypeMapping)
+      for (MVT::SimpleValueType SVT :
+           make_range(CurRC.vt_begin(), CurRC.vt_end()))
+        recordRegBankForType(getRegBank(ID), SVT);
 
     // Walk through all sub register classes and push them into the worklist.
     bool First = true;
@@ -165,9 +173,11 @@ RegisterBankInfo::getRegBank(unsigned Reg, const MachineRegisterInfo &MRI,
 
   assert(Reg && "NoRegister does not have a register bank");
   const RegClassOrRegBank &RegClassOrBank = MRI.getRegClassOrRegBank(Reg);
-  if (auto *RB = RegClassOrBank.dyn_cast<const RegisterBank *>())
-    return RB;
-  if (auto *RC = RegClassOrBank.dyn_cast<const TargetRegisterClass *>())
+  if (RegClassOrBank.is<const RegisterBank *>())
+    return RegClassOrBank.get<const RegisterBank *>();
+  const TargetRegisterClass *RC =
+      RegClassOrBank.get<const TargetRegisterClass *>();
+  if (RC)
     return &getRegBankFromRegClass(*RC);
   return nullptr;
 }
@@ -189,25 +199,6 @@ const RegisterBank *RegisterBankInfo::getRegBankFromConstraints(
   return &RegBank;
 }
 
-const TargetRegisterClass *RegisterBankInfo::constrainGenericRegister(
-    unsigned Reg, const TargetRegisterClass &RC, MachineRegisterInfo &MRI) {
-
-  // If the register already has a class, fallback to MRI::constrainRegClass.
-  auto &RegClassOrBank = MRI.getRegClassOrRegBank(Reg);
-  if (RegClassOrBank.is<const TargetRegisterClass *>())
-    return MRI.constrainRegClass(Reg, &RC);
-
-  const RegisterBank *RB = RegClassOrBank.get<const RegisterBank *>();
-  assert(RB && "Generic register does not have a register bank");
-
-  // Otherwise, all we can do is ensure the bank covers the class, and set it.
-  if (!RB->covers(RC))
-    return nullptr;
-
-  MRI.setRegClass(Reg, &RC);
-  return &RC;
-}
-
 RegisterBankInfo::InstructionMapping
 RegisterBankInfo::getInstrMappingImpl(const MachineInstr &MI) const {
   RegisterBankInfo::InstructionMapping Mapping(DefaultMappingID, /*Cost*/ 1,
@@ -224,8 +215,7 @@ RegisterBankInfo::getInstrMappingImpl(const MachineInstr &MI) const {
   bool CompleteMapping = true;
   // For copies we want to walk over the operands and try to find one
   // that has a register bank.
-  bool isCopyLike =
-      MI.isCopy() || MI.isPHI() || MI.getOpcode() == TargetOpcode::G_TYPE;
+  bool isCopyLike = MI.isCopy() || MI.isPHI();
   // Remember the register bank for reuse for copy-like instructions.
   const RegisterBank *RegBank = nullptr;
   // Remember the size of the register for reuse for copy-like instructions.
@@ -252,18 +242,30 @@ RegisterBankInfo::getInstrMappingImpl(const MachineInstr &MI) const {
       // the register bank from the encoding constraints.
       CurRegBank = getRegBankFromConstraints(MI, OpIdx, TII, TRI);
       if (!CurRegBank) {
-        // All our attempts failed, give up.
-        CompleteMapping = false;
+        // Check if we can deduce the register bank from the type of
+        // the instruction.
+        Type *MITy = MI.getType();
+        if (MITy)
+          CurRegBank = getRegBankForType(
+              MVT::getVT(MITy, /*HandleUnknown*/ true).SimpleTy);
+        if (!CurRegBank)
+          // Use the current assigned register bank.
+          // That may not make much sense though.
+          CurRegBank = AltRegBank;
+        if (!CurRegBank) {
+          // All our attempts failed, give up.
+          CompleteMapping = false;
 
-        if (!isCopyLike)
-          // MI does not carry enough information to guess the mapping.
-          return InstructionMapping();
+          if (!isCopyLike)
+            // MI does not carry enough information to guess the mapping.
+            return InstructionMapping();
 
-        // For copies, we want to keep interating to find a register
-        // bank for the other operands if we did not find one yet.
-        if (RegBank)
-          break;
-        continue;
+          // For copies, we want to keep interating to find a register
+          // bank for the other operands if we did not find one yet.
+          if (RegBank)
+            break;
+          continue;
+        }
       }
     }
     RegBank = CurRegBank;

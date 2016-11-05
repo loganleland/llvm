@@ -437,20 +437,13 @@ static MachineInstr *foldPatchpoint(MachineFunction &MF, MachineInstr &MI,
                                     const TargetInstrInfo &TII) {
   unsigned StartIdx = 0;
   switch (MI.getOpcode()) {
-  case TargetOpcode::STACKMAP: {
-    // StackMapLiveValues are foldable
-    StartIdx = StackMapOpers(&MI).getVarIdx();
+  case TargetOpcode::STACKMAP:
+    StartIdx = 2; // Skip ID, nShadowBytes.
     break;
-  }
   case TargetOpcode::PATCHPOINT: {
-    // For PatchPoint, the call args are not foldable (even if reported in the
-    // stackmap e.g. via anyregcc).
-    StartIdx = PatchPointOpers(&MI).getVarIdx();
-    break;
-  }
-  case TargetOpcode::STATEPOINT: {
-    // For statepoints, fold deopt and gc arguments, but not call arguments.
-    StartIdx = StatepointOpers(&MI).getVarIdx();
+    // For PatchPoint, the call args are not foldable.
+    PatchPointOpers opers(&MI);
+    StartIdx = opers.getVarIdx();
     break;
   }
   default:
@@ -474,7 +467,7 @@ static MachineInstr *foldPatchpoint(MachineFunction &MF, MachineInstr &MI,
 
   for (unsigned i = StartIdx; i < MI.getNumOperands(); ++i) {
     MachineOperand &MO = MI.getOperand(i);
-    if (is_contained(Ops, i)) {
+    if (std::find(Ops.begin(), Ops.end(), i) != Ops.end()) {
       unsigned SpillSize;
       unsigned SpillOffset;
       // Compute the spill slot size and offset.
@@ -518,8 +511,7 @@ MachineInstr *TargetInstrInfo::foldMemoryOperand(MachineInstr &MI,
   MachineInstr *NewMI = nullptr;
 
   if (MI.getOpcode() == TargetOpcode::STACKMAP ||
-      MI.getOpcode() == TargetOpcode::PATCHPOINT ||
-      MI.getOpcode() == TargetOpcode::STATEPOINT) {
+      MI.getOpcode() == TargetOpcode::PATCHPOINT) {
     // Fold stackmap/patchpoint.
     NewMI = foldPatchpoint(MF, MI, Ops, FI, *this);
     if (NewMI)
@@ -538,7 +530,7 @@ MachineInstr *TargetInstrInfo::foldMemoryOperand(MachineInstr &MI,
     assert((!(Flags & MachineMemOperand::MOLoad) ||
             NewMI->mayLoad()) &&
            "Folded a use to a non-load!");
-    const MachineFrameInfo &MFI = MF.getFrameInfo();
+    const MachineFrameInfo &MFI = *MF.getFrameInfo();
     assert(MFI.getObjectOffset(FI) != -1);
     MachineMemOperand *MMO = MF.getMachineMemOperand(
         MachinePointerInfo::getFixedStack(MF, FI), Flags, MFI.getObjectSize(FI),
@@ -800,8 +792,7 @@ MachineInstr *TargetInstrInfo::foldMemoryOperand(MachineInstr &MI,
   int FrameIndex = 0;
 
   if ((MI.getOpcode() == TargetOpcode::STACKMAP ||
-       MI.getOpcode() == TargetOpcode::PATCHPOINT ||
-       MI.getOpcode() == TargetOpcode::STATEPOINT) &&
+       MI.getOpcode() == TargetOpcode::PATCHPOINT) &&
       isLoadFromStackSlot(LoadMI, FrameIndex)) {
     // Fold stackmap/patchpoint.
     NewMI = foldPatchpoint(MF, MI, Ops, FrameIndex, *this);
@@ -853,7 +844,7 @@ bool TargetInstrInfo::isReallyTriviallyReMaterializableGeneric(
   // simple, and a common case.
   int FrameIdx = 0;
   if (isLoadFromStackSlot(MI, FrameIdx) &&
-      MF.getFrameInfo().isImmutableObjectIndex(FrameIdx))
+      MF.getFrameInfo()->isImmutableObjectIndex(FrameIdx))
     return true;
 
   // Avoid instructions obviously unsafe for remat.

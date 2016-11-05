@@ -99,6 +99,8 @@ struct LineCoverageStats {
 
 /// \brief A file manager that handles format-aware file creation.
 class CoveragePrinter {
+  const CoverageViewOptions &Opts;
+
 public:
   struct StreamDestructor {
     void operator()(raw_ostream *OS) const;
@@ -107,8 +109,6 @@ public:
   using OwnedStream = std::unique_ptr<raw_ostream, StreamDestructor>;
 
 protected:
-  const CoverageViewOptions &Opts;
-
   CoveragePrinter(const CoverageViewOptions &Opts) : Opts(Opts) {}
 
   /// \brief Return `OutputDir/ToplevelDir/Path.Extension`. If \p InToplevel is
@@ -172,9 +172,6 @@ class SourceCoverageView {
   /// on display.
   std::vector<InstantiationView> InstantiationSubViews;
 
-  /// Specifies whether or not the view is a function view.
-  bool FunctionView;
-
 protected:
   struct LineRef {
     StringRef Line;
@@ -195,7 +192,7 @@ protected:
   virtual void renderViewFooter(raw_ostream &OS) = 0;
 
   /// \brief Render the source name for the view.
-  virtual void renderSourceName(raw_ostream &OS, bool WholeFile) = 0;
+  virtual void renderSourceName(raw_ostream &OS) = 0;
 
   /// \brief Render the line prefix at the given \p ViewDepth.
   virtual void renderLinePrefix(raw_ostream &OS, unsigned ViewDepth) = 0;
@@ -239,13 +236,6 @@ protected:
   virtual void renderInstantiationView(raw_ostream &OS, InstantiationView &ISV,
                                        unsigned ViewDepth) = 0;
 
-  /// \brief Render the project title, the report title \p CellText and the
-  /// created time for the view.
-  virtual void renderCellInTitle(raw_ostream &OS, StringRef CellText) = 0;
-
-  /// \brief Render the table header for a given source file
-  virtual void renderTableHeader(raw_ostream &OS, unsigned IndentLevel = 0) = 0;
-
   /// @}
 
   /// \brief Format a count using engineering notation with 3 significant
@@ -260,21 +250,19 @@ protected:
 
   SourceCoverageView(StringRef SourceName, const MemoryBuffer &File,
                      const CoverageViewOptions &Options,
-                     coverage::CoverageData &&CoverageInfo, bool FunctionView)
+                     coverage::CoverageData &&CoverageInfo)
       : SourceName(SourceName), File(File), Options(Options),
-        CoverageInfo(std::move(CoverageInfo)), FunctionView(FunctionView) {}
+        CoverageInfo(std::move(CoverageInfo)) {}
 
 public:
   static std::unique_ptr<SourceCoverageView>
   create(StringRef SourceName, const MemoryBuffer &File,
          const CoverageViewOptions &Options,
-         coverage::CoverageData &&CoverageInfo, bool FucntionView = false);
+         coverage::CoverageData &&CoverageInfo);
 
   virtual ~SourceCoverageView() {}
 
   StringRef getSourceName() const { return SourceName; }
-
-  bool isFunctionView() const { return FunctionView; }
 
   const CoverageViewOptions &getOptions() const { return Options; }
 

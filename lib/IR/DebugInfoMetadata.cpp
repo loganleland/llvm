@@ -361,8 +361,7 @@ DICompileUnit *DICompileUnit::getImpl(
     unsigned RuntimeVersion, MDString *SplitDebugFilename,
     unsigned EmissionKind, Metadata *EnumTypes, Metadata *RetainedTypes,
     Metadata *GlobalVariables, Metadata *ImportedEntities, Metadata *Macros,
-    uint64_t DWOId, bool SplitDebugInlining, StorageType Storage,
-    bool ShouldCreate) {
+    uint64_t DWOId, StorageType Storage, bool ShouldCreate) {
   assert(Storage != Uniqued && "Cannot unique DICompileUnit");
   assert(isCanonical(Producer) && "Expected canonical MDString");
   assert(isCanonical(Flags) && "Expected canonical MDString");
@@ -372,10 +371,9 @@ DICompileUnit *DICompileUnit::getImpl(
       File,      Producer,      Flags,           SplitDebugFilename,
       EnumTypes, RetainedTypes, GlobalVariables, ImportedEntities,
       Macros};
-  return storeImpl(new (array_lengthof(Ops))
-                       DICompileUnit(Context, Storage, SourceLanguage,
-                                     IsOptimized, RuntimeVersion, EmissionKind,
-                                     DWOId, SplitDebugInlining, Ops),
+  return storeImpl(new (array_lengthof(Ops)) DICompileUnit(
+                       Context, Storage, SourceLanguage, IsOptimized,
+                       RuntimeVersion, EmissionKind, DWOId, Ops),
                    Storage);
 }
 

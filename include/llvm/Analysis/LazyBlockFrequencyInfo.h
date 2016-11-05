@@ -18,7 +18,6 @@
 #define LLVM_ANALYSIS_LAZYBLOCKFREQUENCYINFO_H
 
 #include "llvm/Analysis/BlockFrequencyInfo.h"
-#include "llvm/Analysis/LazyBranchProbabilityInfo.h"
 #include "llvm/Pass.h"
 
 namespace llvm {
@@ -58,21 +57,21 @@ class LazyBlockFrequencyInfoPass : public FunctionPass {
   class LazyBlockFrequencyInfo {
   public:
     LazyBlockFrequencyInfo()
-        : Calculated(false), F(nullptr), BPIPass(nullptr), LI(nullptr) {}
+        : Calculated(false), F(nullptr), BPI(nullptr), LI(nullptr) {}
 
     /// Set up the per-function input.
-    void setAnalysis(const Function *F, LazyBranchProbabilityInfoPass *BPIPass,
+    void setAnalysis(const Function *F, const BranchProbabilityInfo *BPI,
                      const LoopInfo *LI) {
       this->F = F;
-      this->BPIPass = BPIPass;
+      this->BPI = BPI;
       this->LI = LI;
     }
 
     /// Retrieve the BFI with the block frequencies computed.
     BlockFrequencyInfo &getCalculated() {
       if (!Calculated) {
-        assert(F && BPIPass && LI && "call setAnalysis");
-        BFI.calculate(*F, BPIPass->getBPI(), *LI);
+        assert(F && BPI && LI && "call setAnalysis");
+        BFI.calculate(*F, *BPI, *LI);
         Calculated = true;
       }
       return BFI;
@@ -92,7 +91,7 @@ class LazyBlockFrequencyInfoPass : public FunctionPass {
     BlockFrequencyInfo BFI;
     bool Calculated;
     const Function *F;
-    LazyBranchProbabilityInfoPass *BPIPass;
+    const BranchProbabilityInfo *BPI;
     const LoopInfo *LI;
   };
 

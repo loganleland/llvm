@@ -885,7 +885,6 @@ private:
   void visitPHI(const PHINode &I);
   void visitCall(const CallInst &I);
   bool visitMemCmpCall(const CallInst &I);
-  bool visitMemPCpyCall(const CallInst &I);
   bool visitMemChrCall(const CallInst &I);
   bool visitStrCpyCall(const CallInst &I, bool isStpcpy);
   bool visitStrCmpCall(const CallInst &I);
@@ -942,11 +941,6 @@ private:
   /// Update the DAG and DAG builder with the relevant information after
   /// a new root node has been created which could be a tail call.
   void updateDAGForMaybeTailCall(SDValue MaybeTC);
-
-  /// Return the appropriate SDDbgValue based on N.
-  SDDbgValue *getDbgValue(SDValue N, DILocalVariable *Variable,
-                          DIExpression *Expr, int64_t Offset, DebugLoc dl,
-                          unsigned DbgSDNodeOrder);
 };
 
 /// RegsForValue - This struct represents the registers (physical or virtual)

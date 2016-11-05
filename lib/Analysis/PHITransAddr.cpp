@@ -62,7 +62,8 @@ static bool VerifySubExpr(Value *Expr,
 
   // If it's an instruction, it is either in Tmp or its operands recursively
   // are.
-  SmallVectorImpl<Instruction *>::iterator Entry = find(InstInputs, I);
+  SmallVectorImpl<Instruction*>::iterator Entry =
+    std::find(InstInputs.begin(), InstInputs.end(), I);
   if (Entry != InstInputs.end()) {
     InstInputs.erase(Entry);
     return true;
@@ -125,7 +126,8 @@ static void RemoveInstInputs(Value *V,
   if (!I) return;
 
   // If the instruction is in the InstInputs list, remove it.
-  SmallVectorImpl<Instruction *>::iterator Entry = find(InstInputs, I);
+  SmallVectorImpl<Instruction*>::iterator Entry =
+    std::find(InstInputs.begin(), InstInputs.end(), I);
   if (Entry != InstInputs.end()) {
     InstInputs.erase(Entry);
     return;
@@ -148,7 +150,8 @@ Value *PHITransAddr::PHITranslateSubExpr(Value *V, BasicBlock *CurBB,
   if (!Inst) return V;
 
   // Determine whether 'Inst' is an input to our PHI translatable expression.
-  bool isInput = is_contained(InstInputs, Inst);
+  bool isInput =
+      std::find(InstInputs.begin(), InstInputs.end(), Inst) != InstInputs.end();
 
   // Handle inputs instructions if needed.
   if (isInput) {
@@ -162,7 +165,7 @@ Value *PHITransAddr::PHITranslateSubExpr(Value *V, BasicBlock *CurBB,
     // translated, we need to incorporate the value into the expression or fail.
 
     // In either case, the instruction itself isn't an input any longer.
-    InstInputs.erase(find(InstInputs, Inst));
+    InstInputs.erase(std::find(InstInputs.begin(), InstInputs.end(), Inst));
 
     // If this is a PHI, go ahead and translate it.
     if (PHINode *PN = dyn_cast<PHINode>(Inst))
@@ -269,7 +272,8 @@ Value *PHITransAddr::PHITranslateSubExpr(Value *V, BasicBlock *CurBB,
           isNSW = isNUW = false;
 
           // If the old 'LHS' was an input, add the new 'LHS' as an input.
-          if (is_contained(InstInputs, BOp)) {
+          if (std::find(InstInputs.begin(), InstInputs.end(), BOp) !=
+              InstInputs.end()) {
             RemoveInstInputs(BOp, InstInputs);
             AddAsInput(LHS);
           }

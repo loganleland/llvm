@@ -14,7 +14,7 @@
 #ifndef LLVM_EXECUTIONENGINE_ORC_OBJECTTRANSFORMLAYER_H
 #define LLVM_EXECUTIONENGINE_ORC_OBJECTTRANSFORMLAYER_H
 
-#include "llvm/ExecutionEngine/JITSymbol.h"
+#include "JITSymbol.h"
 
 namespace llvm {
 namespace orc {
@@ -83,7 +83,7 @@ public:
 
   /// @brief Map section addresses for the objects associated with the handle H.
   void mapSectionAddress(ObjSetHandleT H, const void *LocalAddress,
-                         JITTargetAddress TargetAddr) {
+                         TargetAddress TargetAddr) {
     BaseLayer.mapSectionAddress(H, LocalAddress, TargetAddr);
   }
 

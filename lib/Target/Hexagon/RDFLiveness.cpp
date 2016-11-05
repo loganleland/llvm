@@ -400,7 +400,7 @@ void Liveness::computePhiInfo() {
       for (auto I = Uses.begin(), E = Uses.end(); I != E; ) {
         auto UA = DFG.addr<UseNode*>(*I);
         NodeList RDs = getAllReachingDefs(UI->first, UA);
-        if (any_of(RDs, HasDef))
+        if (std::any_of(RDs.begin(), RDs.end(), HasDef))
           ++I;
         else
           I = Uses.erase(I);

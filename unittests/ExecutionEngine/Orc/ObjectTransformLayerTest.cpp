@@ -95,32 +95,31 @@ public:
     resetExpectations();
   }
 
-  llvm::JITSymbol findSymbol(const std::string &Name,
-                             bool ExportedSymbolsOnly) {
+  JITSymbol findSymbol(const std::string &Name, bool ExportedSymbolsOnly) {
     EXPECT_EQ(MockName, Name) << "Name should pass through";
     EXPECT_EQ(MockBool, ExportedSymbolsOnly) << "Flag should pass through";
     LastCalled = "findSymbol";
-    MockSymbol = llvm::JITSymbol(122, llvm::JITSymbolFlags::None);
+    MockSymbol = JITSymbol(122, llvm::JITSymbolFlags::None);
     return MockSymbol;
   }
   void expectFindSymbol(const std::string &Name, bool ExportedSymbolsOnly) {
     MockName = Name;
     MockBool = ExportedSymbolsOnly;
   }
-  void verifyFindSymbol(llvm::JITSymbol Returned) {
+  void verifyFindSymbol(llvm::orc::JITSymbol Returned) {
     EXPECT_EQ("findSymbol", LastCalled);
     EXPECT_EQ(MockSymbol.getAddress(), Returned.getAddress())
         << "Return should pass through";
     resetExpectations();
   }
 
-  llvm::JITSymbol findSymbolIn(ObjSetHandleT H, const std::string &Name,
-                               bool ExportedSymbolsOnly) {
+  JITSymbol findSymbolIn(ObjSetHandleT H, const std::string &Name,
+                         bool ExportedSymbolsOnly) {
     EXPECT_EQ(MockObjSetHandle, H) << "Handle should pass through";
     EXPECT_EQ(MockName, Name) << "Name should pass through";
     EXPECT_EQ(MockBool, ExportedSymbolsOnly) << "Flag should pass through";
     LastCalled = "findSymbolIn";
-    MockSymbol = llvm::JITSymbol(122, llvm::JITSymbolFlags::None);
+    MockSymbol = JITSymbol(122, llvm::JITSymbolFlags::None);
     return MockSymbol;
   }
   void expectFindSymbolIn(ObjSetHandleT H, const std::string &Name,
@@ -129,7 +128,7 @@ public:
     MockName = Name;
     MockBool = ExportedSymbolsOnly;
   }
-  void verifyFindSymbolIn(llvm::JITSymbol Returned) {
+  void verifyFindSymbolIn(llvm::orc::JITSymbol Returned) {
     EXPECT_EQ("findSymbolIn", LastCalled);
     EXPECT_EQ(MockSymbol.getAddress(), Returned.getAddress())
         << "Return should pass through";
@@ -147,14 +146,14 @@ public:
   }
 
   void mapSectionAddress(ObjSetHandleT H, const void *LocalAddress,
-                         llvm::JITTargetAddress TargetAddr) {
+                         TargetAddress TargetAddr) {
     EXPECT_EQ(MockObjSetHandle, H);
     EXPECT_EQ(MockLocalAddress, LocalAddress);
     EXPECT_EQ(MockTargetAddress, TargetAddr);
     LastCalled = "mapSectionAddress";
   }
   void expectMapSectionAddress(ObjSetHandleT H, const void *LocalAddress,
-                               llvm::JITTargetAddress TargetAddr) {
+                               TargetAddress TargetAddr) {
     MockObjSetHandle = H;
     MockLocalAddress = LocalAddress;
     MockTargetAddress = TargetAddr;
@@ -173,9 +172,9 @@ private:
   ObjSetHandleT MockObjSetHandle;
   std::string MockName;
   bool MockBool;
-  llvm::JITSymbol MockSymbol;
+  JITSymbol MockSymbol;
   const void *MockLocalAddress;
-  llvm::JITTargetAddress MockTargetAddress;
+  TargetAddress MockTargetAddress;
   MockMemoryBufferSet MockBufferSet;
 
   // Clear remembered parameters between calls
@@ -186,7 +185,7 @@ private:
     MockObjects.clear();
     MockObjSetHandle = 0;
     MockName = "bogus";
-    MockSymbol = llvm::JITSymbol(nullptr);
+    MockSymbol = JITSymbol(nullptr);
     MockLocalAddress = nullptr;
     MockTargetAddress = 0;
     MockBufferSet = 0;
@@ -246,7 +245,7 @@ TEST(ObjectTransformLayerTest, Main) {
   std::string Name = "foo";
   bool ExportedOnly = true;
   M.expectFindSymbol(Name, ExportedOnly);
-  llvm::JITSymbol Symbol = T2.findSymbol(Name, ExportedOnly);
+  JITSymbol Symbol = T2.findSymbol(Name, ExportedOnly);
   M.verifyFindSymbol(Symbol);
 
   // Test findSymbolIn
@@ -263,7 +262,7 @@ TEST(ObjectTransformLayerTest, Main) {
 
   // Test mapSectionAddress
   char Buffer[24];
-  llvm::JITTargetAddress MockAddress = 255;
+  TargetAddress MockAddress = 255;
   M.expectMapSectionAddress(H, Buffer, MockAddress);
   T1.mapSectionAddress(H, Buffer, MockAddress);
   M.verifyMapSectionAddress();

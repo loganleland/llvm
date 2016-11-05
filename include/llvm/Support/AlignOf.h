@@ -103,7 +103,7 @@ template <typename T> constexpr unsigned AlignOf<T>::Alignment;
 ///  class besides some cosmetic cleanliness.  Example usage:
 ///  alignOf<int>() returns the alignment of an int.
 template <typename T>
-LLVM_CONSTEXPR inline unsigned alignOf() { return AlignOf<T>::Alignment; }
+inline unsigned alignOf() { return AlignOf<T>::Alignment; }
 
 /// \struct AlignedCharArray
 /// \brief Helper for building an aligned character array type.

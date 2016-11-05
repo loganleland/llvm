@@ -11,7 +11,7 @@
         it le
         iteeee gt
         ittfe le
-        nopeq
+        pic16q
 
 @ CHECK-ERRORS: error: incorrect condition in IT block; got 'le', but expected 'eq'
 @ CHECK-ERRORS:         addle r0, r1, r2
@@ -29,7 +29,7 @@
 @ CHECK-ERRORS:         ittfe le
 @ CHECK-ERRORS:           ^
 @ CHECK-ERRORS: error: predicated instructions must be in IT block
-@ CHECK-ERRORS:         nopeq
+@ CHECK-ERRORS:         pic16q
 @ CHECK-ERRORS:         ^
 
         @ Out of range immediates for MRC/MRC2/MRRC/MRRC2
@@ -56,8 +56,8 @@
         bkpteq #1
 @ CHECK-ERRORS: error: instruction 'bkpt' is not predicable, but condition code specified
 
-        nopeq
-        nopeq
+        pic16q
+        pic16q
 
 @ out of range operands for Thumb2 targets
 

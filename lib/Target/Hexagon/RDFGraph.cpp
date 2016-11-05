@@ -936,7 +936,6 @@ void DataFlowGraph::build(unsigned Options) {
 
   for (auto &B : MF) {
     auto BA = newBlock(Func, &B);
-    BlockNodes.insert(std::make_pair(&B, BA));
     for (auto &I : B) {
       if (I.isDebugValue())
         continue;
@@ -1070,7 +1069,6 @@ NodeList DataFlowGraph::getRelatedRefs(NodeAddr<InstrNode*> IA,
 // Clear all information in the graph.
 void DataFlowGraph::reset() {
   Memory.clear();
-  BlockNodes.clear();
   Func = NodeAddr<FuncNode*>();
 }
 
@@ -1279,7 +1277,7 @@ void DataFlowGraph::buildBlockRefs(NodeAddr<BlockNode*> BA,
   assert(N);
   for (auto I : *N) {
     MachineBasicBlock *SB = I->getBlock();
-    auto SBA = findBlock(SB);
+    auto SBA = Func.Addr->findBlock(SB, *this);
     buildBlockRefs(SBA, RefM);
     const auto &SRs = RefM[SBA.Id];
     Refs.insert(SRs.begin(), SRs.end());
@@ -1331,13 +1329,13 @@ void DataFlowGraph::recordDefsForDF(BlockRefsMap &PhiM, BlockRefsMap &RefM,
   // Get the register references that are reachable from this block.
   RegisterSet &Refs = RefM[BA.Id];
   for (auto DB : IDF) {
-    auto DBA = findBlock(DB);
+    auto DBA = Func.Addr->findBlock(DB, *this);
     const auto &Rs = RefM[DBA.Id];
     Refs.insert(Rs.begin(), Rs.end());
   }
 
   for (auto DB : IDF) {
-    auto DBA = findBlock(DB);
+    auto DBA = Func.Addr->findBlock(DB, *this);
     PhiM[DBA.Id].insert(Defs.begin(), Defs.end());
   }
 }
@@ -1394,7 +1392,7 @@ void DataFlowGraph::buildPhis(BlockRefsMap &PhiM, BlockRefsMap &RefM,
   std::vector<NodeId> PredList;
   const MachineBasicBlock *MBB = BA.Addr->getCode();
   for (auto PB : MBB->predecessors()) {
-    auto B = findBlock(PB);
+    auto B = Func.Addr->findBlock(PB, *this);
     PredList.push_back(B.Id);
   }
 
@@ -1509,7 +1507,7 @@ void DataFlowGraph::linkRefUp(NodeAddr<InstrNode*> IA, NodeAddr<T> TA,
     bool PrecUp = RAI.covers(QR, RR);
     // Skip all defs that are aliased to any of the defs that we have already
     // seen. If we encounter a covering def, stop the stack traversal early.
-    if (any_of(Defs, AliasQR)) {
+    if (std::any_of(Defs.begin(), Defs.end(), AliasQR)) {
       if (PrecUp)
         break;
       continue;
@@ -1586,7 +1584,7 @@ void DataFlowGraph::linkBlockRefs(DefStackMap &DefM, NodeAddr<BlockNode*> BA) {
   MachineDomTreeNode *N = MDT.getNode(BA.Addr->getCode());
   for (auto I : *N) {
     MachineBasicBlock *SB = I->getBlock();
-    auto SBA = findBlock(SB);
+    auto SBA = Func.Addr->findBlock(SB, *this);
     linkBlockRefs(DefM, SBA);
   }
 
@@ -1600,7 +1598,7 @@ void DataFlowGraph::linkBlockRefs(DefStackMap &DefM, NodeAddr<BlockNode*> BA) {
   };
   MachineBasicBlock *MBB = BA.Addr->getCode();
   for (auto SB : MBB->successors()) {
-    auto SBA = findBlock(SB);
+    auto SBA = Func.Addr->findBlock(SB, *this);
     for (NodeAddr<InstrNode*> IA : SBA.Addr->members_if(IsPhi, *this)) {
       // Go over each phi use associated with MBB, and link it.
       for (auto U : IA.Addr->members_if(IsUseForBA, *this)) {

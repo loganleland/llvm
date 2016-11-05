@@ -225,7 +225,6 @@ void X86WinAllocaExpander::lower(MachineInstr* MI, Lowering L) {
       break;
 
     // Fall through to make any remaining adjustment.
-    LLVM_FALLTHROUGH;
   case Sub:
     assert(Amount > 0);
     if (Amount == SlotSize) {

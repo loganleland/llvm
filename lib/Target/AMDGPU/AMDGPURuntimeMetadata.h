@@ -131,13 +131,6 @@ namespace RuntimeMD {
       WriteOnly  = 2,
       ReadWrite  = 3,
     };
-
-    enum AddressSpaceQualifer : uint8_t {
-      Private    = 0,
-      Global     = 1,
-      Constant   = 2,
-      Local      = 3,
-    };
   } // namespace KernelArg
 } // namespace RuntimeMD
 } // namespace AMDGPU

@@ -521,14 +521,16 @@ static bool moveUp(AliasAnalysis &AA, StoreInst *SI, Instruction *P) {
     if (Args.erase(C))
       NeedLift = true;
     else if (MayAlias) {
-      NeedLift = any_of(MemLocs, [C, &AA](const MemoryLocation &ML) {
-        return AA.getModRefInfo(C, ML);
-      });
+      NeedLift = std::any_of(MemLocs.begin(), MemLocs.end(),
+        [C, &AA](const MemoryLocation &ML) {
+          return AA.getModRefInfo(C, ML);
+        });
 
       if (!NeedLift)
-        NeedLift = any_of(CallSites, [C, &AA](const ImmutableCallSite &CS) {
-          return AA.getModRefInfo(C, CS);
-        });
+        NeedLift = std::any_of(CallSites.begin(), CallSites.end(),
+          [C, &AA](const ImmutableCallSite &CS) {
+            return AA.getModRefInfo(C, CS);
+          });
     }
 
     if (!NeedLift)
@@ -1108,11 +1110,8 @@ bool MemCpyOptPass::processMemSetMemCpyDependence(MemCpyInst *MemCpy,
 /// The \p MemCpy must have a Constant length.
 bool MemCpyOptPass::performMemCpyToMemSetOptzn(MemCpyInst *MemCpy,
                                                MemSetInst *MemSet) {
-  AliasAnalysis &AA = LookupAliasAnalysis();
-
-  // Make sure that memcpy(..., memset(...), ...), that is we are memsetting and
-  // memcpying from the same address. Otherwise it is hard to reason about.
-  if (!AA.isMustAlias(MemSet->getRawDest(), MemCpy->getRawSource()))
+  // This only makes sense on memcpy(..., memset(...), ...).
+  if (MemSet->getRawDest() != MemCpy->getRawSource())
     return false;
 
   ConstantInt *CopySize = cast<ConstantInt>(MemCpy->getLength());

@@ -177,8 +177,9 @@ bool Loop::isRecursivelyLCSSAForm(DominatorTree &DT) const {
   if (!isLCSSAForm(DT))
     return false;
 
-  return all_of(*this,
-                [&](const Loop *L) { return L->isRecursivelyLCSSAForm(DT); });
+  return std::all_of(begin(), end(), [&](const Loop *L) {
+    return L->isRecursivelyLCSSAForm(DT);
+  });
 }
 
 bool Loop::isLoopSimplifyForm() const {
@@ -365,7 +366,8 @@ Loop::getUniqueExitBlocks(SmallVectorImpl<BasicBlock *> &ExitBlocks) const {
       // In case of multiple edges from current block to exit block, collect
       // only one edge in ExitBlocks. Use switchExitBlocks to keep track of
       // duplicate edges.
-      if (!is_contained(SwitchExitBlocks, Successor)) {
+      if (std::find(SwitchExitBlocks.begin(), SwitchExitBlocks.end(), Successor)
+          == SwitchExitBlocks.end()) {
         SwitchExitBlocks.push_back(Successor);
         ExitBlocks.push_back(Successor);
       }
@@ -384,10 +386,6 @@ BasicBlock *Loop::getUniqueExitBlock() const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void Loop::dump() const {
   print(dbgs());
-}
-
-LLVM_DUMP_METHOD void Loop::dumpVerbose() const {
-  print(dbgs(), /*Depth=*/ 0, /*Verbose=*/ true);
 }
 #endif
 
@@ -534,7 +532,8 @@ Loop *UnloopUpdater::getNearestLoop(BasicBlock *BB, Loop *BBLoop) {
       assert(Subloop && "subloop is not an ancestor of the original loop");
     }
     // Get the current nearest parent of the Subloop exits, initially Unloop.
-    NearLoop = SubloopParents.insert({Subloop, &Unloop}).first->second;
+    NearLoop =
+      SubloopParents.insert(std::make_pair(Subloop, &Unloop)).first->second;
   }
 
   succ_iterator I = succ_begin(BB), E = succ_end(BB);
@@ -648,7 +647,7 @@ void LoopInfo::markAsRemoved(Loop *Unloop) {
 
 char LoopAnalysis::PassID;
 
-LoopInfo LoopAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
+LoopInfo LoopAnalysis::run(Function &F, AnalysisManager<Function> &AM) {
   // FIXME: Currently we create a LoopInfo from scratch for every function.
   // This may prove to be too wasteful due to deallocating and re-allocating
   // memory each time for the underlying map and vector datastructures. At some
@@ -661,7 +660,7 @@ LoopInfo LoopAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
 }
 
 PreservedAnalyses LoopPrinterPass::run(Function &F,
-                                       FunctionAnalysisManager &AM) {
+                                       AnalysisManager<Function> &AM) {
   AM.getResult<LoopAnalysis>(F).print(OS);
   return PreservedAnalyses::all();
 }
@@ -703,10 +702,8 @@ void LoopInfoWrapperPass::verifyAnalysis() const {
   // -verify-loop-info option can enable this. In order to perform some
   // checking by default, LoopPass has been taught to call verifyLoop manually
   // during loop pass sequences.
-  if (VerifyLoopInfo) {
-    auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    LI.verify(DT);
-  }
+  if (VerifyLoopInfo)
+    LI.verify();
 }
 
 void LoopInfoWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -716,14 +713,6 @@ void LoopInfoWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 
 void LoopInfoWrapperPass::print(raw_ostream &OS, const Module *) const {
   LI.print(OS);
-}
-
-PreservedAnalyses LoopVerifierPass::run(Function &F,
-                                        FunctionAnalysisManager &AM) {
-  LoopInfo &LI = AM.getResult<LoopAnalysis>(F);
-  auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
-  LI.verify(DT);
-  return PreservedAnalyses::all();
 }
 
 //===----------------------------------------------------------------------===//

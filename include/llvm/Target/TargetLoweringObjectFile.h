@@ -45,12 +45,6 @@ protected:
   bool SupportIndirectSymViaGOTPCRel;
   bool SupportGOTPCRelWithOffset;
 
-  /// This section contains the static constructor pointer list.
-  MCSection *StaticCtorSection;
-
-  /// This section contains the static destructor pointer list.
-  MCSection *StaticDtorSection;
-
 public:
   MCContext &getContext() const { return *Ctx; }
 

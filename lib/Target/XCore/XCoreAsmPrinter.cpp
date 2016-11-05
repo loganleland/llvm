@@ -140,7 +140,7 @@ void XCoreAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
     if (GV->hasWeakLinkage() || GV->hasLinkOnceLinkage() ||
         GV->hasCommonLinkage())
       OutStreamer->EmitSymbolAttribute(GVSym, MCSA_Weak);
-    LLVM_FALLTHROUGH;
+    // FALL THROUGH
   case GlobalValue::InternalLinkage:
   case GlobalValue::PrivateLinkage:
     break;

@@ -446,20 +446,13 @@ const MCExpr *TargetLoweringObjectFileELF::lowerRelativeReference(
 void
 TargetLoweringObjectFileELF::InitializeELF(bool UseInitArray_) {
   UseInitArray = UseInitArray_;
-  MCContext &Ctx = getContext();
-  if (!UseInitArray) {
-    StaticCtorSection = Ctx.getELFSection(".ctors", ELF::SHT_PROGBITS,
-                                          ELF::SHF_ALLOC | ELF::SHF_WRITE);
-
-    StaticDtorSection = Ctx.getELFSection(".dtors", ELF::SHT_PROGBITS,
-                                          ELF::SHF_ALLOC | ELF::SHF_WRITE);
+  if (!UseInitArray)
     return;
-  }
 
-  StaticCtorSection = Ctx.getELFSection(".init_array", ELF::SHT_INIT_ARRAY,
-                                        ELF::SHF_WRITE | ELF::SHF_ALLOC);
-  StaticDtorSection = Ctx.getELFSection(".fini_array", ELF::SHT_FINI_ARRAY,
-                                        ELF::SHF_WRITE | ELF::SHF_ALLOC);
+  StaticCtorSection = getContext().getELFSection(
+      ".init_array", ELF::SHT_INIT_ARRAY, ELF::SHF_WRITE | ELF::SHF_ALLOC);
+  StaticDtorSection = getContext().getELFSection(
+      ".fini_array", ELF::SHT_FINI_ARRAY, ELF::SHF_WRITE | ELF::SHF_ALLOC);
 }
 
 //===----------------------------------------------------------------------===//
@@ -469,24 +462,6 @@ TargetLoweringObjectFileELF::InitializeELF(bool UseInitArray_) {
 TargetLoweringObjectFileMachO::TargetLoweringObjectFileMachO()
   : TargetLoweringObjectFile() {
   SupportIndirectSymViaGOTPCRel = true;
-}
-
-void TargetLoweringObjectFileMachO::Initialize(MCContext &Ctx,
-                                               const TargetMachine &TM) {
-  TargetLoweringObjectFile::Initialize(Ctx, TM);
-  if (TM.getRelocationModel() == Reloc::Static) {
-    StaticCtorSection = Ctx.getMachOSection("__TEXT", "__constructor", 0,
-                                            SectionKind::getData());
-    StaticDtorSection = Ctx.getMachOSection("__TEXT", "__destructor", 0,
-                                            SectionKind::getData());
-  } else {
-    StaticCtorSection = Ctx.getMachOSection("__DATA", "__mod_init_func",
-                                            MachO::S_MOD_INIT_FUNC_POINTERS,
-                                            SectionKind::getData());
-    StaticDtorSection = Ctx.getMachOSection("__DATA", "__mod_term_func",
-                                            MachO::S_MOD_TERM_FUNC_POINTERS,
-                                            SectionKind::getData());
-  }
 }
 
 /// emitModuleFlags - Perform code emission for module flags.
@@ -1074,31 +1049,6 @@ emitModuleFlags(MCStreamer &Streamer,
         Streamer.EmitBytes(Directive);
       }
     }
-  }
-}
-
-void TargetLoweringObjectFileCOFF::Initialize(MCContext &Ctx,
-                                              const TargetMachine &TM) {
-  TargetLoweringObjectFile::Initialize(Ctx, TM);
-  const Triple &T = TM.getTargetTriple();
-  if (T.isKnownWindowsMSVCEnvironment() || T.isWindowsItaniumEnvironment()) {
-    StaticCtorSection =
-        Ctx.getCOFFSection(".CRT$XCU", COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
-                                           COFF::IMAGE_SCN_MEM_READ,
-                           SectionKind::getReadOnly());
-    StaticDtorSection =
-        Ctx.getCOFFSection(".CRT$XTX", COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
-                                           COFF::IMAGE_SCN_MEM_READ,
-                           SectionKind::getReadOnly());
-  } else {
-    StaticCtorSection = Ctx.getCOFFSection(
-        ".ctors", COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
-                      COFF::IMAGE_SCN_MEM_READ | COFF::IMAGE_SCN_MEM_WRITE,
-        SectionKind::getData());
-    StaticDtorSection = Ctx.getCOFFSection(
-        ".dtors", COFF::IMAGE_SCN_CNT_INITIALIZED_DATA |
-                      COFF::IMAGE_SCN_MEM_READ | COFF::IMAGE_SCN_MEM_WRITE,
-        SectionKind::getData());
   }
 }
 

@@ -11,10 +11,8 @@
 #define LLVM_DEBUGINFO_PDB_RAW_MODINFO_H
 
 #include "llvm/ADT/StringRef.h"
-#include "llvm/DebugInfo/MSF/StreamArray.h"
-#include "llvm/DebugInfo/MSF/StreamRef.h"
-#include "llvm/DebugInfo/PDB/Raw/RawTypes.h"
-#include "llvm/Support/Endian.h"
+#include "llvm/DebugInfo/CodeView/StreamArray.h"
+#include "llvm/DebugInfo/CodeView/StreamRef.h"
 #include <cstdint>
 #include <vector>
 
@@ -22,14 +20,15 @@ namespace llvm {
 namespace pdb {
 
 class ModInfo {
-  friend class DbiStreamBuilder;
+private:
+  struct FileLayout;
 
 public:
   ModInfo();
   ModInfo(const ModInfo &Info);
   ~ModInfo();
 
-  static Error initialize(msf::ReadableStreamRef Stream, ModInfo &Info);
+  static Error initialize(codeview::StreamRef Stream, ModInfo &Info);
 
   bool hasECInfo() const;
   uint16_t getTypeServerIndex() const;
@@ -49,7 +48,7 @@ public:
 private:
   StringRef ModuleName;
   StringRef ObjFileName;
-  const ModuleInfoHeader *Layout;
+  const FileLayout *Layout;
 };
 
 struct ModuleInfoEx {
@@ -63,9 +62,9 @@ struct ModuleInfoEx {
 
 } // end namespace pdb
 
-namespace msf {
+namespace codeview {
 template <> struct VarStreamArrayExtractor<pdb::ModInfo> {
-  Error operator()(ReadableStreamRef Stream, uint32_t &Length,
+  Error operator()(StreamRef Stream, uint32_t &Length,
                    pdb::ModInfo &Info) const {
     if (auto EC = pdb::ModInfo::initialize(Stream, Info))
       return EC;
@@ -73,7 +72,7 @@ template <> struct VarStreamArrayExtractor<pdb::ModInfo> {
     return Error::success();
   }
 };
-} // end namespace msf
+}
 
 } // end namespace llvm
 

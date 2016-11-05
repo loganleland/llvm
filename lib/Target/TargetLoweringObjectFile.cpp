@@ -208,13 +208,12 @@ SectionKind TargetLoweringObjectFile::getKindForGlobal(const GlobalValue *GV,
       }
 
     } else {
-      // In static, ROPI and RWPI relocation models, the linker will resolve
-      // all addresses, so the relocation entries will actually be constants by
-      // the time the app starts up.  However, we can't put this into a
-      // mergable section, because the linker doesn't take relocations into
-      // consideration when it tries to merge entries in the section.
-      if (ReloModel == Reloc::Static || ReloModel == Reloc::ROPI ||
-          ReloModel == Reloc::RWPI || ReloModel == Reloc::ROPI_RWPI)
+      // In static relocation model, the linker will resolve all addresses, so
+      // the relocation entries will actually be constants by the time the app
+      // starts up.  However, we can't put this into a mergable section, because
+      // the linker doesn't take relocations into consideration when it tries to
+      // merge entries in the section.
+      if (ReloModel == Reloc::Static)
         return SectionKind::getReadOnly();
 
       // Otherwise, the dynamic linker needs to fix it up, put it in the

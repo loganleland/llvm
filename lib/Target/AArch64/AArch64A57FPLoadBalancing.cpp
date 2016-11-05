@@ -95,6 +95,10 @@ static bool isMla(MachineInstr *MI) {
   }
 }
 
+namespace llvm {
+static void initializeAArch64A57FPLoadBalancingPass(PassRegistry &);
+}
+
 //===----------------------------------------------------------------------===//
 
 namespace {
@@ -122,7 +126,7 @@ public:
 
   MachineFunctionProperties getRequiredProperties() const override {
     return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::NoVRegs);
+        MachineFunctionProperties::Property::AllVRegsAllocated);
   }
 
   const char *getPassName() const override {

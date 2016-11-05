@@ -51,7 +51,7 @@ private:
   Delegate *TheDelegate;
 
   /// True if subregister liveness is tracked.
-  const bool TracksSubRegLiveness;
+  bool TracksSubRegLiveness;
 
   /// VRegInfo - Information we keep for each virtual register.
   ///
@@ -166,7 +166,7 @@ public:
 
   // leaveSSA - Indicates that the machine function is no longer in SSA form.
   void leaveSSA() {
-    MF->getProperties().reset(MachineFunctionProperties::Property::IsSSA);
+    MF->getProperties().clear(MachineFunctionProperties::Property::IsSSA);
   }
 
   /// tracksLiveness - Returns true when tracking register liveness accurately.
@@ -182,7 +182,7 @@ public:
   /// This should be called by late passes that invalidate the liveness
   /// information.
   void invalidateLiveness() {
-    MF->getProperties().reset(
+    MF->getProperties().clear(
         MachineFunctionProperties::Property::TracksLiveness);
   }
 
@@ -197,6 +197,10 @@ public:
   }
   bool subRegLivenessEnabled() const {
     return TracksSubRegLiveness;
+  }
+
+  void enableSubRegLiveness(bool Enable = true) {
+    TracksSubRegLiveness = Enable;
   }
 
   //===--------------------------------------------------------------------===//
@@ -653,10 +657,6 @@ public:
   /// Create and return a new generic virtual register with a size of \p Size.
   /// \pre Size > 0.
   unsigned createGenericVirtualRegister(unsigned Size);
-
-  /// Remove all sizes associated to virtual registers (after instruction
-  /// selection and constraining of all generic virtual registers).
-  void clearVirtRegSizes();
 
   /// getNumVirtRegs - Return the number of virtual registers created.
   ///

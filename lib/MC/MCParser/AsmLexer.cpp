@@ -11,22 +11,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/MC/MCParser/AsmLexer.h"
-#include "llvm/MC/MCParser/MCAsmLexer.h"
 #include "llvm/MC/MCAsmInfo.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SMLoc.h"
-#include <cassert>
 #include <cctype>
+#include <cerrno>
 #include <cstdio>
-#include <cstring>
-#include <tuple>
-#include <string>
-#include <utility>
-
+#include <cstdlib>
 using namespace llvm;
 
 AsmLexer::AsmLexer(const MCAsmInfo &MAI) : MAI(MAI) {
@@ -141,7 +133,6 @@ static bool IsIdentifierChar(char c, bool AllowAt) {
   return isalnum(c) || c == '_' || c == '$' || c == '.' ||
          (c == '@' && AllowAt) || c == '?';
 }
-
 AsmToken AsmLexer::LexIdentifier() {
   // Check for floating point literals.
   if (CurPtr[-1] == '.' && isdigit(*CurPtr)) {
@@ -206,7 +197,7 @@ AsmToken AsmLexer::LexLineComment() {
     CurChar = getNextChar();
 
   IsAtStartOfLine = true;
-  // This is a whole line comment. leave newline
+  // Whis is a whole line comment. leave newline
   if (IsAtStartOfStatement)
     return AsmToken(AsmToken::EndOfStatement,
                     StringRef(TokStart, CurPtr - TokStart));
@@ -231,7 +222,7 @@ static void SkipIgnoredIntegerSuffix(const char *&CurPtr) {
 static unsigned doLookAhead(const char *&CurPtr, unsigned DefaultRadix) {
   const char *FirstHex = nullptr;
   const char *LookAhead = CurPtr;
-  while (true) {
+  while (1) {
     if (isdigit(*LookAhead)) {
       ++LookAhead;
     } else if (isxdigit(*LookAhead)) {
@@ -405,6 +396,7 @@ AsmToken AsmLexer::LexSingleQuote() {
 
   return AsmToken(AsmToken::Integer, Res, Value);
 }
+
 
 /// LexQuote: String: "..."
 AsmToken AsmLexer::LexQuote() {
@@ -608,46 +600,7 @@ AsmToken AsmLexer::LexToken() {
       return AsmToken(AsmToken::ExclaimEqual, StringRef(TokStart, 2));
     }
     return AsmToken(AsmToken::Exclaim, StringRef(TokStart, 1));
-  case '%':
-    if (MAI.hasMipsExpressions()) {
-      AsmToken::TokenKind Operator;
-      unsigned OperatorLength;
-
-      std::tie(Operator, OperatorLength) =
-          StringSwitch<std::pair<AsmToken::TokenKind, unsigned>>(
-              StringRef(CurPtr))
-              .StartsWith("call16", {AsmToken::PercentCall16, 7})
-              .StartsWith("call_hi", {AsmToken::PercentCall_Hi, 8})
-              .StartsWith("call_lo", {AsmToken::PercentCall_Lo, 8})
-              .StartsWith("dtprel_hi", {AsmToken::PercentDtprel_Hi, 10})
-              .StartsWith("dtprel_lo", {AsmToken::PercentDtprel_Lo, 10})
-              .StartsWith("got_disp", {AsmToken::PercentGot_Disp, 9})
-              .StartsWith("got_hi", {AsmToken::PercentGot_Hi, 7})
-              .StartsWith("got_lo", {AsmToken::PercentGot_Lo, 7})
-              .StartsWith("got_ofst", {AsmToken::PercentGot_Ofst, 9})
-              .StartsWith("got_page", {AsmToken::PercentGot_Page, 9})
-              .StartsWith("gottprel", {AsmToken::PercentGottprel, 9})
-              .StartsWith("got", {AsmToken::PercentGot, 4})
-              .StartsWith("gp_rel", {AsmToken::PercentGp_Rel, 7})
-              .StartsWith("higher", {AsmToken::PercentHigher, 7})
-              .StartsWith("highest", {AsmToken::PercentHighest, 8})
-              .StartsWith("hi", {AsmToken::PercentHi, 3})
-              .StartsWith("lo", {AsmToken::PercentLo, 3})
-              .StartsWith("neg", {AsmToken::PercentNeg, 4})
-              .StartsWith("pcrel_hi", {AsmToken::PercentPcrel_Hi, 9})
-              .StartsWith("pcrel_lo", {AsmToken::PercentPcrel_Lo, 9})
-              .StartsWith("tlsgd", {AsmToken::PercentTlsgd, 6})
-              .StartsWith("tlsldm", {AsmToken::PercentTlsldm, 7})
-              .StartsWith("tprel_hi", {AsmToken::PercentTprel_Hi, 9})
-              .StartsWith("tprel_lo", {AsmToken::PercentTprel_Lo, 9})
-              .Default({AsmToken::Percent, 1});
-
-      if (Operator != AsmToken::Percent) {
-        CurPtr += OperatorLength - 1;
-        return AsmToken(Operator, StringRef(TokStart, OperatorLength));
-      }
-    }
-    return AsmToken(AsmToken::Percent, StringRef(TokStart, 1));
+  case '%': return AsmToken(AsmToken::Percent, StringRef(TokStart, 1));
   case '/':
     IsAtStartOfStatement = OldIsAtStartOfStatement;
     return LexSlash();

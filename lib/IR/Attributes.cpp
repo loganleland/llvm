@@ -38,7 +38,7 @@ using namespace llvm;
 //
 // In order to do this, we need to reserve one value of the second (optional)
 // allocsize argument to signify "not present."
-static const unsigned AllocSizeNumElemsNotPresent = -1;
+LLVM_CONSTEXPR static unsigned AllocSizeNumElemsNotPresent = -1;
 
 static uint64_t packAllocSizeArgs(unsigned ElemSizeArg,
                                   const Optional<unsigned> &NumElemsArg) {
@@ -381,18 +381,10 @@ std::string Attribute::getAsString(bool InAttrGrp) const {
     std::string Result;
     Result += (Twine('"') + getKindAsString() + Twine('"')).str();
 
-    std::string AttrVal = pImpl->getValueAsString();
-    if (AttrVal.empty()) return Result;
+    StringRef Val = pImpl->getValueAsString();
+    if (Val.empty()) return Result;
 
-    // Since some attribute strings contain special characters that cannot be
-    // printable, those have to be escaped to make the attribute value printable
-    // as is.  e.g. "\01__gnu_mcount_nc"
-    {
-      raw_string_ostream OS(Result);
-      OS << "=\"";
-      PrintEscapedString(AttrVal, OS);
-      OS << "\"";
-    }
+    Result += ("=\"" + Val + Twine('"')).str();
     return Result;
   }
 
@@ -729,11 +721,10 @@ AttributeSet AttributeSet::get(LLVMContext &C,
                            const std::pair<unsigned, Attribute> &RHS) {
                           return LHS.first < RHS.first;
                         }) && "Misordered Attributes list!");
-  assert(none_of(Attrs,
-                 [](const std::pair<unsigned, Attribute> &Pair) {
-                   return Pair.second.hasAttribute(Attribute::None);
-                 }) &&
-         "Pointless attribute!");
+  assert(std::none_of(Attrs.begin(), Attrs.end(),
+                      [](const std::pair<unsigned, Attribute> &Pair) {
+                        return Pair.second.hasAttribute(Attribute::None);
+                      }) && "Pointless attribute!");
 
   // Create a vector if (unsigned, AttributeSetNode*) pairs from the attributes
   // list.
@@ -747,7 +738,8 @@ AttributeSet AttributeSet::get(LLVMContext &C,
       ++I;
     }
 
-    AttrPairVec.emplace_back(Index, AttributeSetNode::get(C, AttrVec));
+    AttrPairVec.push_back(std::make_pair(Index,
+                                         AttributeSetNode::get(C, AttrVec)));
   }
 
   return getImpl(C, AttrPairVec);
@@ -799,12 +791,13 @@ AttributeSet AttributeSet::get(LLVMContext &C, unsigned Index,
     default:
       Attr = Attribute::get(C, Kind);
     }
-    Attrs.emplace_back(Index, Attr);
+    Attrs.push_back(std::make_pair(Index, Attr));
   }
 
   // Add target-dependent (string) attributes.
   for (const auto &TDA : B.td_attrs())
-    Attrs.emplace_back(Index, Attribute::get(C, TDA.first, TDA.second));
+    Attrs.push_back(
+        std::make_pair(Index, Attribute::get(C, TDA.first, TDA.second)));
 
   return get(C, Attrs);
 }
@@ -813,7 +806,7 @@ AttributeSet AttributeSet::get(LLVMContext &C, unsigned Index,
                                ArrayRef<Attribute::AttrKind> Kinds) {
   SmallVector<std::pair<unsigned, Attribute>, 8> Attrs;
   for (Attribute::AttrKind K : Kinds)
-    Attrs.emplace_back(Index, Attribute::get(C, K));
+    Attrs.push_back(std::make_pair(Index, Attribute::get(C, K)));
   return get(C, Attrs);
 }
 
@@ -821,7 +814,7 @@ AttributeSet AttributeSet::get(LLVMContext &C, unsigned Index,
                                ArrayRef<StringRef> Kinds) {
   SmallVector<std::pair<unsigned, Attribute>, 8> Attrs;
   for (StringRef K : Kinds)
-    Attrs.emplace_back(Index, Attribute::get(C, K));
+    Attrs.push_back(std::make_pair(Index, Attribute::get(C, K)));
   return get(C, Attrs);
 }
 
@@ -1165,7 +1158,7 @@ uint64_t AttributeSet::getDereferenceableOrNullBytes(unsigned Index) const {
 std::pair<unsigned, Optional<unsigned>>
 AttributeSet::getAllocSizeArgs(unsigned Index) const {
   AttributeSetNode *ASN = getAttributes(Index);
-  return ASN ? ASN->getAllocSizeArgs() : std::make_pair(0u, Optional<unsigned>(0u));
+  return ASN ? ASN->getAllocSizeArgs() : std::make_pair(0, 0);
 }
 
 std::string AttributeSet::getAsString(unsigned Index, bool InAttrGrp) const {

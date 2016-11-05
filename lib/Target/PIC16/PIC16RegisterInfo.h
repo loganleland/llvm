@@ -1,4 +1,4 @@
-//===-- NOPERegisterInfo.h - NOPE Register Information Impl -*- C++ -*-===//
+//===-- PIC16RegisterInfo.h - PIC16 Register Information Impl -*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,23 +7,23 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains the NOPE implementation of the MRegisterInfo class.
+// This file contains the PIC16 implementation of the MRegisterInfo class.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_LIB_TARGET_NOPE_NOPEREGISTERINFO_H
-#define LLVM_LIB_TARGET_NOPE_NOPEREGISTERINFO_H
+#ifndef LLVM_LIB_TARGET_PIC16_PIC16REGISTERINFO_H
+#define LLVM_LIB_TARGET_PIC16_PIC16REGISTERINFO_H
 
 #include "llvm/Target/TargetRegisterInfo.h"
 
 #define GET_REGINFO_HEADER
-#include "NOPEGenRegisterInfo.inc"
+#include "PIC16GenRegisterInfo.inc"
 
 namespace llvm {
 
-struct NOPERegisterInfo : public NOPEGenRegisterInfo {
+struct PIC16RegisterInfo : public PIC16GenRegisterInfo {
 public:
-  NOPERegisterInfo();
+  PIC16RegisterInfo();
 
   /// Code Generation virtual methods...
   const MCPhysReg *getCalleeSavedRegs(const MachineFunction *MF) const override;

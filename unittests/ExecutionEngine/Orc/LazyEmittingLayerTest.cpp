@@ -7,7 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ExecutionEngine/RuntimeDyld.h"
 #include "llvm/ExecutionEngine/Orc/LazyEmittingLayer.h"
 #include "gtest/gtest.h"
 
@@ -18,7 +17,7 @@ struct MockBaseLayer {
   ModuleSetHandleT addModuleSet(
                   std::list<std::unique_ptr<llvm::Module>>,
                   std::unique_ptr<llvm::RuntimeDyld::MemoryManager> MemMgr,
-                  std::unique_ptr<llvm::JITSymbolResolver> Resolver) {
+                  std::unique_ptr<llvm::RuntimeDyld::SymbolResolver> Resolver) {
     EXPECT_FALSE(MemMgr);
     return 42;
   }

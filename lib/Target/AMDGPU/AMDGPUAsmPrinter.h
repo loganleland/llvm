@@ -108,7 +108,9 @@ public:
 
   bool runOnMachineFunction(MachineFunction &MF) override;
 
-  const char *getPassName() const override;
+  const char *getPassName() const override {
+    return "AMDGPU Assembly Printer";
+  }
 
   /// Implemented in AMDGPUMCInstLower.cpp
   void EmitInstruction(const MachineInstr *MI) override;

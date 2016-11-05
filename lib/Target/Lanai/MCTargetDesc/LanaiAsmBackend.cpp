@@ -163,10 +163,10 @@ LanaiAsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
 
 MCAsmBackend *llvm::createLanaiAsmBackend(const Target &T,
                                           const MCRegisterInfo & /*MRI*/,
-                                          const Triple &TT, StringRef /*CPU*/,
-                                          const MCTargetOptions & /*Options*/) {
-  if (!TT.isOSBinFormatELF())
+                                          const Triple &TheTriple,
+                                          StringRef /*CPU*/) {
+  if (!TheTriple.isOSBinFormatELF())
     llvm_unreachable("OS not supported");
 
-  return new LanaiAsmBackend(T, TT.getOS());
+  return new LanaiAsmBackend(T, TheTriple.getOS());
 }

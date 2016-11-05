@@ -44,14 +44,13 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeGuardWideningLegacyPassPass(Registry);
   initializeGVNLegacyPassPass(Registry);
   initializeEarlyCSELegacyPassPass(Registry);
-  initializeEarlyCSEMemSSALegacyPassPass(Registry);
   initializeGVNHoistLegacyPassPass(Registry);
   initializeFlattenCFGPassPass(Registry);
   initializeInductiveRangeCheckEliminationPass(Registry);
   initializeIndVarSimplifyLegacyPassPass(Registry);
   initializeJumpThreadingPass(Registry);
   initializeLegacyLICMPassPass(Registry);
-  initializeLoopDataPrefetchLegacyPassPass(Registry);
+  initializeLoopDataPrefetchPass(Registry);
   initializeLoopDeletionLegacyPassPass(Registry);
   initializeLoopAccessLegacyAnalysisPass(Registry);
   initializeLoopInstSimplifyLegacyPassPass(Registry);
@@ -65,10 +64,10 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopIdiomRecognizeLegacyPassPass(Registry);
   initializeLowerAtomicLegacyPassPass(Registry);
   initializeLowerExpectIntrinsicPass(Registry);
-  initializeLowerGuardIntrinsicLegacyPassPass(Registry);
+  initializeLowerGuardIntrinsicPass(Registry);
   initializeMemCpyOptLegacyPassPass(Registry);
   initializeMergedLoadStoreMotionLegacyPassPass(Registry);
-  initializeNaryReassociateLegacyPassPass(Registry);
+  initializeNaryReassociatePass(Registry);
   initializePartiallyInlineLibCallsLegacyPassPass(Registry);
   initializeReassociateLegacyPassPass(Registry);
   initializeRegToMemPass(Registry);
@@ -81,7 +80,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeSinkingLegacyPassPass(Registry);
   initializeTailCallElimPass(Registry);
   initializeSeparateConstOffsetFromGEPPass(Registry);
-  initializeSpeculativeExecutionLegacyPassPass(Registry);
+  initializeSpeculativeExecutionPass(Registry);
   initializeStraightLineStrengthReducePass(Registry);
   initializeLoadCombinePass(Registry);
   initializePlaceBackedgeSafepointsImplPass(Registry);
@@ -235,11 +234,7 @@ void LLVMAddCorrelatedValuePropagationPass(LLVMPassManagerRef PM) {
 }
 
 void LLVMAddEarlyCSEPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createEarlyCSEPass(false/*=UseMemorySSA*/));
-}
-
-void LLVMAddEarlyCSEMemSSAPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(createEarlyCSEPass(true/*=UseMemorySSA*/));
+  unwrap(PM)->add(createEarlyCSEPass());
 }
 
 void LLVMAddGVNHoistLegacyPass(LLVMPassManagerRef PM) {

@@ -315,7 +315,7 @@ class CallGraphPrinterPass : public PassInfoMixin<CallGraphPrinterPass> {
 
 public:
   explicit CallGraphPrinterPass(raw_ostream &OS) : OS(OS) {}
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  PreservedAnalyses run(Module &M, AnalysisManager<Module> &AM);
 };
 
 /// \brief The \c ModulePass which wraps up a \c CallGraph and the logic to
@@ -409,87 +409,94 @@ public:
 // Provide graph traits for tranversing call graphs using standard graph
 // traversals.
 template <> struct GraphTraits<CallGraphNode *> {
+  typedef CallGraphNode NodeType;
   typedef CallGraphNode *NodeRef;
 
   typedef CallGraphNode::CallRecord CGNPairTy;
+  typedef std::pointer_to_unary_function<CGNPairTy, CallGraphNode *>
+  CGNDerefFun;
 
-  static NodeRef getEntryNode(CallGraphNode *CGN) { return CGN; }
+  static NodeType *getEntryNode(CallGraphNode *CGN) { return CGN; }
 
-  static CallGraphNode *CGNGetValue(CGNPairTy P) { return P.second; }
+  typedef mapped_iterator<NodeType::iterator, CGNDerefFun> ChildIteratorType;
 
-  typedef mapped_iterator<CallGraphNode::iterator, decltype(&CGNGetValue)>
-      ChildIteratorType;
-
-  static ChildIteratorType child_begin(NodeRef N) {
-    return ChildIteratorType(N->begin(), &CGNGetValue);
+  static inline ChildIteratorType child_begin(NodeType *N) {
+    return map_iterator(N->begin(), CGNDerefFun(CGNDeref));
   }
-  static ChildIteratorType child_end(NodeRef N) {
-    return ChildIteratorType(N->end(), &CGNGetValue);
+  static inline ChildIteratorType child_end(NodeType *N) {
+    return map_iterator(N->end(), CGNDerefFun(CGNDeref));
   }
+
+  static CallGraphNode *CGNDeref(CGNPairTy P) { return P.second; }
 };
 
 template <> struct GraphTraits<const CallGraphNode *> {
+  typedef const CallGraphNode NodeType;
   typedef const CallGraphNode *NodeRef;
 
   typedef CallGraphNode::CallRecord CGNPairTy;
+  typedef std::pointer_to_unary_function<CGNPairTy, const CallGraphNode *>
+      CGNDerefFun;
 
-  static NodeRef getEntryNode(const CallGraphNode *CGN) { return CGN; }
+  static NodeType *getEntryNode(const CallGraphNode *CGN) { return CGN; }
 
-  static const CallGraphNode *CGNGetValue(CGNPairTy P) { return P.second; }
-
-  typedef mapped_iterator<CallGraphNode::const_iterator, decltype(&CGNGetValue)>
+  typedef mapped_iterator<NodeType::const_iterator, CGNDerefFun>
       ChildIteratorType;
 
-  static ChildIteratorType child_begin(NodeRef N) {
-    return ChildIteratorType(N->begin(), &CGNGetValue);
+  static inline ChildIteratorType child_begin(NodeType *N) {
+    return map_iterator(N->begin(), CGNDerefFun(CGNDeref));
   }
-  static ChildIteratorType child_end(NodeRef N) {
-    return ChildIteratorType(N->end(), &CGNGetValue);
+  static inline ChildIteratorType child_end(NodeType *N) {
+    return map_iterator(N->end(), CGNDerefFun(CGNDeref));
   }
+
+  static const CallGraphNode *CGNDeref(CGNPairTy P) { return P.second; }
 };
 
 template <>
 struct GraphTraits<CallGraph *> : public GraphTraits<CallGraphNode *> {
-  static NodeRef getEntryNode(CallGraph *CGN) {
+  static NodeType *getEntryNode(CallGraph *CGN) {
     return CGN->getExternalCallingNode(); // Start at the external node!
   }
   typedef std::pair<const Function *const, std::unique_ptr<CallGraphNode>>
       PairTy;
-  static CallGraphNode *CGGetValuePtr(const PairTy &P) {
-    return P.second.get();
-  }
+  typedef std::pointer_to_unary_function<const PairTy &, CallGraphNode &>
+      DerefFun;
 
   // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
-  typedef mapped_iterator<CallGraph::iterator, decltype(&CGGetValuePtr)>
-      nodes_iterator;
+  typedef mapped_iterator<CallGraph::iterator, DerefFun> nodes_iterator;
   static nodes_iterator nodes_begin(CallGraph *CG) {
-    return nodes_iterator(CG->begin(), &CGGetValuePtr);
+    return map_iterator(CG->begin(), DerefFun(CGdereference));
   }
   static nodes_iterator nodes_end(CallGraph *CG) {
-    return nodes_iterator(CG->end(), &CGGetValuePtr);
+    return map_iterator(CG->end(), DerefFun(CGdereference));
   }
+
+  static CallGraphNode &CGdereference(const PairTy &P) { return *P.second; }
 };
 
 template <>
 struct GraphTraits<const CallGraph *> : public GraphTraits<
                                             const CallGraphNode *> {
-  static NodeRef getEntryNode(const CallGraph *CGN) {
+  static NodeType *getEntryNode(const CallGraph *CGN) {
     return CGN->getExternalCallingNode(); // Start at the external node!
   }
   typedef std::pair<const Function *const, std::unique_ptr<CallGraphNode>>
       PairTy;
-  static const CallGraphNode *CGGetValuePtr(const PairTy &P) {
-    return P.second.get();
-  }
+  typedef std::pointer_to_unary_function<const PairTy &, const CallGraphNode &>
+      DerefFun;
 
   // nodes_iterator/begin/end - Allow iteration over all nodes in the graph
-  typedef mapped_iterator<CallGraph::const_iterator, decltype(&CGGetValuePtr)>
-      nodes_iterator;
+  typedef mapped_iterator<CallGraph::const_iterator, DerefFun> nodes_iterator;
   static nodes_iterator nodes_begin(const CallGraph *CG) {
-    return nodes_iterator(CG->begin(), &CGGetValuePtr);
+    return map_iterator(CG->begin(), DerefFun(CGdereference));
   }
   static nodes_iterator nodes_end(const CallGraph *CG) {
-    return nodes_iterator(CG->end(), &CGGetValuePtr);
+    return map_iterator(CG->end(), DerefFun(CGdereference));
+  }
+
+  static const CallGraphNode &CGdereference(const PairTy &P) {
+    return *P.second;
   }
 };
 

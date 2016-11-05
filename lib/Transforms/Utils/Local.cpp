@@ -1586,10 +1586,10 @@ void llvm::combineMetadata(Instruction *K, const Instruction *J,
   SmallVector<std::pair<unsigned, MDNode *>, 4> Metadata;
   K->dropUnknownNonDebugMetadata(KnownIDs);
   K->getAllMetadataOtherThanDebugLoc(Metadata);
-  for (const auto &MD : Metadata) {
-    unsigned Kind = MD.first;
+  for (unsigned i = 0, n = Metadata.size(); i < n; ++i) {
+    unsigned Kind = Metadata[i].first;
     MDNode *JMD = J->getMetadata(Kind);
-    MDNode *KMD = MD.second;
+    MDNode *KMD = Metadata[i].second;
 
     switch (Kind) {
       default:
@@ -1644,17 +1644,6 @@ void llvm::combineMetadata(Instruction *K, const Instruction *J,
   if (auto *JMD = J->getMetadata(LLVMContext::MD_invariant_group))
     if (isa<LoadInst>(K) || isa<StoreInst>(K))
       K->setMetadata(LLVMContext::MD_invariant_group, JMD);
-}
-
-void llvm::combineMetadataForCSE(Instruction *K, const Instruction *J) {
-  unsigned KnownIDs[] = {
-      LLVMContext::MD_tbaa,            LLVMContext::MD_alias_scope,
-      LLVMContext::MD_noalias,         LLVMContext::MD_range,
-      LLVMContext::MD_invariant_load,  LLVMContext::MD_nonnull,
-      LLVMContext::MD_invariant_group, LLVMContext::MD_align,
-      LLVMContext::MD_dereferenceable,
-      LLVMContext::MD_dereferenceable_or_null};
-  combineMetadata(K, J, KnownIDs);
 }
 
 unsigned llvm::replaceDominatedUsesWith(Value *From, Value *To,
@@ -1714,7 +1703,6 @@ bool llvm::callsGCLeafFunction(ImmutableCallSite CS) {
   return false;
 }
 
-namespace {
 /// A potential constituent of a bitreverse or bswap expression. See
 /// collectBitParts for a fuller explanation.
 struct BitPart {
@@ -1730,7 +1718,6 @@ struct BitPart {
 
   enum { Unset = -1 };
 };
-} // end anonymous namespace
 
 /// Analyze the specified subexpression and see if it is capable of providing
 /// pieces of a bswap or bitreverse. The subexpression provides a potential
@@ -1967,12 +1954,23 @@ bool llvm::recognizeBSwapOrBitReverseIdiom(
 // in ASan/MSan/TSan/DFSan, and thus make us miss some memory accesses,
 // we mark affected calls as NoBuiltin, which will disable optimization
 // in CodeGen.
-void llvm::maybeMarkSanitizerLibraryCallNoBuiltin(
-    CallInst *CI, const TargetLibraryInfo *TLI) {
+void llvm::maybeMarkSanitizerLibraryCallNoBuiltin(CallInst *CI,
+                                          const TargetLibraryInfo *TLI) {
   Function *F = CI->getCalledFunction();
   LibFunc::Func Func;
-  if (F && !F->hasLocalLinkage() && F->hasName() &&
-      TLI->getLibFunc(F->getName(), Func) && TLI->hasOptimizedCodeGen(Func) &&
-      !F->doesNotAccessMemory())
-    CI->addAttribute(AttributeSet::FunctionIndex, Attribute::NoBuiltin);
+  if (!F || F->hasLocalLinkage() || !F->hasName() ||
+      !TLI->getLibFunc(F->getName(), Func))
+    return;
+  switch (Func) {
+    default: break;
+    case LibFunc::memcmp:
+    case LibFunc::memchr:
+    case LibFunc::strcpy:
+    case LibFunc::stpcpy:
+    case LibFunc::strcmp:
+    case LibFunc::strlen:
+    case LibFunc::strnlen:
+      CI->addAttribute(AttributeSet::FunctionIndex, Attribute::NoBuiltin);
+      break;
+  }
 }

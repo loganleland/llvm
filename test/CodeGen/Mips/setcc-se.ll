@@ -1,12 +1,9 @@
 ; RUN: llc -march=mipsel < %s | FileCheck %s
-; RUN: llc  -march=mips -mcpu=mips32r6 -mattr=micromips -relocation-model=pic < %s -asm-show-inst | FileCheck %s -check-prefix=MMR6
 
 @g1 = external global i32
 
 ; CHECK-LABEL: seteq0:
-; CHECK:  sltiu ${{[0-9]+}}, $4, 1
-; MMR6:   sltiu ${{[0-9]+}}, $4, 1
-; MMR6:   <MCInst #{{[0-9]+}} SLTiu_MM
+; CHECK: sltiu ${{[0-9]+}}, $4, 1
 
 define i32 @seteq0(i32 %a) {
 entry:
@@ -16,9 +13,7 @@ entry:
 }
 
 ; CHECK-LABEL: setne0:
-; CHECK:  sltu ${{[0-9]+}}, $zero, $4
-; MMR6:   sltu ${{[0-9]+}}, $zero, $4
-; MMR6:   <MCInst #{{[0-9]+}} SLTu_MM
+; CHECK: sltu ${{[0-9]+}}, $zero, $4
 
 define i32 @setne0(i32 %a) {
 entry:
@@ -28,10 +23,8 @@ entry:
 }
 
 ; CHECK-LABEL: slti_beq0:
-; CHECK:  slti $[[R0:[0-9]+]], $4, -32768
-; MMR6:   slti $[[R0:[0-9]+]], $4, -32768
-; MMR6:   <MCInst #{{[0-9]+}} SLTi_MM
-; CHECK:  beqz $[[R0]]
+; CHECK: slti $[[R0:[0-9]+]], $4, -32768
+; CHECK: beqz $[[R0]]
 
 define void @slti_beq0(i32 %a) {
 entry:
@@ -47,9 +40,7 @@ if.end:
 }
 
 ; CHECK-LABEL: slti_beq1:
-; CHECK:  slt ${{[0-9]+}}
-; MMR6:   slt ${{[0-9]+}}
-; MMR6:   <MCInst #{{[0-9]+}} SLT_MM
+; CHECK: slt ${{[0-9]+}}
 
 define void @slti_beq1(i32 %a) {
 entry:
@@ -65,10 +56,8 @@ if.end:
 }
 
 ; CHECK-LABEL: slti_beq2:
-; CHECK:  slti $[[R0:[0-9]+]], $4, 32767
-; MMR6:   slti $[[R0:[0-9]+]], $4, 32767
-; MMR6:   <MCInst #{{[0-9]+}} SLTi_MM
-; CHECK:  beqz $[[R0]]
+; CHECK: slti $[[R0:[0-9]+]], $4, 32767
+; CHECK: beqz $[[R0]]
 
 define void @slti_beq2(i32 %a) {
 entry:
@@ -84,9 +73,7 @@ if.end:
 }
 
 ; CHECK-LABEL: slti_beq3:
-; CHECK:  slt ${{[0-9]+}}
-; MMR6:   slt ${{[0-9]+}}
-; MMR6:   <MCInst #{{[0-9]+}} SLT_MM
+; CHECK: slt ${{[0-9]+}}
 
 define void @slti_beq3(i32 %a) {
 entry:
@@ -102,10 +89,8 @@ if.end:
 }
 
 ; CHECK-LABEL: sltiu_beq0:
-; CHECK:  sltiu $[[R0:[0-9]+]], $4, 32767
-; MMR6:   sltiu $[[R0:[0-9]+]], $4, 32767
-; MMR6:   <MCInst #{{[0-9]+}} SLTiu_MM
-; CHECK:  beqz $[[R0]]
+; CHECK: sltiu $[[R0:[0-9]+]], $4, 32767
+; CHECK: beqz $[[R0]]
 
 define void @sltiu_beq0(i32 %a) {
 entry:
@@ -121,9 +106,7 @@ if.end:
 }
 
 ; CHECK-LABEL: sltiu_beq1:
-; CHECK:  sltu ${{[0-9]+}}
-; MMR6:   sltu ${{[0-9]+}}
-; MMR6:   <MCInst #{{[0-9]+}} SLTu_MM
+; CHECK: sltu ${{[0-9]+}}
 
 define void @sltiu_beq1(i32 %a) {
 entry:
@@ -139,10 +122,8 @@ if.end:
 }
 
 ; CHECK-LABEL: sltiu_beq2:
-; CHECK:  sltiu $[[R0:[0-9]+]], $4, -32768
-; MMR6:   sltiu $[[R0:[0-9]+]], $4, -32768
-; MMR6:   <MCInst #{{[0-9]+}} SLTiu_MM
-; CHECK:  beqz $[[R0]]
+; CHECK: sltiu $[[R0:[0-9]+]], $4, -32768
+; CHECK: beqz $[[R0]]
 
 define void @sltiu_beq2(i32 %a) {
 entry:
@@ -158,9 +139,7 @@ if.end:
 }
 
 ; CHECK-LABEL: sltiu_beq3:
-; CHECK:  sltu ${{[0-9]+}}
-; MMR6:   sltu ${{[0-9]+}}
-; MMR6:   <MCInst #{{[0-9]+}} SLTu_MM
+; CHECK: sltu ${{[0-9]+}}
 
 define void @sltiu_beq3(i32 %a) {
 entry:

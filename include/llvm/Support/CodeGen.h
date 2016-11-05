@@ -19,7 +19,7 @@ namespace llvm {
 
   // Relocation model types.
   namespace Reloc {
-  enum Model { Static, PIC_, DynamicNoPIC, ROPI, RWPI, ROPI_RWPI };
+  enum Model { Static, PIC_, DynamicNoPIC };
   }
 
   // Code model types.

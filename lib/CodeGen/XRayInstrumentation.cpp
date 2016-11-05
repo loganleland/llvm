@@ -69,23 +69,17 @@ bool XRayInstrumentation::runOnMachineFunction(MachineFunction &MF) {
   SmallVector<MachineInstr *, 4> Terminators;
   for (auto &MBB : MF) {
     for (auto &T : MBB.terminators()) {
-      unsigned Opc = 0;
+      // FIXME: Handle tail calls here too?
       if (T.isReturn() && T.getOpcode() == TII->getReturnOpcode()) {
         // Replace return instructions with:
         //   PATCHABLE_RET <Opcode>, <Operand>...
-        Opc = TargetOpcode::PATCHABLE_RET;
-      }
-      if (TII->isTailCall(T)) {
-        // Treat the tail call as a return instruction, which has a
-        // different-looking sled than the normal return case.
-        Opc = TargetOpcode::PATCHABLE_TAIL_CALL;
-      }
-      if (Opc != 0) {
-        auto MIB = BuildMI(MBB, T, T.getDebugLoc(), TII->get(Opc))
+        auto MIB = BuildMI(MBB, T, T.getDebugLoc(),
+                           TII->get(TargetOpcode::PATCHABLE_RET))
                        .addImm(T.getOpcode());
         for (auto &MO : T.operands())
           MIB.addOperand(MO);
         Terminators.push_back(&T);
+        break;
       }
     }
   }

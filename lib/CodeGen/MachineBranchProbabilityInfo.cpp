@@ -50,7 +50,8 @@ BranchProbability MachineBranchProbabilityInfo::getEdgeProbability(
     const MachineBasicBlock *Src, const MachineBasicBlock *Dst) const {
   // This is a linear search. Try to use the const_succ_iterator version when
   // possible.
-  return getEdgeProbability(Src, find(Src->successors(), Dst));
+  return getEdgeProbability(Src,
+                            std::find(Src->succ_begin(), Src->succ_end(), Dst));
 }
 
 bool MachineBranchProbabilityInfo::isEdgeHot(

@@ -282,7 +282,6 @@ bool SIShrinkInstructions::runOnMachineFunction(MachineFunction &MF) {
         if (TargetRegisterInfo::isVirtualRegister(Dest.getReg()) &&
             Src0.isReg()) {
           MRI.setRegAllocationHint(Dest.getReg(), 0, Src0.getReg());
-          MRI.setRegAllocationHint(Src0.getReg(), 0, Dest.getReg());
           continue;
         }
 
@@ -399,13 +398,9 @@ bool SIShrinkInstructions::runOnMachineFunction(MachineFunction &MF) {
       }
 
       ++NumInstructionsShrunk;
-
-      // Copy extra operands not present in the instruction definition.
-      Inst32->copyImplicitOps(MF, MI);
-
       MI.eraseFromParent();
-      foldImmediates(*Inst32, TII, MRI);
 
+      foldImmediates(*Inst32, TII, MRI);
       DEBUG(dbgs() << "e32 MI = " << *Inst32 << '\n');
 
 

@@ -261,7 +261,7 @@ void CallGraphNode::replaceCallEdge(CallSite CS,
 char CallGraphAnalysis::PassID;
 
 PreservedAnalyses CallGraphPrinterPass::run(Module &M,
-                                            ModuleAnalysisManager &AM) {
+                                            AnalysisManager<Module> &AM) {
   AM.getResult<CallGraphAnalysis>(M).print(OS);
   return PreservedAnalyses::all();
 }

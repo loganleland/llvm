@@ -16,6 +16,21 @@
 include "llvm/Target/Target.td"
 
 //===----------------------------------------------------------------------===//
+// Subtarget Features. 
+//===----------------------------------------------------------------------===//
+def FeatureX
+ : SubtargetFeature<"ext", "ExtendedInsts", "true",
+                    "Enable PIC16-X extensions">;
+
+//===----------------------------------------------------------------------===//
+// PIC16 supported processors.
+//===----------------------------------------------------------------------===//
+class Proc<string Name, list<SubtargetFeature> Features>
+ : Processor<Name, NoItineraries, Features>;
+
+def : Proc<"generic",         []>;
+
+//===----------------------------------------------------------------------===//
 // Register File Description
 //===----------------------------------------------------------------------===//
 
@@ -25,7 +40,7 @@ include "PIC16RegisterInfo.td"
 // Calling Convention Description
 //===----------------------------------------------------------------------===//
 
-//include "PIC16CallingConv.td"
+include "PIC16CallingConv.td"
 
 //===----------------------------------------------------------------------===//
 // Instruction Descriptions

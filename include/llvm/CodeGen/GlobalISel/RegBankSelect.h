@@ -74,7 +74,6 @@ class BlockFrequency;
 class MachineBranchProbabilityInfo;
 class MachineBlockFrequencyInfo;
 class MachineRegisterInfo;
-class TargetPassConfig;
 class TargetRegisterInfo;
 
 /// This pass implements the reg bank selector pass used in the GlobalISel
@@ -477,12 +476,8 @@ private:
   /// Optimization mode of the pass.
   Mode OptMode;
 
-  /// Current target configuration. Controls how the pass handles errors.
-  const TargetPassConfig *TPC;
-
   /// Assign the register bank of each operand of \p MI.
-  /// \return True on success, false otherwise.
-  bool assignInstr(MachineInstr &MI);
+  void assignInstr(MachineInstr &MI);
 
   /// Initialize the field members using \p MF.
   void init(MachineFunction &MF);
@@ -525,9 +520,7 @@ private:
   ///
   /// \note The caller is supposed to do the rewriting of op if need be.
   /// I.e., Reg = op ... => <NewRegs> = NewOp ...
-  ///
-  /// \return True if the repairing worked, false otherwise.
-  bool repairReg(MachineOperand &MO,
+  void repairReg(MachineOperand &MO,
                  const RegisterBankInfo::ValueMapping &ValMapping,
                  RegBankSelect::RepairingPlacement &RepairPt,
                  const iterator_range<SmallVectorImpl<unsigned>::const_iterator>
@@ -577,8 +570,7 @@ private:
   /// Apply \p Mapping to \p MI. \p RepairPts represents the different
   /// mapping action that need to happen for the mapping to be
   /// applied.
-  /// \return True if the mapping was applied sucessfully, false otherwise.
-  bool applyMapping(MachineInstr &MI,
+  void applyMapping(MachineInstr &MI,
                     const RegisterBankInfo::InstructionMapping &InstrMapping,
                     SmallVectorImpl<RepairingPlacement> &RepairPts);
 
@@ -591,17 +583,6 @@ public:
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override;
-
-  MachineFunctionProperties getRequiredProperties() const override {
-    return MachineFunctionProperties()
-        .set(MachineFunctionProperties::Property::IsSSA)
-        .set(MachineFunctionProperties::Property::Legalized);
-  }
-
-  MachineFunctionProperties getSetProperties() const override {
-    return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::RegBankSelected);
-  }
 
   /// Walk through \p MF and assign a register bank to every virtual register
   /// that are still mapped to nothing.

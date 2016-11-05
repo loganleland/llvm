@@ -11,16 +11,22 @@
 #ifndef LLVM_LIB_TARGET_AMDGPU_AMDGPU_H
 #define LLVM_LIB_TARGET_AMDGPU_AMDGPU_H
 
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Target/TargetMachine.h"
+
 namespace llvm {
 
+class AMDGPUInstrPrinter;
+class AMDGPUSubtarget;
 class AMDGPUTargetMachine;
 class FunctionPass;
 class GCNTargetMachine;
-class ModulePass;
-class Pass;
+struct MachineSchedContext;
+class MCAsmInfo;
+class raw_ostream;
+class ScheduleDAGInstrs;
 class Target;
 class TargetMachine;
-class PassRegistry;
 
 // R600 Passes
 FunctionPass *createR600VectorRegMerger(TargetMachine &tm);
@@ -39,11 +45,15 @@ FunctionPass *createSILowerI1CopiesPass();
 FunctionPass *createSIShrinkInstructionsPass();
 FunctionPass *createSILoadStoreOptimizerPass(TargetMachine &tm);
 FunctionPass *createSIWholeQuadModePass();
+FunctionPass *createSILowerControlFlowPass();
 FunctionPass *createSIFixControlFlowLiveIntervalsPass();
 FunctionPass *createSIFixSGPRCopiesPass();
+FunctionPass *createSICodeEmitterPass(formatted_raw_ostream &OS);
 FunctionPass *createSIDebuggerInsertNopsPass();
 FunctionPass *createSIInsertWaitsPass();
 FunctionPass *createAMDGPUCodeGenPreparePass(const GCNTargetMachine *TM = nullptr);
+
+ScheduleDAGInstrs *createSIMachineScheduler(MachineSchedContext *C);
 
 ModulePass *createAMDGPUAnnotateKernelFeaturesPass();
 void initializeAMDGPUAnnotateKernelFeaturesPass(PassRegistry &);
@@ -68,16 +78,15 @@ void initializeSIWholeQuadModePass(PassRegistry &);
 extern char &SIWholeQuadModeID;
 
 void initializeSILowerControlFlowPass(PassRegistry &);
-extern char &SILowerControlFlowID;
+extern char &SILowerControlFlowPassID;
 
-void initializeSIInsertSkipsPass(PassRegistry &);
-extern char &SIInsertSkipsPassID;
 
 // Passes common to R600 and SI
 FunctionPass *createAMDGPUPromoteAlloca(const TargetMachine *TM = nullptr);
 void initializeAMDGPUPromoteAllocaPass(PassRegistry&);
 extern char &AMDGPUPromoteAllocaID;
 
+FunctionPass *createAMDGPUAddDivergenceMetadata(const AMDGPUSubtarget &ST);
 Pass *createAMDGPUStructurizeCFGPass();
 FunctionPass *createAMDGPUISelDag(TargetMachine &tm);
 ModulePass *createAMDGPUAlwaysInlinePass();

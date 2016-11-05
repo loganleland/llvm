@@ -34,6 +34,7 @@ const char *Triple::getArchTypeName(ArchType Kind) {
   case mips64:         return "mips64";
   case mips64el:       return "mips64el";
   case msp430:         return "msp430";
+case pic16:         return "pic16";
   case ppc64:          return "powerpc64";
   case ppc64le:        return "powerpc64le";
   case ppc:            return "powerpc";
@@ -66,7 +67,6 @@ const char *Triple::getArchTypeName(ArchType Kind) {
   case wasm64:         return "wasm64";
   case renderscript32: return "renderscript32";
   case renderscript64: return "renderscript64";
-  case pic16:          return "pic16";
   }
 
   llvm_unreachable("Invalid ArchType!");
@@ -135,8 +135,6 @@ const char *Triple::getArchTypePrefix(ArchType Kind) {
   case shave:       return "shave";
   case wasm32:
   case wasm64:      return "wasm";
- 
-  case pic16:       return "pic16";
   }
 }
 
@@ -158,7 +156,6 @@ const char *Triple::getVendorTypeName(VendorType Kind) {
   case Myriad: return "myriad";
   case AMD: return "amd";
   case Mesa: return "mesa";
-  case MicrochipTechnologyInc: return "mti";
   }
 
   llvm_unreachable("Invalid VendorType!");
@@ -256,6 +253,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("mips64", mips64)
     .Case("mips64el", mips64el)
     .Case("msp430", msp430)
+    .Case("pic16", pic16)
     .Case("ppc64", ppc64)
     .Case("ppc32", ppc)
     .Case("ppc", ppc)
@@ -290,7 +288,6 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("wasm64", wasm64)
     .Case("renderscript32", renderscript32)
     .Case("renderscript64", renderscript64)
-    .Case("pic16", pic16)
     .Default(UnknownArch);
 }
 
@@ -372,6 +369,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("thumbeb", Triple::thumbeb)
     .Case("avr", Triple::avr)
     .Case("msp430", Triple::msp430)
+    .Case("pic16", Triple::pic16)
     .Cases("mips", "mipseb", "mipsallegrex", Triple::mips)
     .Cases("mipsel", "mipsallegrexel", Triple::mipsel)
     .Cases("mips64", "mips64eb", Triple::mips64)
@@ -402,7 +400,6 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("wasm64", Triple::wasm64)
     .Case("renderscript32", Triple::renderscript32)
     .Case("renderscript64", Triple::renderscript64)
-    .Case("pic16", Triple::pic16)
     .Default(Triple::UnknownArch);
 
   // Some architectures require special parsing logic just to compute the
@@ -605,10 +602,10 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::mips64el:
   case Triple::mipsel:
   case Triple::msp430:
+  case Triple::pic16:
   case Triple::nvptx:
   case Triple::nvptx64:
   case Triple::ppc64le:
-  case Triple::pic16:
   case Triple::r600:
   case Triple::renderscript32:
   case Triple::renderscript64:
@@ -1128,10 +1125,8 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
 
   case llvm::Triple::avr:
   case llvm::Triple::msp430:
-    return 16;
-
   case llvm::Triple::pic16:
-    return 7;
+    return 16;
 
   case llvm::Triple::arm:
   case llvm::Triple::armeb:
@@ -1204,9 +1199,9 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::bpfel:
   case Triple::bpfeb:
   case Triple::msp430:
+  case Triple::pic16:
   case Triple::systemz:
   case Triple::ppc64le:
-  case Triple::pic16:
     T.setArch(UnknownArch);
     break;
 
@@ -1264,12 +1259,12 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::kalimba:
   case Triple::lanai:
   case Triple::msp430:
+  case Triple::pic16:
   case Triple::r600:
   case Triple::tce:
   case Triple::xcore:
   case Triple::sparcel:
   case Triple::shave:
-  case Triple::pic16:
     T.setArch(UnknownArch);
     break;
 
@@ -1333,6 +1328,7 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::le32:
   case Triple::le64:
   case Triple::msp430:
+  case Triple::pic16:
   case Triple::nvptx64:
   case Triple::nvptx:
   case Triple::r600:
@@ -1416,6 +1412,7 @@ bool Triple::isLittleEndian() const {
   case Triple::mips64el:
   case Triple::mipsel:
   case Triple::msp430:
+  case Triple::pic16:
   case Triple::nvptx64:
   case Triple::nvptx:
   case Triple::ppc64le:
@@ -1432,7 +1429,6 @@ bool Triple::isLittleEndian() const {
   case Triple::xcore:
   case Triple::renderscript32:
   case Triple::renderscript64:
-  case Triple::pic16:
     return true;
   default:
     return false;

@@ -60,8 +60,6 @@ const char *ARMConstantPoolValue::getModifierText() const {
     return "gottpoff";
   case ARMCP::TPOFF:
     return "tpoff";
-  case ARMCP::SBREL:
-    return "SBREL";
   case ARMCP::SECREL:
     return "secrel32";
   }

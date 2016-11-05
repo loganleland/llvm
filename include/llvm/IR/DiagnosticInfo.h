@@ -54,7 +54,6 @@ enum DiagnosticKind {
   DK_Linker,
   DK_DebugMetadataVersion,
   DK_DebugMetadataInvalid,
-  DK_ISelFallback,
   DK_SampleProfile,
   DK_OptimizationRemark,
   DK_OptimizationRemarkMissed,
@@ -434,10 +433,9 @@ public:
   /// Note that this class does not copy this message, so this reference
   /// must be valid for the whole life time of the diagnostic.
   DiagnosticInfoOptimizationRemark(const char *PassName, const Function &Fn,
-                                   const DebugLoc &DLoc, const Twine &Msg,
-                                   Optional<uint64_t> Hotness = None)
+                                   const DebugLoc &DLoc, const Twine &Msg)
       : DiagnosticInfoOptimizationBase(DK_OptimizationRemark, DS_Remark,
-                                       PassName, Fn, DLoc, Msg, Hotness) {}
+                                       PassName, Fn, DLoc, Msg) {}
 
   static bool classof(const DiagnosticInfo *DI) {
     return DI->getKind() == DK_OptimizationRemark;
@@ -489,10 +487,9 @@ public:
   DiagnosticInfoOptimizationRemarkAnalysis(const char *PassName,
                                            const Function &Fn,
                                            const DebugLoc &DLoc,
-                                           const Twine &Msg,
-                                           Optional<uint64_t> Hotness = None)
+                                           const Twine &Msg)
       : DiagnosticInfoOptimizationBase(DK_OptimizationRemarkAnalysis, DS_Remark,
-                                       PassName, Fn, DLoc, Msg, Hotness) {}
+                                       PassName, Fn, DLoc, Msg) {}
 
   static bool classof(const DiagnosticInfo *DI) {
     return DI->getKind() == DK_OptimizationRemarkAnalysis;
@@ -506,11 +503,13 @@ public:
   bool shouldAlwaysPrint() const { return getPassName() == AlwaysPrint; }
 
 protected:
-  DiagnosticInfoOptimizationRemarkAnalysis(
-      enum DiagnosticKind Kind, const char *PassName, const Function &Fn,
-      const DebugLoc &DLoc, const Twine &Msg, Optional<uint64_t> Hotness)
-      : DiagnosticInfoOptimizationBase(Kind, DS_Remark, PassName, Fn, DLoc, Msg,
-                                       Hotness) {}
+  DiagnosticInfoOptimizationRemarkAnalysis(enum DiagnosticKind Kind,
+                                           const char *PassName,
+                                           const Function &Fn,
+                                           const DebugLoc &DLoc,
+                                           const Twine &Msg)
+      : DiagnosticInfoOptimizationBase(Kind, DS_Remark, PassName, Fn, DLoc,
+                                       Msg) {}
 };
 
 /// Diagnostic information for optimization analysis remarks related to
@@ -528,12 +527,12 @@ public:
   /// floating-point non-commutativity. Note that this class does not copy this
   /// message, so this reference must be valid for the whole life time of the
   /// diagnostic.
-  DiagnosticInfoOptimizationRemarkAnalysisFPCommute(
-      const char *PassName, const Function &Fn, const DebugLoc &DLoc,
-      const Twine &Msg, Optional<uint64_t> Hotness = None)
+  DiagnosticInfoOptimizationRemarkAnalysisFPCommute(const char *PassName,
+                                                    const Function &Fn,
+                                                    const DebugLoc &DLoc,
+                                                    const Twine &Msg)
       : DiagnosticInfoOptimizationRemarkAnalysis(
-            DK_OptimizationRemarkAnalysisFPCommute, PassName, Fn, DLoc, Msg,
-            Hotness) {}
+            DK_OptimizationRemarkAnalysisFPCommute, PassName, Fn, DLoc, Msg) {}
 
   static bool classof(const DiagnosticInfo *DI) {
     return DI->getKind() == DK_OptimizationRemarkAnalysisFPCommute;
@@ -555,12 +554,12 @@ public:
   /// pointer aliasing legality. Note that this class does not copy this
   /// message, so this reference must be valid for the whole life time of the
   /// diagnostic.
-  DiagnosticInfoOptimizationRemarkAnalysisAliasing(
-      const char *PassName, const Function &Fn, const DebugLoc &DLoc,
-      const Twine &Msg, Optional<uint64_t> Hotness = None)
+  DiagnosticInfoOptimizationRemarkAnalysisAliasing(const char *PassName,
+                                                   const Function &Fn,
+                                                   const DebugLoc &DLoc,
+                                                   const Twine &Msg)
       : DiagnosticInfoOptimizationRemarkAnalysis(
-            DK_OptimizationRemarkAnalysisAliasing, PassName, Fn, DLoc, Msg,
-            Hotness) {}
+            DK_OptimizationRemarkAnalysisAliasing, PassName, Fn, DLoc, Msg) {}
 
   static bool classof(const DiagnosticInfo *DI) {
     return DI->getKind() == DK_OptimizationRemarkAnalysisAliasing;
@@ -582,25 +581,6 @@ public:
 
   static bool classof(const DiagnosticInfo *DI) {
     return DI->getKind() == DK_MIRParser;
-  }
-};
-
-/// Diagnostic information for ISel fallback path.
-class DiagnosticInfoISelFallback : public DiagnosticInfo {
-  /// The function that is concerned by this diagnostic.
-  const Function &Fn;
-
-public:
-  DiagnosticInfoISelFallback(const Function &Fn,
-                             DiagnosticSeverity Severity = DS_Warning)
-      : DiagnosticInfo(DK_ISelFallback, Severity), Fn(Fn) {}
-
-  const Function &getFunction() const { return Fn; }
-
-  void print(DiagnosticPrinter &DP) const override;
-
-  static bool classof(const DiagnosticInfo *DI) {
-    return DI->getKind() == DK_ISelFallback;
   }
 };
 

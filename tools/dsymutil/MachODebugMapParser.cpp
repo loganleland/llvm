@@ -285,17 +285,20 @@ void MachODebugMapParser::dumpOneBinaryStab(const MachOObjectFile &MainBinary,
 }
 
 static bool shouldLinkArch(SmallVectorImpl<StringRef> &Archs, StringRef Arch) {
-  if (Archs.empty() || is_contained(Archs, "all") || is_contained(Archs, "*"))
+  if (Archs.empty() ||
+      std::find(Archs.begin(), Archs.end(), "all") != Archs.end() ||
+      std::find(Archs.begin(), Archs.end(), "*") != Archs.end())
     return true;
 
-  if (Arch.startswith("arm") && Arch != "arm64" && is_contained(Archs, "arm"))
+  if (Arch.startswith("arm") && Arch != "arm64" &&
+      std::find(Archs.begin(), Archs.end(), "arm") != Archs.end())
     return true;
 
   SmallString<16> ArchName = Arch;
   if (Arch.startswith("thumb"))
     ArchName = ("arm" + Arch.substr(5)).str();
 
-  return is_contained(Archs, ArchName);
+  return std::find(Archs.begin(), Archs.end(), ArchName) != Archs.end();
 }
 
 bool MachODebugMapParser::dumpStab() {

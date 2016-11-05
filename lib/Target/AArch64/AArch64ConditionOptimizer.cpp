@@ -95,9 +95,7 @@ public:
   typedef std::tuple<int, unsigned, AArch64CC::CondCode> CmpInfo;
 
   static char ID;
-  AArch64ConditionOptimizer() : MachineFunctionPass(ID) {
-    initializeAArch64ConditionOptimizerPass(*PassRegistry::getPassRegistry());
-  }
+  AArch64ConditionOptimizer() : MachineFunctionPass(ID) {}
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   MachineInstr *findSuitableCompare(MachineBasicBlock *MBB);
   CmpInfo adjustCmp(MachineInstr *CmpMI, AArch64CC::CondCode Cmp);
@@ -112,6 +110,10 @@ public:
 } // end anonymous namespace
 
 char AArch64ConditionOptimizer::ID = 0;
+
+namespace llvm {
+void initializeAArch64ConditionOptimizerPass(PassRegistry &);
+}
 
 INITIALIZE_PASS_BEGIN(AArch64ConditionOptimizer, "aarch64-condopt",
                       "AArch64 CondOpt Pass", false, false)

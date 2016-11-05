@@ -52,8 +52,7 @@ bool llvm::runPassPipeline(StringRef Arg0, LLVMContext &Context, Module &M,
                            StringRef PassPipeline, OutputKind OK,
                            VerifierKind VK,
                            bool ShouldPreserveAssemblyUseListOrder,
-                           bool ShouldPreserveBitcodeUseListOrder,
-                           bool EmitSummaryIndex, bool EmitModuleHash) {
+                           bool ShouldPreserveBitcodeUseListOrder) {
   PassBuilder PB(TM);
 
   // Specially handle the alias analysis manager so that we can register
@@ -101,8 +100,8 @@ bool llvm::runPassPipeline(StringRef Arg0, LLVMContext &Context, Module &M,
         PrintModulePass(Out->os(), "", ShouldPreserveAssemblyUseListOrder));
     break;
   case OK_OutputBitcode:
-    MPM.addPass(BitcodeWriterPass(Out->os(), ShouldPreserveBitcodeUseListOrder,
-                                  EmitSummaryIndex, EmitModuleHash));
+    MPM.addPass(
+        BitcodeWriterPass(Out->os(), ShouldPreserveBitcodeUseListOrder));
     break;
   }
 

@@ -60,22 +60,24 @@ namespace llvm {
 
 template <>
 struct GraphTraits<BlockFrequencyInfo *> {
-  typedef const BasicBlock *NodeRef;
+  typedef const BasicBlock NodeType;
   typedef succ_const_iterator ChildIteratorType;
-  typedef pointer_iterator<Function::const_iterator> nodes_iterator;
+  typedef Function::const_iterator nodes_iterator;
 
-  static NodeRef getEntryNode(const BlockFrequencyInfo *G) {
+  static inline const NodeType *getEntryNode(const BlockFrequencyInfo *G) {
     return &G->getFunction()->front();
   }
-  static ChildIteratorType child_begin(const NodeRef N) {
+  static ChildIteratorType child_begin(const NodeType *N) {
     return succ_begin(N);
   }
-  static ChildIteratorType child_end(const NodeRef N) { return succ_end(N); }
+  static ChildIteratorType child_end(const NodeType *N) {
+    return succ_end(N);
+  }
   static nodes_iterator nodes_begin(const BlockFrequencyInfo *G) {
-    return nodes_iterator(G->getFunction()->begin());
+    return G->getFunction()->begin();
   }
   static nodes_iterator nodes_end(const BlockFrequencyInfo *G) {
-    return nodes_iterator(G->getFunction()->end());
+    return G->getFunction()->end();
   }
 };
 
@@ -158,13 +160,6 @@ BlockFrequencyInfo::getBlockProfileCount(const BasicBlock *BB) const {
     return None;
 
   return BFI->getBlockProfileCount(*getFunction(), BB);
-}
-
-Optional<uint64_t>
-BlockFrequencyInfo::getProfileCountFromFreq(uint64_t Freq) const {
-  if (!BFI)
-    return None;
-  return BFI->getProfileCountFromFreq(*getFunction(), Freq);
 }
 
 void BlockFrequencyInfo::setBlockFreq(const BasicBlock *BB, uint64_t Freq) {
@@ -255,7 +250,7 @@ bool BlockFrequencyInfoWrapperPass::runOnFunction(Function &F) {
 
 char BlockFrequencyAnalysis::PassID;
 BlockFrequencyInfo BlockFrequencyAnalysis::run(Function &F,
-                                               FunctionAnalysisManager &AM) {
+                                               AnalysisManager<Function> &AM) {
   BlockFrequencyInfo BFI;
   BFI.calculate(F, AM.getResult<BranchProbabilityAnalysis>(F),
                 AM.getResult<LoopAnalysis>(F));
@@ -263,7 +258,7 @@ BlockFrequencyInfo BlockFrequencyAnalysis::run(Function &F,
 }
 
 PreservedAnalyses
-BlockFrequencyPrinterPass::run(Function &F, FunctionAnalysisManager &AM) {
+BlockFrequencyPrinterPass::run(Function &F, AnalysisManager<Function> &AM) {
   OS << "Printing analysis results of BFI for function "
      << "'" << F.getName() << "':"
      << "\n";

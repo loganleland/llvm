@@ -70,26 +70,69 @@ void PIC16AsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
     O << PIC16InstPrinter::getRegisterName(MO.getReg());
     return;
   case MachineOperand::MO_Immediate:
+    if (!Modifier || strcmp(Modifier, "nohash"))
+      O << '#';
     O << MO.getImm();
     return;
   case MachineOperand::MO_MachineBasicBlock:
     MO.getMBB()->getSymbol()->print(O, MAI);
     return;
+  case MachineOperand::MO_GlobalAddress: {
+    bool isMemOp  = Modifier && !strcmp(Modifier, "mem");
+    uint64_t Offset = MO.getOffset();
+
+    // If the global address expression is a part of displacement field with a
+    // register base, we should not emit any prefix symbol here, e.g.
+    //   mov.w &foo, r1
+    // vs
+    //   mov.w glb(r1), r2
+    // Otherwise (!) pic16-as will silently miscompile the output :(
+    if (!Modifier || strcmp(Modifier, "nohash"))
+      O << (isMemOp ? '&' : '#');
+    if (Offset)
+      O << '(' << Offset << '+';
 
     getSymbol(MO.getGlobal())->print(O, MAI);
 
+    if (Offset)
+      O << ')';
+
     return;
+  }
   }
 }
 
 void PIC16AsmPrinter::printSrcMemOperand(const MachineInstr *MI, int OpNum,
                                           raw_ostream &O) {
-  const MachineOperand &Src = MI->getOperand(OpNum);
+  const MachineOperand &Base = MI->getOperand(OpNum);
+  const MachineOperand &Disp = MI->getOperand(OpNum+1);
+
+  // Print displacement first
+
+  // Imm here is in fact global address - print extra modifier.
+  if (Disp.isImm() && !Base.getReg())
+    O << '&';
+  printOperand(MI, OpNum+1, O, "nohash");
 
   // Print register base field
-  if (Src.getReg()) {
+  if (Base.getReg()) {
+    O << '(';
     printOperand(MI, OpNum, O);
+    O << ')';
   }
+}
+
+/// PrintAsmOperand - Print out an operand for an inline asm expression.
+///
+bool PIC16AsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
+                                       unsigned AsmVariant,
+                                       const char *ExtraCode, raw_ostream &O) {
+  // Does this asm operand have a single letter operand modifier?
+  if (ExtraCode && ExtraCode[0])
+    return true; // Unknown modifier.
+
+  printOperand(MI, OpNo, O);
+  return false;
 }
 
 bool PIC16AsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
@@ -103,6 +146,7 @@ bool PIC16AsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
   return false;
 }
 
+//===----------------------------------------------------------------------===//
 void PIC16AsmPrinter::EmitInstruction(const MachineInstr *MI) {
   PIC16MCInstLower MCInstLowering(OutContext, *this);
 

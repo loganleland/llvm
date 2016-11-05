@@ -33,9 +33,9 @@ extern template class DomTreeNodeBase<BasicBlock>;
 extern template class DominatorTreeBase<BasicBlock>;
 
 extern template void Calculate<Function, BasicBlock *>(
-    DominatorTreeBaseByGraphTraits<GraphTraits<BasicBlock *>> &DT, Function &F);
+    DominatorTreeBase<GraphTraits<BasicBlock *>::NodeType> &DT, Function &F);
 extern template void Calculate<Function, Inverse<BasicBlock *>>(
-    DominatorTreeBaseByGraphTraits<GraphTraits<Inverse<BasicBlock *>>> &DT,
+    DominatorTreeBase<GraphTraits<Inverse<BasicBlock *>>::NodeType> &DT,
     Function &F);
 
 typedef DomTreeNodeBase<BasicBlock> DomTreeNode;
@@ -155,19 +155,23 @@ public:
 // iterable by generic graph iterators.
 
 template <class Node, class ChildIterator> struct DomTreeGraphTraitsBase {
-  typedef Node *NodeRef;
+  typedef Node NodeType;
   typedef ChildIterator ChildIteratorType;
-  typedef df_iterator<Node *, SmallPtrSet<NodeRef, 8>> nodes_iterator;
+  typedef df_iterator<Node *, SmallPtrSet<NodeType *, 8>> nodes_iterator;
 
-  static NodeRef getEntryNode(NodeRef N) { return N; }
-  static ChildIteratorType child_begin(NodeRef N) { return N->begin(); }
-  static ChildIteratorType child_end(NodeRef N) { return N->end(); }
+  static NodeType *getEntryNode(NodeType *N) { return N; }
+  static inline ChildIteratorType child_begin(NodeType *N) {
+    return N->begin();
+  }
+  static inline ChildIteratorType child_end(NodeType *N) { return N->end(); }
 
-  static nodes_iterator nodes_begin(NodeRef N) {
+  static nodes_iterator nodes_begin(NodeType *N) {
     return df_begin(getEntryNode(N));
   }
 
-  static nodes_iterator nodes_end(NodeRef N) { return df_end(getEntryNode(N)); }
+  static nodes_iterator nodes_end(NodeType *N) {
+    return df_end(getEntryNode(N));
+  }
 };
 
 template <>
@@ -181,7 +185,9 @@ struct GraphTraits<const DomTreeNode *>
 
 template <> struct GraphTraits<DominatorTree*>
   : public GraphTraits<DomTreeNode*> {
-  static NodeRef getEntryNode(DominatorTree *DT) { return DT->getRootNode(); }
+  static NodeType *getEntryNode(DominatorTree *DT) {
+    return DT->getRootNode();
+  }
 
   static nodes_iterator nodes_begin(DominatorTree *N) {
     return df_begin(getEntryNode(N));
@@ -202,7 +208,7 @@ public:
   typedef DominatorTree Result;
 
   /// \brief Run the analysis pass over a function and produce a dominator tree.
-  DominatorTree run(Function &F, FunctionAnalysisManager &);
+  DominatorTree run(Function &F, AnalysisManager<Function> &);
 };
 
 /// \brief Printer pass for the \c DominatorTree.
@@ -212,12 +218,12 @@ class DominatorTreePrinterPass
 
 public:
   explicit DominatorTreePrinterPass(raw_ostream &OS);
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  PreservedAnalyses run(Function &F, AnalysisManager<Function> &AM);
 };
 
 /// \brief Verifier pass for the \c DominatorTree.
 struct DominatorTreeVerifierPass : PassInfoMixin<DominatorTreeVerifierPass> {
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  PreservedAnalyses run(Function &F, AnalysisManager<Function> &AM);
 };
 
 /// \brief Legacy analysis pass which computes a \c DominatorTree.

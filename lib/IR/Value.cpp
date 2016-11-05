@@ -124,10 +124,10 @@ bool Value::isUsedInBasicBlock(const BasicBlock *BB) const {
   const_user_iterator UI = user_begin(), UE = user_end();
   for (; BI != BE && UI != UE; ++BI, ++UI) {
     // Scan basic block: Check if this Value is used by the instruction at BI.
-    if (is_contained(BI->operands(), this))
+    if (std::find(BI->op_begin(), BI->op_end(), this) != BI->op_end())
       return true;
     // Scan use list: Check if the use at UI is in BB.
-    const auto *User = dyn_cast<Instruction>(*UI);
+    const Instruction *User = dyn_cast<Instruction>(*UI);
     if (User && User->getParent() == BB)
       return true;
   }
@@ -449,7 +449,7 @@ static Value *stripPointerCastsAndOffsets(Value *V) {
       case PSK_InBoundsConstantIndices:
         if (!GEP->hasAllConstantIndices())
           return V;
-        LLVM_FALLTHROUGH;
+        // fallthrough
       case PSK_InBounds:
         if (!GEP->isInBounds())
           return V;
@@ -848,7 +848,7 @@ void ValueHandleBase::ValueIsRAUWd(Value *Old, Value *New) {
       // virtual (or inline) interface to handle this though, so instead we make
       // the TrackingVH accessors guarantee that a client never sees this value.
 
-      LLVM_FALLTHROUGH;
+      // FALLTHROUGH
     case Weak:
       // Weak goes to the new value, which will unlink it from Old's list.
       Entry->operator=(New);

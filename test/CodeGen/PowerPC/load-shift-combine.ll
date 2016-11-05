@@ -1,4 +1,4 @@
-; RUN: llc -verify-machineinstrs < %s
+; RUN: llc < %s
 ; REQUIRES: default_triple
 
 ; This used to cause a crash.  A standard load is converted to a pre-increment

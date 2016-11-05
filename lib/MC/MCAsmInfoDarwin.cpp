@@ -76,6 +76,7 @@ MCAsmInfoDarwin::MCAsmInfoDarwin() {
   ZeroDirective = "\t.space\t";  // ".space N" emits N zeros.
   HasMachoZeroFillDirective = true;  // Uses .zerofill
   HasMachoTBSSDirective = true; // Uses .tbss
+  HasStaticCtorDtorReferenceInStaticMode = true;
 
   // FIXME: Change this once MC is the system assembler.
   HasAggressiveSymbolFolding = false;

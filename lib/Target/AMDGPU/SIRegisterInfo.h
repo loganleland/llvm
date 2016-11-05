@@ -23,10 +23,10 @@ namespace llvm {
 class SISubtarget;
 class MachineRegisterInfo;
 
-class SIRegisterInfo final : public AMDGPURegisterInfo {
+struct SIRegisterInfo final : public AMDGPURegisterInfo {
 private:
-  unsigned SGPRSetID;
-  unsigned VGPRSetID;
+  unsigned SGPR32SetID;
+  unsigned VGPR32SetID;
   BitVector SGPRPressureSets;
   BitVector VGPRPressureSets;
 
@@ -51,8 +51,6 @@ public:
   unsigned getRegPressureSetLimit(const MachineFunction &MF,
                                   unsigned Idx) const override;
 
-  unsigned getDefaultRegPressureSetLimit(const MachineFunction &MF,
-                                         unsigned Idx) const;
 
   bool requiresRegisterScavenging(const MachineFunction &Fn) const override;
 
@@ -139,6 +137,12 @@ public:
                             const TargetRegisterClass *SrcRC,
                             unsigned SrcSubReg) const override;
 
+  /// \p Channel This is the register channel (e.g. a value from 0-16), not the
+  ///            SubReg index.
+  /// \returns The sub-register of Reg that is in Channel.
+  unsigned getPhysRegSubReg(unsigned Reg, const TargetRegisterClass *SubRC,
+                            unsigned Channel) const;
+
   /// \returns True if operands defined with this operand type can accept
   /// a literal constant (i.e. any 32-bit immediate).
   bool opCanUseLiteralConstant(unsigned OpType) const;
@@ -184,17 +188,10 @@ public:
                               const TargetRegisterClass *RC,
                               const MachineFunction &MF) const;
 
-  unsigned getSGPRPressureSet() const { return SGPRSetID; };
-  unsigned getVGPRPressureSet() const { return VGPRSetID; };
+  unsigned getSGPR32PressureSet() const { return SGPR32SetID; };
+  unsigned getVGPR32PressureSet() const { return VGPR32SetID; };
 
   bool isVGPR(const MachineRegisterInfo &MRI, unsigned Reg) const;
-
-  bool isSGPRPressureSet(unsigned SetID) const {
-    return SGPRPressureSets.test(SetID) && !VGPRPressureSets.test(SetID);
-  }
-  bool isVGPRPressureSet(unsigned SetID) const {
-    return VGPRPressureSets.test(SetID) && !SGPRPressureSets.test(SetID);
-  }
 
 private:
   void buildScratchLoadStore(MachineBasicBlock::iterator MI,

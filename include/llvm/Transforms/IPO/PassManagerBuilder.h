@@ -100,11 +100,6 @@ public:
     /// peephole optimizations similar to the instruction combiner. These passes
     /// will be inserted after each instance of the instruction combiner pass.
     EP_Peephole,
-
-    /// EP_CGSCCOptimizerLate - This extension point allows adding CallGraphSCC
-    /// passes at the end of the main CallGraphSCC passes and before any
-    /// function simplification passes run by CGPassManager.
-    EP_CGSCCOptimizerLate,
   };
 
   /// The Optimization Level - Specify the basic optimization level.
@@ -143,8 +138,6 @@ public:
   bool PrepareForThinLTO;
   bool PerformThinLTO;
 
-  /// Enable profile instrumentation pass.
-  bool EnablePGOInstrGen;
   /// Profile data file name that the instrumentation will be written to.
   std::string PGOInstrGen;
   /// Path of the profile data file.

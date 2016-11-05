@@ -53,15 +53,15 @@ entry:
 
 sw.bb:                                            ; preds = %entry, %entry, %entry
 ; CHECK: %sw.bb
-; CHECK-NOT: imull
+; CHECK: imull
   %mul = mul nsw i32 %test_case, 3
   %mul20 = mul nsw i32 %mul, %scale
   br i1 undef, label %if.end34, label %sw.bb307
 
 if.end34:                                         ; preds = %sw.bb
 ; CHECK: %if.end34
-; CHECK: imull
 ; CHECK: leal
+; CHECK-NOT: imull
   tail call void (...) @printf(i32 %test_case, i32 %mul20) nounwind
   %tmp = mul i32 %scale, %test_case
   %tmp752 = mul i32 %tmp, 3
@@ -104,13 +104,12 @@ return:                                           ; preds = %if.end, %entry
 ; rdar://11393714
 define i8* @bsd_memchr(i8* %s, i32 %a, i32 %c, i64 %n) nounwind ssp {
 ; CHECK: %entry
-; CHECK-NOT: xorl
+; CHECK: xorl
 ; CHECK: %preheader
-; CHECK-NOT: xorl
 ; CHECK: %do.body
 ; CHECK-NOT: xorl
 ; CHECK: %do.cond
-; CHECK: xorl
+; CHECK-NOT: xorl
 ; CHECK: %return
 entry:
   %cmp = icmp eq i64 %n, 0

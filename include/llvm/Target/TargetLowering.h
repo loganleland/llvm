@@ -243,10 +243,9 @@ public:
     return true;
   }
 
-  /// Return true if SQRT(X) shouldn't be replaced with X*RSQRT(X).
-  virtual bool isFsqrtCheap(SDValue X, SelectionDAG &DAG) const {
-    // Default behavior is to replace SQRT(X) with X*RSQRT(X).
-    return false;
+  /// Return true if sqrt(x) is as cheap or cheaper than 1 / rsqrt(x)
+  bool isFsqrtCheap() const {
+    return FsqrtIsCheap;
   }
 
   /// Returns true if target has indicated at least one type should be bypassed.
@@ -319,11 +318,6 @@ public:
 
   /// \brief Return true if it is cheap to speculate a call to intrinsic ctlz.
   virtual bool isCheapToSpeculateCtlz() const {
-    return false;
-  }
-
-  /// \brief Return true if ctlz instruction is fast.
-  virtual bool isCtlzFast() const {
     return false;
   }
 
@@ -592,7 +586,7 @@ public:
   /// Returns true if the operation can trap for the value type.
   ///
   /// VT must be a legal type. By default, we optimistically assume most
-  /// operations don't trap except for integer divide and remainder.
+  /// operations don't trap except for divide and remainder.
   virtual bool canOpTrap(unsigned Op, EVT VT) const;
 
   /// Similar to isShuffleMaskLegal. This is used by Targets can use this to
@@ -1387,6 +1381,10 @@ protected:
   /// control.
   void setJumpIsExpensive(bool isExpensive = true);
 
+  /// Tells the code generator that fsqrt is cheap, and should not be replaced
+  /// with an alternative sequence of instructions.
+  void setFsqrtIsCheap(bool isCheap = true) { FsqrtIsCheap = isCheap; }
+
   /// Tells the code generator that this target supports floating point
   /// exceptions and cares about preserving floating point exception behavior.
   void setHasFloatingPointExceptions(bool FPExceptions = true) {
@@ -1628,10 +1626,6 @@ public:
     if (isLegalAddressingMode(DL, AM, Ty, AS))
       return 0;
     return -1;
-  }
-
-  virtual bool isFoldableMemAccessOffset(Instruction *I, int64_t Offset) const {
-    return true;
   }
 
   /// Return true if the specified immediate is legal icmp immediate, that is
@@ -1915,6 +1909,9 @@ private:
   /// their users if the users will generate "and" instructions which can be
   /// combined with "shift" to BitExtract instructions.
   bool HasExtractBitsInsn;
+
+  // Don't expand fsqrt with an approximation based on the inverse sqrt.
+  bool FsqrtIsCheap;
 
   /// Tells the code generator to bypass slow divide or remainder
   /// instructions. For example, BypassSlowDivWidths[32,8] tells the code
@@ -3061,12 +3058,6 @@ public:
   /// Lower TLS global address SDNode for target independent emulated TLS model.
   virtual SDValue LowerToTLSEmulatedModel(const GlobalAddressSDNode *GA,
                                           SelectionDAG &DAG) const;
-
-  // seteq(x, 0) -> truncate(srl(ctlz(zext(x)), log2(#bits)))
-  // If we're comparing for equality to zero and isCtlzFast is true, expose the
-  // fact that this can be implemented as a ctlz/srl pair, so that the dag
-  // combiner can fold the new nodes.
-  SDValue lowerCmpEqZeroToCtlzSrl(SDValue Op, SelectionDAG &DAG) const;
 
 private:
   SDValue simplifySetCCWithAnd(EVT VT, SDValue N0, SDValue N1,

@@ -563,6 +563,7 @@ public:
   }
 
 private:
+  // This transformation requires dominator postdominator info
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<AAResultsWrapperPass>();
@@ -589,7 +590,7 @@ INITIALIZE_PASS_END(MergedLoadStoreMotionLegacyPass, "mldst-motion",
                     "MergedLoadStoreMotion", false, false)
 
 PreservedAnalyses
-MergedLoadStoreMotionPass::run(Function &F, FunctionAnalysisManager &AM) {
+MergedLoadStoreMotionPass::run(Function &F, AnalysisManager<Function> &AM) {
   MergedLoadStoreMotion Impl;
   auto *MD = AM.getCachedResult<MemoryDependenceAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);

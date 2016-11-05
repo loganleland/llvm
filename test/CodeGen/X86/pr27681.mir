@@ -11,6 +11,7 @@
 ---
 # CHECK-LABEL: main
 name:            main
+allVRegsAllocated: true
 tracksRegLiveness: true
 frameInfo:
   stackSize:       52

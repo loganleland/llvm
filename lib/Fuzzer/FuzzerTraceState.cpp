@@ -173,13 +173,6 @@ struct TraceBasedMutation {
 static bool RecordingTraces = false;
 static bool RecordingMemcmp = false;
 static bool RecordingMemmem = false;
-static bool RecordingValueProfile = false;
-static bool DoingMyOwnMemmem = false;
-
-struct ScopedDoingMyOwnMemmem {
-  ScopedDoingMyOwnMemmem() { DoingMyOwnMemmem = true; }
-  ~ScopedDoingMyOwnMemmem() { DoingMyOwnMemmem = false; }
-};
 
 class TraceState {
 public:
@@ -407,7 +400,6 @@ void TraceState::DFSanSwitchCallback(uint64_t PC, size_t ValSizeInBits,
 int TraceState::TryToAddDesiredData(uint64_t PresentData, uint64_t DesiredData,
                                     size_t DataSize) {
   if (NumMutations >= kMaxMutations || !WantToHandleOneMoreMutation()) return 0;
-  ScopedDoingMyOwnMemmem scoped_doing_my_own_memmem;
   const uint8_t *UnitData;
   auto UnitSize = F->GetCurrentUnitInFuzzingThead(&UnitData);
   int Res = 0;
@@ -431,7 +423,6 @@ int TraceState::TryToAddDesiredData(const uint8_t *PresentData,
                                     const uint8_t *DesiredData,
                                     size_t DataSize) {
   if (NumMutations >= kMaxMutations || !WantToHandleOneMoreMutation()) return 0;
-  ScopedDoingMyOwnMemmem scoped_doing_my_own_memmem;
   const uint8_t *UnitData;
   auto UnitSize = F->GetCurrentUnitInFuzzingThead(&UnitData);
   int Res = 0;
@@ -530,82 +521,11 @@ static size_t InternalStrnlen(const char *S, size_t MaxLen) {
   return Len;
 }
 
-// Value profile.
-// We keep track of various values that affect control flow.
-// These values are inserted into a bit-set-based hash map (ValueBitMap VP).
-// Every new bit in the map is treated as a new coverage.
-//
-// For memcmp/strcmp/etc the interesting value is the length of the common
-// prefix of the parameters.
-// For cmp instructions the interesting value is a XOR of the parameters.
-// The interesting value is mixed up with the PC and is then added to the map.
-static ValueBitMap VP;
-
-void EnableValueProfile() { RecordingValueProfile = true; }
-
-size_t VPMapMergeFromCurrent(ValueBitMap &M) {
-  if (!RecordingValueProfile) return 0;
-  return M.MergeFrom(VP);
-}
-
-static void AddValueForMemcmp(void *caller_pc, const void *s1, const void *s2,
-                              size_t n) {
-  if (!n) return;
-  size_t Len = std::min(n, (size_t)32);
-  const uint8_t *A1 = reinterpret_cast<const uint8_t *>(s1);
-  const uint8_t *A2 = reinterpret_cast<const uint8_t *>(s2);
-  size_t I = 0;
-  for (; I < Len; I++)
-    if (A1[I] != A2[I])
-      break;
-  size_t PC = reinterpret_cast<size_t>(caller_pc);
-  size_t Idx = I;
-  // if (I < Len)
-  //  Idx += __builtin_popcountl((A1[I] ^ A2[I])) - 1;
-  VP.AddValue((PC & 4095) | (Idx << 12));
-}
-
-static void AddValueForStrcmp(void *caller_pc, const char *s1, const char *s2,
-                              size_t n) {
-  if (!n) return;
-  size_t Len = std::min(n, (size_t)32);
-  const uint8_t *A1 = reinterpret_cast<const uint8_t *>(s1);
-  const uint8_t *A2 = reinterpret_cast<const uint8_t *>(s2);
-  size_t I = 0;
-  for (; I < Len; I++)
-    if (A1[I] != A2[I] || A1[I] == 0)
-      break;
-  size_t PC = reinterpret_cast<size_t>(caller_pc);
-  size_t Idx = I;
-  // if (I < Len && A1[I])
-  //  Idx += __builtin_popcountl((A1[I] ^ A2[I])) - 1;
-  VP.AddValue((PC & 4095) | (Idx << 12));
-}
-
-ATTRIBUTE_TARGET_POPCNT
-static void AddValueForCmp(void *PCptr, uint64_t Arg1, uint64_t Arg2) {
-  if (Arg1 == Arg2)
-    return;
-  uintptr_t PC = reinterpret_cast<uintptr_t>(PCptr);
-  uint64_t ArgDistance = __builtin_popcountl(Arg1 ^ Arg2) - 1; // [0,63]
-  uintptr_t Idx = (PC & 4095) | (ArgDistance << 12);
-  VP.AddValue(Idx);
-}
-
-static void AddValueForSingleVal(void *PCptr, uintptr_t Val) {
-  if (!Val) return;
-  uintptr_t PC = reinterpret_cast<uintptr_t>(PCptr);
-  uint64_t ArgDistance = __builtin_popcountl(Val) - 1; // [0,63]
-  uintptr_t Idx = (PC & 4095) | (ArgDistance << 12);
-  VP.AddValue(Idx);
-}
-
 }  // namespace fuzzer
 
 using fuzzer::TS;
 using fuzzer::RecordingTraces;
 using fuzzer::RecordingMemcmp;
-using fuzzer::RecordingValueProfile;
 
 extern "C" {
 void __dfsw___sanitizer_cov_trace_cmp(uint64_t SizeAndType, uint64_t Arg1,
@@ -618,21 +538,6 @@ void __dfsw___sanitizer_cov_trace_cmp(uint64_t SizeAndType, uint64_t Arg1,
   uint64_t Type = (SizeAndType << 32) >> 32;
   TS->DFSanCmpCallback(PC, CmpSize, Type, Arg1, Arg2, L1, L2);
 }
-
-#define DFSAN_CMP_CALLBACK(N)                                                  \
-  void __dfsw___sanitizer_cov_trace_cmp##N(uint64_t Arg1, uint64_t Arg2,       \
-                                           dfsan_label L1, dfsan_label L2) {   \
-    if (RecordingTraces)                                                       \
-      TS->DFSanCmpCallback(                                                    \
-          reinterpret_cast<uintptr_t>(__builtin_return_address(0)), N,         \
-          fuzzer::ICMP_EQ, Arg1, Arg2, L1, L2);                                \
-  }
-
-DFSAN_CMP_CALLBACK(1)
-DFSAN_CMP_CALLBACK(2)
-DFSAN_CMP_CALLBACK(4)
-DFSAN_CMP_CALLBACK(8)
-#undef DFSAN_CMP_CALLBACK
 
 void __dfsw___sanitizer_cov_trace_switch(uint64_t Val, uint64_t *Cases,
                                          dfsan_label L1, dfsan_label L2) {
@@ -684,8 +589,6 @@ void dfsan_weak_hook_strcmp(void *caller_pc, const char *s1, const char *s2,
 #if LLVM_FUZZER_DEFINES_SANITIZER_WEAK_HOOOKS
 void __sanitizer_weak_hook_memcmp(void *caller_pc, const void *s1,
                                   const void *s2, size_t n, int result) {
-  if (RecordingValueProfile)
-    fuzzer::AddValueForMemcmp(caller_pc, s1, s2, n);
   if (!RecordingMemcmp) return;
   if (result == 0) return;  // No reason to mutate.
   if (n <= 1) return;  // Not interesting.
@@ -695,8 +598,6 @@ void __sanitizer_weak_hook_memcmp(void *caller_pc, const void *s1,
 
 void __sanitizer_weak_hook_strncmp(void *caller_pc, const char *s1,
                                    const char *s2, size_t n, int result) {
-  if (RecordingValueProfile)
-    fuzzer::AddValueForStrcmp(caller_pc, s1, s2, n);
   if (!RecordingMemcmp) return;
   if (result == 0) return;  // No reason to mutate.
   size_t Len1 = fuzzer::InternalStrnlen(s1, n);
@@ -710,8 +611,6 @@ void __sanitizer_weak_hook_strncmp(void *caller_pc, const char *s1,
 
 void __sanitizer_weak_hook_strcmp(void *caller_pc, const char *s1,
                                    const char *s2, int result) {
-  if (RecordingValueProfile)
-    fuzzer::AddValueForStrcmp(caller_pc, s1, s2, 64);
   if (!RecordingMemcmp) return;
   if (result == 0) return;  // No reason to mutate.
   size_t Len1 = strlen(s1);
@@ -740,53 +639,19 @@ void __sanitizer_weak_hook_strcasestr(void *called_pc, const char *s1,
 }
 void __sanitizer_weak_hook_memmem(void *called_pc, const void *s1, size_t len1,
                                   const void *s2, size_t len2, void *result) {
-  if (fuzzer::DoingMyOwnMemmem) return;
-  TS->AddInterestingWord(reinterpret_cast<const uint8_t *>(s2), len2);
+  // TODO: can't hook memmem since memmem is used by libFuzzer.
 }
 
 #endif  // LLVM_FUZZER_DEFINES_SANITIZER_WEAK_HOOOKS
 
-// TODO: this one will not be used with the newest clang. Remove it.
 __attribute__((visibility("default")))
 void __sanitizer_cov_trace_cmp(uint64_t SizeAndType, uint64_t Arg1,
                                uint64_t Arg2) {
-  if (RecordingTraces) {
-    uintptr_t PC = reinterpret_cast<uintptr_t>(__builtin_return_address(0));
-    uint64_t CmpSize = (SizeAndType >> 32) / 8;
-    uint64_t Type = (SizeAndType << 32) >> 32;
-    TS->TraceCmpCallback(PC, CmpSize, Type, Arg1, Arg2);
-  }
-  if (RecordingValueProfile)
-    fuzzer::AddValueForCmp(__builtin_return_address(0), Arg1, Arg2);
-}
-
-// Adding if(RecordingTraces){...} slows down the VP callbacks.
-// Once we prove that VP is as strong as traces, delete this.
-#define MAYBE_RECORD_TRACE(N)                                                  \
-  if (RecordingTraces) {                                                       \
-    uintptr_t PC = reinterpret_cast<uintptr_t>(__builtin_return_address(0));   \
-    TS->TraceCmpCallback(PC, N, fuzzer::ICMP_EQ, Arg1, Arg2);                  \
-  }
-
-__attribute__((visibility("default")))
-void __sanitizer_cov_trace_cmp8(uint64_t Arg1, int64_t Arg2) {
-  fuzzer::AddValueForCmp(__builtin_return_address(0), Arg1, Arg2);
-  MAYBE_RECORD_TRACE(8);
-}
-__attribute__((visibility("default")))
-void __sanitizer_cov_trace_cmp4(uint32_t Arg1, int32_t Arg2) {
-  fuzzer::AddValueForCmp(__builtin_return_address(0), Arg1, Arg2);
-  MAYBE_RECORD_TRACE(4);
-}
-__attribute__((visibility("default")))
-void __sanitizer_cov_trace_cmp2(uint16_t Arg1, int16_t Arg2) {
-  fuzzer::AddValueForCmp(__builtin_return_address(0), Arg1, Arg2);
-  MAYBE_RECORD_TRACE(2);
-}
-__attribute__((visibility("default")))
-void __sanitizer_cov_trace_cmp1(uint8_t Arg1, int8_t Arg2) {
-  fuzzer::AddValueForCmp(__builtin_return_address(0), Arg1, Arg2);
-  MAYBE_RECORD_TRACE(1);
+  if (!RecordingTraces) return;
+  uintptr_t PC = reinterpret_cast<uintptr_t>(__builtin_return_address(0));
+  uint64_t CmpSize = (SizeAndType >> 32) / 8;
+  uint64_t Type = (SizeAndType << 32) >> 32;
+  TS->TraceCmpCallback(PC, CmpSize, Type, Arg1, Arg2);
 }
 
 __attribute__((visibility("default")))
@@ -794,19 +659,6 @@ void __sanitizer_cov_trace_switch(uint64_t Val, uint64_t *Cases) {
   if (!RecordingTraces) return;
   uintptr_t PC = reinterpret_cast<uintptr_t>(__builtin_return_address(0));
   TS->TraceSwitchCallback(PC, Cases[1], Val, Cases[0], Cases + 2);
-}
-
-__attribute__((visibility("default")))
-void __sanitizer_cov_trace_div4(uint32_t Val) {
-  fuzzer::AddValueForSingleVal(__builtin_return_address(0), Val);
-}
-__attribute__((visibility("default")))
-void __sanitizer_cov_trace_div8(uint64_t Val) {
-  fuzzer::AddValueForSingleVal(__builtin_return_address(0), Val);
-}
-__attribute__((visibility("default")))
-void __sanitizer_cov_trace_gep(uintptr_t Idx) {
-  fuzzer::AddValueForSingleVal(__builtin_return_address(0), Idx);
 }
 
 }  // extern "C"

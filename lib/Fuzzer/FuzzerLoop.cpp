@@ -33,6 +33,7 @@
 
 namespace fuzzer {
 static const size_t kMaxUnitSizeToPrint = 256;
+static const size_t TruncateMaxRuns = 1000;
 
 thread_local bool Fuzzer::IsMyThread;
 
@@ -52,82 +53,74 @@ static void MissingExternalApiFunction(const char *FnName) {
 // Only one Fuzzer per process.
 static Fuzzer *F;
 
-void Fuzzer::ResetEdgeCoverage() {
-  CHECK_EXTERNAL_FUNCTION(__sanitizer_reset_coverage);
-  EF->__sanitizer_reset_coverage();
-}
-
-void Fuzzer::ResetCounters() {
-  if (Options.UseCounters) {
-    EF->__sanitizer_update_counter_bitset_and_clear_counters(0);
-  }
-}
-
-void Fuzzer::PrepareCounters(Fuzzer::Coverage *C) {
-  if (Options.UseCounters) {
-    size_t NumCounters = EF->__sanitizer_get_number_of_counters();
-    C->CounterBitmap.resize(NumCounters);
-  }
-}
-
-// Records data to a maximum coverage tracker. Returns true if additional
-// coverage was discovered.
-bool Fuzzer::RecordMaxCoverage(Fuzzer::Coverage *C) {
-  bool Res = false;
-
-  uint64_t NewBlockCoverage = EF->__sanitizer_get_total_unique_coverage();
-  if (NewBlockCoverage > C->BlockCoverage) {
-    Res = true;
-    C->BlockCoverage = NewBlockCoverage;
+struct CoverageController {
+  static void Reset() {
+    CHECK_EXTERNAL_FUNCTION(__sanitizer_reset_coverage);
+    EF->__sanitizer_reset_coverage();
+    PcMapResetCurrent();
   }
 
-  if (Options.UseIndirCalls &&
-      EF->__sanitizer_get_total_unique_caller_callee_pairs) {
-    uint64_t NewCallerCalleeCoverage =
-        EF->__sanitizer_get_total_unique_caller_callee_pairs();
-    if (NewCallerCalleeCoverage > C->CallerCalleeCoverage) {
+  static void ResetCounters(const FuzzingOptions &Options) {
+    if (Options.UseCounters) {
+      EF->__sanitizer_update_counter_bitset_and_clear_counters(0);
+    }
+  }
+
+  static void Prepare(const FuzzingOptions &Options, Fuzzer::Coverage *C) {
+    if (Options.UseCounters) {
+      size_t NumCounters = EF->__sanitizer_get_number_of_counters();
+      C->CounterBitmap.resize(NumCounters);
+    }
+  }
+
+  // Records data to a maximum coverage tracker. Returns true if additional
+  // coverage was discovered.
+  static bool RecordMax(const FuzzingOptions &Options, Fuzzer::Coverage *C) {
+    bool Res = false;
+
+    uint64_t NewBlockCoverage = EF->__sanitizer_get_total_unique_coverage();
+    if (NewBlockCoverage > C->BlockCoverage) {
       Res = true;
-      C->CallerCalleeCoverage = NewCallerCalleeCoverage;
+      C->BlockCoverage = NewBlockCoverage;
     }
-  }
 
-  if (Options.UseCounters) {
-    uint64_t CounterDelta =
-        EF->__sanitizer_update_counter_bitset_and_clear_counters(
-            C->CounterBitmap.data());
-    if (CounterDelta > 0) {
+    if (Options.UseIndirCalls &&
+        EF->__sanitizer_get_total_unique_caller_callee_pairs) {
+      uint64_t NewCallerCalleeCoverage =
+          EF->__sanitizer_get_total_unique_caller_callee_pairs();
+      if (NewCallerCalleeCoverage > C->CallerCalleeCoverage) {
+        Res = true;
+        C->CallerCalleeCoverage = NewCallerCalleeCoverage;
+      }
+    }
+
+    if (Options.UseCounters) {
+      uint64_t CounterDelta =
+          EF->__sanitizer_update_counter_bitset_and_clear_counters(
+              C->CounterBitmap.data());
+      if (CounterDelta > 0) {
+        Res = true;
+        C->CounterBitmapBits += CounterDelta;
+      }
+    }
+
+    uint64_t NewPcMapBits = PcMapMergeInto(&C->PCMap);
+    if (NewPcMapBits > C->PcMapBits) {
       Res = true;
-      C->CounterBitmapBits += CounterDelta;
+      C->PcMapBits = NewPcMapBits;
     }
-  }
 
-  size_t NewPCMapBits = PCMapMergeFromCurrent(C->PCMap);
-  if (NewPCMapBits > C->PCMapBits) {
-    Res = true;
-    C->PCMapBits = NewPCMapBits;
-  }
-
-  size_t NewVPMapBits = VPMapMergeFromCurrent(C->VPMap);
-  if (NewVPMapBits > C->VPMapBits) {
-    Res = true;
-    C->VPMapBits = NewVPMapBits;
-  }
-
-  if (EF->__sanitizer_get_coverage_pc_buffer_pos) {
-    uint64_t NewPcBufferPos = EF->__sanitizer_get_coverage_pc_buffer_pos();
-    if (NewPcBufferPos > C->PcBufferPos) {
+    uintptr_t *CoverageBuf;
+    uint64_t NewPcBufferLen =
+        EF->__sanitizer_get_coverage_pc_buffer(&CoverageBuf);
+    if (NewPcBufferLen > C->PcBufferLen) {
       Res = true;
-      C->PcBufferPos = NewPcBufferPos;
+      C->PcBufferLen = NewPcBufferLen;
     }
 
-    if (PcBufferLen && NewPcBufferPos >= PcBufferLen) {
-      Printf("ERROR: PC buffer overflow\n");
-      _Exit(1);
-    }
+    return Res;
   }
-
-  return Res;
-}
+};
 
 // Leak detection is expensive, so we first check if there were more mallocs
 // than frees (using the sanitizer malloc hooks) and only then try to call lsan.
@@ -161,15 +154,7 @@ Fuzzer::Fuzzer(UserCallback CB, MutationDispatcher &MD, FuzzingOptions Options)
   IsMyThread = true;
   if (Options.DetectLeaks && EF->__sanitizer_install_malloc_and_free_hooks)
     EF->__sanitizer_install_malloc_and_free_hooks(MallocHook, FreeHook);
-
-  if (Options.PrintNewCovPcs) {
-    PcBufferLen = 1 << 24;
-    PcBuffer = new uintptr_t[PcBufferLen];
-    EF->__sanitizer_set_coverage_pc_buffer(PcBuffer, PcBufferLen);
-  }
 }
-
-Fuzzer::~Fuzzer() { }
 
 void Fuzzer::LazyAllocateCurrentUnitData() {
   if (CurrentUnitData || Options.MaxLen == 0) return;
@@ -188,8 +173,6 @@ void Fuzzer::StaticDeathCallback() {
 
 void Fuzzer::DumpCurrentUnit(const char *Prefix) {
   if (!CurrentUnitData) return;  // Happens when running individual inputs.
-  MD.PrintMutationSequence();
-  Printf("; base unit: %s\n", Sha1ToString(BaseSha1).c_str());
   size_t UnitSize = CurrentUnitSize;
   if (UnitSize <= kMaxUnitSizeToPrint) {
     PrintHexArray(CurrentUnitData, UnitSize, "\n");
@@ -297,10 +280,8 @@ void Fuzzer::PrintStats(const char *Where, const char *End) {
   Printf("#%zd\t%s", TotalNumberOfRuns, Where);
   if (MaxCoverage.BlockCoverage)
     Printf(" cov: %zd", MaxCoverage.BlockCoverage);
-  if (MaxCoverage.PCMapBits)
-    Printf(" path: %zd", MaxCoverage.PCMapBits);
-  if (MaxCoverage.VPMapBits)
-    Printf(" vp: %zd", MaxCoverage.VPMapBits);
+  if (MaxCoverage.PcMapBits)
+    Printf(" path: %zd", MaxCoverage.PcMapBits);
   if (auto TB = MaxCoverage.CounterBitmapBits)
     Printf(" bits: %zd", TB);
   if (MaxCoverage.CallerCalleeCoverage)
@@ -370,22 +351,39 @@ void Fuzzer::ShuffleCorpus(UnitVector *V) {
 }
 
 // Tries random prefixes of corpus items.
+// Prefix length is chosen according to exponential distribution
+// to sample short lengths much more heavily.
 void Fuzzer::TruncateUnits(std::vector<Unit> *NewCorpus) {
-  std::vector<double> Fractions = {0.25, 0.5, 0.75, 1.0};
+  size_t MaxCorpusLen = 0;
+  for (const auto &U : Corpus)
+    MaxCorpusLen = std::max(MaxCorpusLen, U.size());
 
-  size_t TruncInputs = 0;
-  for (double Fraction : Fractions) {
+  if (MaxCorpusLen <= 1)
+    return;
+
+  // 50% of exponential distribution is Log[2]/lambda.
+  // Choose lambda so that median is MaxCorpusLen / 2.
+  double Lambda = 2.0 * log(2.0) / static_cast<double>(MaxCorpusLen);
+  std::exponential_distribution<> Dist(Lambda);
+  std::vector<double> Sizes;
+  size_t TruncatePoints = std::max(1ul, TruncateMaxRuns / Corpus.size());
+  Sizes.reserve(TruncatePoints);
+  for (size_t I = 0; I < TruncatePoints; ++I) {
+    Sizes.push_back(Dist(MD.GetRand().Get_mt19937()) + 1);
+  }
+  std::sort(Sizes.begin(), Sizes.end());
+
+  for (size_t S : Sizes) {
     for (const auto &U : Corpus) {
-      uint64_t S = MD.GetRand()(U.size() * Fraction);
-      if (!S || !RunOne(U.data(), S))
-        continue;
-      TruncInputs++;
-      Unit U1(U.begin(), U.begin() + S);
-      NewCorpus->push_back(U1);
+      if (S < U.size() && RunOne(U.data(), S)) {
+        Unit U1(U.begin(), U.begin() + S);
+        NewCorpus->push_back(U1);
+        WriteToOutputCorpus(U1);
+        PrintStatusForNewUnit(U1);
+      }
     }
   }
-  if (TruncInputs)
-    Printf("\tINFO   TRUNC %zd units added to in-memory corpus\n", TruncInputs);
+  PrintStats("TRUNC  ");
 }
 
 void Fuzzer::ShuffleAndMinimize() {
@@ -423,8 +421,17 @@ void Fuzzer::ShuffleAndMinimize() {
 }
 
 bool Fuzzer::UpdateMaxCoverage() {
-  PrevPcBufferPos = MaxCoverage.PcBufferPos;
-  bool Res = RecordMaxCoverage(&MaxCoverage);
+  uintptr_t PrevBufferLen = MaxCoverage.PcBufferLen;
+  bool Res = CoverageController::RecordMax(Options, &MaxCoverage);
+
+  if (Options.PrintNewCovPcs && PrevBufferLen != MaxCoverage.PcBufferLen) {
+    uintptr_t *CoverageBuf;
+    EF->__sanitizer_get_coverage_pc_buffer(&CoverageBuf);
+    assert(CoverageBuf);
+    for (size_t I = PrevBufferLen; I < MaxCoverage.PcBufferLen; ++I) {
+      Printf("%p\n", CoverageBuf[I]);
+    }
+  }
 
   return Res;
 }
@@ -433,7 +440,7 @@ bool Fuzzer::RunOne(const uint8_t *Data, size_t Size) {
   TotalNumberOfRuns++;
 
   // TODO(aizatsky): this Reset call seems to be not needed.
-  ResetCounters();
+  CoverageController::ResetCounters(Options);
   ExecuteCallback(Data, Size);
   bool Res = UpdateMaxCoverage();
 
@@ -471,19 +478,18 @@ void Fuzzer::ExecuteCallback(const uint8_t *Data, size_t Size) {
   UnitStartTime = system_clock::now();
   // We copy the contents of Unit into a separate heap buffer
   // so that we reliably find buffer overflows in it.
-  uint8_t *DataCopy = new uint8_t[Size];
-  memcpy(DataCopy, Data, Size);
+  std::unique_ptr<uint8_t[]> DataCopy(new uint8_t[Size]);
+  memcpy(DataCopy.get(), Data, Size);
   if (CurrentUnitData && CurrentUnitData != Data)
     memcpy(CurrentUnitData, Data, Size);
-  AssignTaintLabels(DataCopy, Size);
+  AssignTaintLabels(DataCopy.get(), Size);
   CurrentUnitSize = Size;
   AllocTracer.Start();
-  int Res = CB(DataCopy, Size);
+  int Res = CB(DataCopy.get(), Size);
   (void)Res;
   HasMoreMallocsThanFrees = AllocTracer.Stop();
   CurrentUnitSize = 0;
   assert(Res == 0);
-  delete[] DataCopy;
 }
 
 std::string Fuzzer::Coverage::DebugString() const {
@@ -491,9 +497,8 @@ std::string Fuzzer::Coverage::DebugString() const {
       std::string("Coverage{") + "BlockCoverage=" +
       std::to_string(BlockCoverage) + " CallerCalleeCoverage=" +
       std::to_string(CallerCalleeCoverage) + " CounterBitmapBits=" +
-      std::to_string(CounterBitmapBits) + " PCMapBits=" +
-      std::to_string(PCMapBits) + " VPMapBits " +
-      std::to_string(VPMapBits) + "}";
+      std::to_string(CounterBitmapBits) + " PcMapBits=" +
+      std::to_string(PcMapBits) + "}";
   return Result;
 }
 
@@ -542,21 +547,6 @@ void Fuzzer::PrintStatusForNewUnit(const Unit &U) {
   }
 }
 
-void Fuzzer::PrintNewPCs() {
-  if (Options.PrintNewCovPcs && PrevPcBufferPos != MaxCoverage.PcBufferPos) {
-    for (size_t I = PrevPcBufferPos; I < MaxCoverage.PcBufferPos; ++I) {
-      if (EF->__sanitizer_symbolize_pc) {
-        char PcDescr[1024];
-        EF->__sanitizer_symbolize_pc(reinterpret_cast<void*>(PcBuffer[I]),
-                                     "%p %F %L", PcDescr, sizeof(PcDescr));
-        Printf("\tNEW_PC: %s\n", PcDescr);
-      } else {
-        Printf("\tNEW_PC: %p\n", PcBuffer[I]);
-      }
-    }
-  }
-}
-
 void Fuzzer::ReportNewCoverage(const Unit &U) {
   Corpus.push_back(U);
   UpdateCorpusDistribution();
@@ -565,7 +555,6 @@ void Fuzzer::ReportNewCoverage(const Unit &U) {
   PrintStatusForNewUnit(U);
   WriteToOutputCorpus(U);
   NumberOfNewUnitsAdded++;
-  PrintNewPCs();
 }
 
 // Finds minimal number of units in 'Extra' that add coverage to 'Initial'.
@@ -672,7 +661,6 @@ void Fuzzer::MutateAndTestOne() {
   MD.StartMutationSequence();
 
   auto &U = ChooseUnitToMutate();
-  ComputeSHA1(U.data(), U.size(), BaseSha1);  // Remember where we started.
   assert(CurrentUnitData);
   size_t Size = U.size();
   assert(Size <= Options.MaxLen && "Oversized Unit");
@@ -705,9 +693,9 @@ size_t Fuzzer::ChooseUnitIdxToMutate() {
 }
 
 void Fuzzer::ResetCoverage() {
-  ResetEdgeCoverage();
+  CoverageController::Reset();
   MaxCoverage.Reset();
-  PrepareCounters(&MaxCoverage);
+  CoverageController::Prepare(Options, &MaxCoverage);
 }
 
 // Experimental search heuristic: drilling.

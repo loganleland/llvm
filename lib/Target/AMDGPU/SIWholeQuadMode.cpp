@@ -461,9 +461,6 @@ void SIWholeQuadMode::processBlock(MachineBasicBlock &MBB, unsigned LiveMaskReg,
 
       State = Needs;
     }
-
-    if (MI.getOpcode() == AMDGPU::SI_ELSE && State == StateExact)
-      MI.getOperand(3).setImm(1);
   }
 
   if ((BI.OutNeeds & StateWQM) && State != StateWQM) {

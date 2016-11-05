@@ -442,8 +442,7 @@ void CodeViewContext::encodeDefRange(MCAsmLayout &Layout,
 // a line entry made for it is made.
 //
 void MCCVLineEntry::Make(MCObjectStreamer *MCOS) {
-  CodeViewContext &CVC = MCOS->getContext().getCVContext();
-  if (!CVC.getCVLocSeen())
+  if (!MCOS->getContext().getCVLocSeen())
     return;
 
   // Create a symbol at in the current section for use in the line entry.
@@ -452,14 +451,14 @@ void MCCVLineEntry::Make(MCObjectStreamer *MCOS) {
   MCOS->EmitLabel(LineSym);
 
   // Get the current .loc info saved in the context.
-  const MCCVLoc &CVLoc = CVC.getCurrentCVLoc();
+  const MCCVLoc &CVLoc = MCOS->getContext().getCurrentCVLoc();
 
   // Create a (local) line entry with the symbol and the current .loc info.
   MCCVLineEntry LineEntry(LineSym, CVLoc);
 
   // clear CVLocSeen saying the current .loc info is now used.
-  CVC.clearCVLocSeen();
+  MCOS->getContext().clearCVLocSeen();
 
   // Add the line entry to this section's entries.
-  CVC.addLineEntry(LineEntry);
+  MCOS->getContext().getCVContext().addLineEntry(LineEntry);
 }

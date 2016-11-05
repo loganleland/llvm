@@ -115,22 +115,22 @@ static bool isValidElementType(Type *Ty) {
          !Ty->isPPC_FP128Ty();
 }
 
-/// \returns true if all of the instructions in \p VL are in the same block or
-/// false otherwise.
-static bool allSameBlock(ArrayRef<Value *> VL) {
+/// \returns the parent basic block if all of the instructions in \p VL
+/// are in the same block or null otherwise.
+static BasicBlock *getSameBlock(ArrayRef<Value *> VL) {
   Instruction *I0 = dyn_cast<Instruction>(VL[0]);
   if (!I0)
-    return false;
+    return nullptr;
   BasicBlock *BB = I0->getParent();
   for (int i = 1, e = VL.size(); i < e; i++) {
     Instruction *I = dyn_cast<Instruction>(VL[i]);
     if (!I)
-      return false;
+      return nullptr;
 
     if (BB != I->getParent())
-      return false;
+      return nullptr;
   }
-  return true;
+  return BB;
 }
 
 /// \returns True if all of the values in \p VL are constants.
@@ -224,15 +224,15 @@ static void propagateIRFlags(Value *I, ArrayRef<Value *> VL) {
   }
 }
 
-/// \returns true if all of the values in \p VL have the same type or false
-/// otherwise.
-static bool allSameType(ArrayRef<Value *> VL) {
+/// \returns The type that all of the values in \p VL have or null if there
+/// are different types.
+static Type* getSameType(ArrayRef<Value *> VL) {
   Type *Ty = VL[0]->getType();
   for (int i = 1, e = VL.size(); i < e; i++)
     if (VL[i]->getType() != Ty)
-      return false;
+      return nullptr;
 
-  return true;
+  return Ty;
 }
 
 /// \returns True if Extract{Value,Element} instruction extracts element Idx.
@@ -392,10 +392,6 @@ public:
   ///
   /// \returns number of elements in vector if isomorphism exists, 0 otherwise.
   unsigned canMapToVector(Type *T, const DataLayout &DL) const;
-
-  /// \returns True if the VectorizableTree is both tiny and not fully
-  /// vectorizable. We do not vectorize such trees.
-  bool isTreeTinyAndNotFullyVectorizable();
 
 private:
   struct TreeEntry;
@@ -887,10 +883,10 @@ private:
   /// List of users to ignore during scheduling and that don't need extracting.
   ArrayRef<Value *> UserIgnoreList;
 
-  // Number of load bundles that contain consecutive loads.
+  // Number of load-bundles, which contain consecutive loads.
   int NumLoadsWantToKeepOrder;
 
-  // Number of load bundles that contain consecutive loads in reversed order.
+  // Number of load-bundles of size 2, which are consecutive loads if reversed.
   int NumLoadsWantToChangeOrder;
 
   // Analysis and block reference.
@@ -921,7 +917,7 @@ void BoUpSLP::buildTree(ArrayRef<Value *> Roots,
                         ArrayRef<Value *> UserIgnoreLst) {
   deleteTree();
   UserIgnoreList = UserIgnoreLst;
-  if (!allSameType(Roots))
+  if (!getSameType(Roots))
     return;
   buildTree_rec(Roots, 0);
 
@@ -962,7 +958,8 @@ void BoUpSLP::buildTree(ArrayRef<Value *> Roots,
         }
 
         // Ignore users in the user ignore list.
-        if (is_contained(UserIgnoreList, UserInst))
+        if (std::find(UserIgnoreList.begin(), UserIgnoreList.end(), UserInst) !=
+            UserIgnoreList.end())
           continue;
 
         DEBUG(dbgs() << "SLP: Need to extract:" << *U << " from lane " <<
@@ -975,8 +972,9 @@ void BoUpSLP::buildTree(ArrayRef<Value *> Roots,
 
 
 void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth) {
+  bool SameTy = allConstant(VL) || getSameType(VL); (void)SameTy;
   bool isAltShuffle = false;
-  assert((allConstant(VL) || allSameType(VL)) && "Invalid types!");
+  assert(SameTy && "Invalid types!");
 
   if (Depth == RecursionMaxDepth) {
     DEBUG(dbgs() << "SLP: Gathering due to max recursion depth.\n");
@@ -1009,7 +1007,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth) {
   }
 
   // If all of the operands are identical or constant we have a simple solution.
-  if (allConstant(VL) || isSplat(VL) || !allSameBlock(VL) || !Opcode) {
+  if (allConstant(VL) || isSplat(VL) || !getSameBlock(VL) || !Opcode) {
     DEBUG(dbgs() << "SLP: Gathering due to C,S,B,O. \n");
     newTreeEntry(VL, false);
     return;
@@ -1161,9 +1159,7 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth) {
         DEBUG(dbgs() << "SLP: Gathering loads of non-packed type.\n");
         return;
       }
-
-      // Make sure all loads in the bundle are simple - we can't vectorize
-      // atomic or volatile loads.
+      // Check if the loads are consecutive or of we need to swizzle them.
       for (unsigned i = 0, e = VL.size() - 1; i < e; ++i) {
         LoadInst *L = cast<LoadInst>(VL[i]);
         if (!L->isSimple()) {
@@ -1172,47 +1168,20 @@ void BoUpSLP::buildTree_rec(ArrayRef<Value *> VL, unsigned Depth) {
           DEBUG(dbgs() << "SLP: Gathering non-simple loads.\n");
           return;
         }
-      }
 
-      // Check if the loads are consecutive, reversed, or neither.
-      // TODO: What we really want is to sort the loads, but for now, check
-      // the two likely directions.
-      bool Consecutive = true;
-      bool ReverseConsecutive = true;
-      for (unsigned i = 0, e = VL.size() - 1; i < e; ++i) {
         if (!isConsecutiveAccess(VL[i], VL[i + 1], *DL, *SE)) {
-          Consecutive = false;
-          break;
-        } else {
-          ReverseConsecutive = false;
+          if (VL.size() == 2 && isConsecutiveAccess(VL[1], VL[0], *DL, *SE)) {
+            ++NumLoadsWantToChangeOrder;
+          }
+          BS.cancelScheduling(VL);
+          newTreeEntry(VL, false);
+          DEBUG(dbgs() << "SLP: Gathering non-consecutive loads.\n");
+          return;
         }
       }
-
-      if (Consecutive) {
-        ++NumLoadsWantToKeepOrder;
-        newTreeEntry(VL, true);
-        DEBUG(dbgs() << "SLP: added a vector of loads.\n");
-        return;
-      }
-
-      // If none of the load pairs were consecutive when checked in order,
-      // check the reverse order.
-      if (ReverseConsecutive)
-        for (unsigned i = VL.size() - 1; i > 0; --i)
-          if (!isConsecutiveAccess(VL[i], VL[i - 1], *DL, *SE)) {
-            ReverseConsecutive = false;
-            break;
-          }
-
-      BS.cancelScheduling(VL);
-      newTreeEntry(VL, false);
-
-      if (ReverseConsecutive) {
-        ++NumLoadsWantToChangeOrder;
-        DEBUG(dbgs() << "SLP: Gathering reversed loads.\n");
-      } else {
-        DEBUG(dbgs() << "SLP: Gathering non-consecutive loads.\n");
-      }
+      ++NumLoadsWantToKeepOrder;
+      newTreeEntry(VL, true);
+      DEBUG(dbgs() << "SLP: added a vector of loads.\n");
       return;
     }
     case Instruction::ZExt:
@@ -1584,7 +1553,7 @@ int BoUpSLP::getEntryCost(TreeEntry *E) {
     return getGatherCost(E->Scalars);
   }
   unsigned Opcode = getSameOpcode(VL);
-  assert(Opcode && allSameType(VL) && allSameBlock(VL) && "Invalid VL");
+  assert(Opcode && getSameType(VL) && getSameBlock(VL) && "Invalid VL");
   Instruction *VL0 = cast<Instruction>(VL[0]);
   switch (Opcode) {
     case Instruction::PHI: {
@@ -1810,27 +1779,6 @@ bool BoUpSLP::isFullyVectorizableTinyTree() {
   return true;
 }
 
-bool BoUpSLP::isTreeTinyAndNotFullyVectorizable() {
-
-  // We can vectorize the tree if its size is greater than or equal to the
-  // minimum size specified by the MinTreeSize command line option.
-  if (VectorizableTree.size() >= MinTreeSize)
-    return false;
-
-  // If we have a tiny tree (a tree whose size is less than MinTreeSize), we
-  // can vectorize it if we can prove it fully vectorizable.
-  if (isFullyVectorizableTinyTree())
-    return false;
-
-  assert(VectorizableTree.empty()
-             ? ExternalUses.empty()
-             : true && "We shouldn't have any external users");
-
-  // Otherwise, we can't vectorize the tree. It is both tiny and not fully
-  // vectorizable.
-  return true;
-}
-
 int BoUpSLP::getSpillCost() {
   // Walk from the bottom of the tree to the top, tracking which values are
   // live. When we see a call instruction that is not part of our tree,
@@ -1868,9 +1816,9 @@ int BoUpSLP::getSpillCost() {
       );
 
     // Now find the sequence of instructions between PrevInst and Inst.
-    BasicBlock::reverse_iterator InstIt = ++Inst->getIterator().getReverse(),
-                                 PrevInstIt =
-                                     PrevInst->getIterator().getReverse();
+    BasicBlock::reverse_iterator InstIt(Inst->getIterator()),
+        PrevInstIt(PrevInst->getIterator());
+    --PrevInstIt;
     while (InstIt != PrevInstIt) {
       if (PrevInstIt == PrevInst->getParent()->rend()) {
         PrevInstIt = Inst->getParent()->rbegin();
@@ -1897,6 +1845,14 @@ int BoUpSLP::getTreeCost() {
   int Cost = 0;
   DEBUG(dbgs() << "SLP: Calculating cost for tree of size " <<
         VectorizableTree.size() << ".\n");
+
+  // We only vectorize tiny trees if it is fully vectorizable.
+  if (VectorizableTree.size() < MinTreeSize && !isFullyVectorizableTinyTree()) {
+    if (VectorizableTree.empty()) {
+      assert(!ExternalUses.size() && "We should not have any external users");
+    }
+    return INT_MAX;
+  }
 
   unsigned BundleWidth = VectorizableTree[0].Scalars.size();
 
@@ -2728,7 +2684,8 @@ Value *BoUpSLP::vectorizeTree() {
 
     // Skip users that we already RAUW. This happens when one instruction
     // has multiple uses of the same value.
-    if (!is_contained(Scalar->users(), User))
+    if (std::find(Scalar->user_begin(), Scalar->user_end(), User) ==
+        Scalar->user_end())
       continue;
     assert(ScalarToTreeEntry.count(Scalar) && "Invalid scalar");
 
@@ -2802,7 +2759,8 @@ Value *BoUpSLP::vectorizeTree() {
 
           assert((ScalarToTreeEntry.count(U) ||
                   // It is legal to replace users in the ignorelist by undef.
-                  is_contained(UserIgnoreList, U)) &&
+                  (std::find(UserIgnoreList.begin(), UserIgnoreList.end(), U) !=
+                   UserIgnoreList.end())) &&
                  "Replacing out-of-tree value with undef");
         }
 #endif
@@ -2895,7 +2853,7 @@ void BoUpSLP::optimizeGatherSequence() {
         }
       }
       if (In) {
-        assert(!is_contained(Visited, In));
+        assert(std::find(Visited.begin(), Visited.end(), In) == Visited.end());
         Visited.push_back(In);
       }
     }
@@ -3036,10 +2994,9 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V) {
   }
   // Search up and down at the same time, because we don't know if the new
   // instruction is above or below the existing scheduling region.
-  BasicBlock::reverse_iterator UpIter =
-      ++ScheduleStart->getIterator().getReverse();
+  BasicBlock::reverse_iterator UpIter(ScheduleStart->getIterator());
   BasicBlock::reverse_iterator UpperEnd = BB->rend();
-  BasicBlock::iterator DownIter = ScheduleEnd->getIterator();
+  BasicBlock::iterator DownIter(ScheduleEnd);
   BasicBlock::iterator LowerEnd = BB->end();
   for (;;) {
     if (++ScheduleRegionSize > ScheduleRegionSizeLimit) {
@@ -3715,9 +3672,6 @@ bool SLPVectorizerPass::vectorizeStoreChain(ArrayRef<Value *> Chain,
     ArrayRef<Value *> Operands = Chain.slice(i, VF);
 
     R.buildTree(Operands);
-    if (R.isTreeTinyAndNotFullyVectorizable())
-      continue;
-
     R.computeMinimumValueSizes();
 
     int Cost = R.getTreeCost();
@@ -3851,12 +3805,11 @@ bool SLPVectorizerPass::tryToVectorizePair(Value *A, Value *B, BoUpSLP &R) {
 
 bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
                                            ArrayRef<Value *> BuildVector,
-                                           bool AllowReorder) {
+                                           bool allowReorder) {
   if (VL.size() < 2)
     return false;
 
-  DEBUG(dbgs() << "SLP: Trying to vectorize a list of length = " << VL.size()
-               << ".\n");
+  DEBUG(dbgs() << "SLP: Vectorizing a list of length = " << VL.size() << ".\n");
 
   // Check that all of the parts are scalar instructions of the same type.
   Instruction *I0 = dyn_cast<Instruction>(VL[0]);
@@ -3908,20 +3861,14 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
       BuildVectorSlice = BuildVector.slice(i, OpsWidth);
 
     R.buildTree(Ops, BuildVectorSlice);
-    // TODO: check if we can allow reordering for more cases.
-    if (AllowReorder && R.shouldReorder()) {
-      // Conceptually, there is nothing actually preventing us from trying to
-      // reorder a larger list. In fact, we do exactly this when vectorizing
-      // reductions. However, at this point, we only expect to get here from
-      // tryToVectorizePair().
+    // TODO: check if we can allow reordering also for other cases than
+    // tryToVectorizePair()
+    if (allowReorder && R.shouldReorder()) {
       assert(Ops.size() == 2);
       assert(BuildVectorSlice.empty());
       Value *ReorderedOps[] = { Ops[1], Ops[0] };
       R.buildTree(ReorderedOps, None);
     }
-    if (R.isTreeTinyAndNotFullyVectorizable())
-      continue;
-
     R.computeMinimumValueSizes();
     int Cost = R.getTreeCost();
 
@@ -4026,7 +3973,7 @@ static Value *createRdxShuffleMask(unsigned VecLen, unsigned NumEltsToRdx,
   return ConstantVector::get(ShuffleMask);
 }
 
-namespace {
+
 /// Model horizontal reductions.
 ///
 /// A horizontal reduction is a tree of reduction operations (currently add and
@@ -4084,7 +4031,8 @@ public:
 
   /// \brief Try to find a reduction tree.
   bool matchAssociativeReduction(PHINode *Phi, BinaryOperator *B) {
-    assert((!Phi || is_contained(Phi->operands(), B)) &&
+    assert((!Phi ||
+            std::find(Phi->op_begin(), Phi->op_end(), B) != Phi->op_end()) &&
            "Thi phi needs to use the binary operator");
 
     // We could have a initial reductions that is not an add.
@@ -4193,15 +4141,7 @@ public:
     unsigned i = 0;
 
     for (; i < NumReducedVals - ReduxWidth + 1; i += ReduxWidth) {
-      auto VL = makeArrayRef(&ReducedVals[i], ReduxWidth);
-      V.buildTree(VL, ReductionOps);
-      if (V.shouldReorder()) {
-        SmallVector<Value *, 8> Reversed(VL.rbegin(), VL.rend());
-        V.buildTree(Reversed, ReductionOps);
-      }
-      if (V.isTreeTinyAndNotFullyVectorizable())
-        continue;
-
+      V.buildTree(makeArrayRef(&ReducedVals[i], ReduxWidth), ReductionOps);
       V.computeMinimumValueSizes();
 
       // Estimate cost.
@@ -4314,7 +4254,6 @@ private:
     return Builder.CreateExtractElement(TmpVec, Builder.getInt32(0));
   }
 };
-} // end anonymous namespace
 
 /// \brief Recognize construction of vectors like
 ///  %ra = insertelement <4 x float> undef, float %s0, i32 0

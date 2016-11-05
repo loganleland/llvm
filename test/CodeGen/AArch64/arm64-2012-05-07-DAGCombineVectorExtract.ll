@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=arm64-eabi | FileCheck %s
+; RUN: llc < %s -march=arm64 | FileCheck %s
 
 define i32 @foo(<4 x i32> %a, i32 %n) nounwind {
 ; CHECK-LABEL: foo:

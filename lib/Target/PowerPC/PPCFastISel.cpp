@@ -146,11 +146,11 @@ class PPCFastISel final : public FastISel {
     bool isTypeLegal(Type *Ty, MVT &VT);
     bool isLoadTypeLegal(Type *Ty, MVT &VT);
     bool isValueAvailable(const Value *V) const;
-    bool isVSFRCRegClass(const TargetRegisterClass *RC) const {
-      return RC->getID() == PPC::VSFRCRegClassID;
+    bool isVSFRCRegister(unsigned Register) const {
+      return MRI.getRegClass(Register)->getID() == PPC::VSFRCRegClassID;
     }
-    bool isVSSRCRegClass(const TargetRegisterClass *RC) const {
-      return RC->getID() == PPC::VSSRCRegClassID;
+    bool isVSSRCRegister(unsigned Register) const {
+      return MRI.getRegClass(Register)->getID() == PPC::VSSRCRegClassID;
     }
     bool PPCEmitCmp(const Value *Src1Value, const Value *Src2Value,
                     bool isZExt, unsigned DestReg);
@@ -458,7 +458,7 @@ void PPCFastISel::PPCSimplifyAddress(Address &Addr, bool &UseOffset,
 
 // Emit a load instruction if possible, returning true if we succeeded,
 // otherwise false.  See commentary below for how the register class of
-// the load is determined.
+// the load is determined. 
 bool PPCFastISel::PPCEmitLoad(MVT VT, unsigned &ResultReg, Address &Addr,
                               const TargetRegisterClass *RC,
                               bool IsZExt, unsigned FP64LoadOpc) {
@@ -489,18 +489,20 @@ bool PPCFastISel::PPCEmitLoad(MVT VT, unsigned &ResultReg, Address &Addr,
       Opc = Is32BitInt ? PPC::LBZ : PPC::LBZ8;
       break;
     case MVT::i16:
-      Opc = (IsZExt ? (Is32BitInt ? PPC::LHZ : PPC::LHZ8)
-                    : (Is32BitInt ? PPC::LHA : PPC::LHA8));
+      Opc = (IsZExt ?
+             (Is32BitInt ? PPC::LHZ : PPC::LHZ8) : 
+             (Is32BitInt ? PPC::LHA : PPC::LHA8));
       break;
     case MVT::i32:
-      Opc = (IsZExt ? (Is32BitInt ? PPC::LWZ : PPC::LWZ8)
-                    : (Is32BitInt ? PPC::LWA_32 : PPC::LWA));
+      Opc = (IsZExt ? 
+             (Is32BitInt ? PPC::LWZ : PPC::LWZ8) :
+             (Is32BitInt ? PPC::LWA_32 : PPC::LWA));
       if ((Opc == PPC::LWA || Opc == PPC::LWA_32) && ((Addr.Offset & 3) != 0))
         UseOffset = false;
       break;
     case MVT::i64:
       Opc = PPC::LD;
-      assert(UseRC->hasSuperClassEq(&PPC::G8RCRegClass) &&
+      assert(UseRC->hasSuperClassEq(&PPC::G8RCRegClass) && 
              "64-bit load with 32-bit target??");
       UseOffset = ((Addr.Offset & 3) == 0);
       break;
@@ -519,10 +521,10 @@ bool PPCFastISel::PPCEmitLoad(MVT VT, unsigned &ResultReg, Address &Addr,
 
   // If this is a potential VSX load with an offset of 0, a VSX indexed load can
   // be used.
-  bool IsVSSRC = isVSSRCRegClass(UseRC);
-  bool IsVSFRC = isVSFRCRegClass(UseRC);
+  bool IsVSSRC = (ResultReg != 0) && isVSSRCRegister(ResultReg);
+  bool IsVSFRC = (ResultReg != 0) && isVSFRCRegister(ResultReg);
   bool Is32VSXLoad = IsVSSRC && Opc == PPC::LFS;
-  bool Is64VSXLoad = IsVSFRC && Opc == PPC::LFD;
+  bool Is64VSXLoad = IsVSSRC && Opc == PPC::LFD;
   if ((Is32VSXLoad || Is64VSXLoad) &&
       (Addr.BaseType != Address::FrameIndexBase) && UseOffset &&
       (Addr.Offset == 0)) {
@@ -577,18 +579,8 @@ bool PPCFastISel::PPCEmitLoad(MVT VT, unsigned &ResultReg, Address &Addr,
       case PPC::LFS:    Opc = IsVSSRC ? PPC::LXSSPX : PPC::LFSX; break;
       case PPC::LFD:    Opc = IsVSFRC ? PPC::LXSDX : PPC::LFDX; break;
     }
-
-    auto MIB = BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(Opc),
-                       ResultReg);
-
-    // If we have an index register defined we use it in the store inst,
-    // otherwise we use X0 as base as it makes the vector instructions to
-    // use zero in the computation of the effective address regardless the
-    // content of the register.
-    if (IndexReg)
-      MIB.addReg(Addr.Base.Reg).addReg(IndexReg);
-    else
-      MIB.addReg(PPC::ZERO8).addReg(Addr.Base.Reg);
+    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(Opc), ResultReg)
+      .addReg(Addr.Base.Reg).addReg(IndexReg);
   }
 
   return true;
@@ -665,8 +657,8 @@ bool PPCFastISel::PPCEmitStore(MVT VT, unsigned SrcReg, Address &Addr) {
 
   // If this is a potential VSX store with an offset of 0, a VSX indexed store
   // can be used.
-  bool IsVSSRC = isVSSRCRegClass(RC);
-  bool IsVSFRC = isVSFRCRegClass(RC);
+  bool IsVSSRC = isVSSRCRegister(SrcReg);
+  bool IsVSFRC = isVSFRCRegister(SrcReg);
   bool Is32VSXStore = IsVSSRC && Opc == PPC::STFS;
   bool Is64VSXStore = IsVSFRC && Opc == PPC::STFD;
   if ((Is32VSXStore || Is64VSXStore) &&
@@ -697,9 +689,8 @@ bool PPCFastISel::PPCEmitStore(MVT VT, unsigned SrcReg, Address &Addr) {
   // Base reg with offset in range.
   } else if (UseOffset) {
     // VSX only provides an indexed store.
-    if (Is32VSXStore || Is64VSXStore)
-      return false;
-
+    if (Is32VSXStore || Is64VSXStore) return false;
+    
     BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(Opc))
       .addReg(SrcReg).addImm(Addr.Offset).addReg(Addr.Base.Reg);
 
@@ -837,7 +828,7 @@ bool PPCFastISel::PPCEmitCmp(const Value *SrcValue1, const Value *SrcValue2,
   long Imm = 0;
   bool UseImm = false;
 
-  // Only 16-bit integer constants can be represented in compares for
+  // Only 16-bit integer constants can be represented in compares for 
   // PowerPC.  Others will be materialized into a register.
   if (const ConstantInt *ConstInt = dyn_cast<ConstantInt>(SrcValue2)) {
     if (SrcVT == MVT::i64 || SrcVT == MVT::i32 || SrcVT == MVT::i16 ||
@@ -1626,7 +1617,7 @@ bool PPCFastISel::SelectRet(const Instruction *I) {
     CCState CCInfo(CC, F.isVarArg(), *FuncInfo.MF, ValLocs, *Context);
     CCInfo.AnalyzeReturn(Outs, RetCC_PPC64_ELF_FIS);
     const Value *RV = Ret->getOperand(0);
-
+    
     // FIXME: Only one output register for now.
     if (ValLocs.size() > 1)
       return false;
@@ -1672,7 +1663,7 @@ bool PPCFastISel::SelectRet(const Instruction *I) {
         if (RVVT != DestVT && RVVT != MVT::i8 &&
             RVVT != MVT::i16 && RVVT != MVT::i32)
           return false;
-
+      
         if (RVVT != DestVT) {
           switch (VA.getLocInfo()) {
             default:
@@ -1916,9 +1907,7 @@ unsigned PPCFastISel::PPCMaterializeFP(const ConstantFP *CFP, MVT VT) {
   unsigned Align = DL.getPrefTypeAlignment(CFP->getType());
   assert(Align > 0 && "Unexpectedly missing alignment information!");
   unsigned Idx = MCP.getConstantPoolIndex(cast<Constant>(CFP), Align);
-  const TargetRegisterClass *RC =
-    (VT == MVT::f32) ? &PPC::F4RCRegClass : &PPC::F8RCRegClass;
-  unsigned DestReg = createResultReg(RC);
+  unsigned DestReg = createResultReg(TLI.getRegClassFor(VT));
   CodeModel::Model CModel = TM.getCodeModel();
 
   MachineMemOperand *MMO = FuncInfo.MF->getMachineMemOperand(
@@ -1947,9 +1936,8 @@ unsigned PPCFastISel::PPCMaterializeFP(const ConstantFP *CFP, MVT VT) {
       BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(PPC::LDtocL),
               TmpReg2).addConstantPoolIndex(Idx).addReg(TmpReg);
       BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(Opc), DestReg)
-          .addImm(0)
-          .addReg(TmpReg2);
-    } else
+        .addImm(0).addReg(TmpReg2);
+    } else 
       BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(Opc), DestReg)
         .addConstantPoolIndex(Idx, 0, PPCII::MO_TOC_LO)
         .addReg(TmpReg)
@@ -2040,8 +2028,8 @@ unsigned PPCFastISel::PPCMaterialize32BitInt(int64_t Imm,
     // Just Hi bits.
     BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
             TII.get(IsGPRC ? PPC::LIS : PPC::LIS8), ResultReg)
-        .addImm(Hi);
-
+      .addImm(Hi);
+  
   return ResultReg;
 }
 
@@ -2275,7 +2263,7 @@ bool PPCFastISel::fastLowerArguments() {
 // Handle materializing integer constants into a register.  This is not
 // automatically generated for PowerPC, so must be explicitly created here.
 unsigned PPCFastISel::fastEmit_i(MVT Ty, MVT VT, unsigned Opc, uint64_t Imm) {
-
+  
   if (Opc != ISD::Constant)
     return 0;
 
@@ -2288,8 +2276,8 @@ unsigned PPCFastISel::fastEmit_i(MVT Ty, MVT VT, unsigned Opc, uint64_t Imm) {
     return ImmReg;
   }
 
-  if (VT != MVT::i64 && VT != MVT::i32 && VT != MVT::i16 && VT != MVT::i8 &&
-      VT != MVT::i1)
+  if (VT != MVT::i64 && VT != MVT::i32 && VT != MVT::i16 &&
+      VT != MVT::i8 && VT != MVT::i1) 
     return 0;
 
   const TargetRegisterClass *RC = ((VT == MVT::i64) ? &PPC::G8RCRegClass :

@@ -92,7 +92,8 @@ namespace {
     SmallVector<MachineBasicBlock*, 8> ExitBlocks;
 
     bool isExitBlock(const MachineBasicBlock *MBB) const {
-      return is_contained(ExitBlocks, MBB);
+      return std::find(ExitBlocks.begin(), ExitBlocks.end(), MBB) !=
+        ExitBlocks.end();
     }
 
     // Track 'estimated' register pressure.
@@ -267,7 +268,7 @@ bool MachineLICM::runOnMachineFunction(MachineFunction &MF) {
   TII = ST.getInstrInfo();
   TLI = ST.getTargetLowering();
   TRI = ST.getRegisterInfo();
-  MFI = &MF.getFrameInfo();
+  MFI = MF.getFrameInfo();
   MRI = &MF.getRegInfo();
   SchedModel.init(ST.getSchedModel(), &ST, TII);
 

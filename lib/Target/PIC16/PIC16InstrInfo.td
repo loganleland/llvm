@@ -217,7 +217,7 @@ let isCall = 1 in
                           "call\t$dst", [(PIC16call GR16:$dst)]>;
     def CALLm     : II16m<0x0,
                           (outs), (ins memsrc:$dst),
-                          "call\t$dst", [(PIC16call (load addr:$dst))]>;
+                          "call\t${dst:mem}", [(PIC16call (load addr:$dst))]>;
   }
 
 
@@ -284,10 +284,10 @@ def MOVZX16rm8 : I8rm<0x0,
 let mayLoad = 1, hasExtraDefRegAllocReq = 1, Constraints = "$base = $base_wb" in {
 def MOV8rm_POST  : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
                          (outs GR8:$dst, GR16:$base_wb), (ins GR16:$base),
-                         "mov.b\t{@$base, $dst}", []>;
+                         "mov.b\t{@$base+, $dst}", []>;
 def MOV16rm_POST : IForm16<0x0, DstReg, SrcPostInc, Size2Bytes,
                            (outs GR16:$dst, GR16:$base_wb), (ins GR16:$base),
-                           "mov.w\t{@$base, $dst}", []>;
+                           "mov.w\t{@$base+, $dst}", []>;
 }
 
 // Any instruction that defines a 8-bit result leaves the high half of the
@@ -369,11 +369,11 @@ Constraints = "$base = $base_wb, $src = $dst" in {
 def ADD8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
                          (outs GR8:$dst, GR16:$base_wb),
                          (ins GR8:$src, GR16:$base),
-                         "add.b\t{@$base, $dst}", []>;
+                         "add.b\t{@$base+, $dst}", []>;
 def ADD16rm_POST : IForm16<0x0, DstReg, SrcPostInc, Size2Bytes,
                            (outs GR16:$dst, GR16:$base_wb),
                            (ins GR16:$src, GR16:$base),
-                          "add.w\t{@$base, $dst}", []>;
+                          "add.w\t{@$base+, $dst}", []>;
 }
 
 
@@ -541,11 +541,11 @@ Constraints = "$base = $base_wb, $src = $dst" in {
 def AND8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
                          (outs GR8:$dst, GR16:$base_wb),
                          (ins GR8:$src, GR16:$base),
-                         "and.b\t{@$base, $dst}", []>;
+                         "and.b\t{@$base+, $dst}", []>;
 def AND16rm_POST : IForm16<0x0, DstReg, SrcPostInc, Size2Bytes,
                            (outs GR16:$dst, GR16:$base_wb),
                            (ins GR16:$src, GR16:$base),
-                           "and.w\t{@$base, $dst}", []>;
+                           "and.w\t{@$base+, $dst}", []>;
 }
 
 let Constraints = "" in {
@@ -619,11 +619,11 @@ Constraints = "$base = $base_wb, $src = $dst" in {
 def OR8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
                         (outs GR8:$dst, GR16:$base_wb),
                         (ins GR8:$src, GR16:$base),
-                        "bis.b\t{@$base, $dst}", []>;
+                        "bis.b\t{@$base+, $dst}", []>;
 def OR16rm_POST : IForm16<0x0, DstReg, SrcPostInc, Size2Bytes,
                           (outs GR16:$dst, GR16:$base_wb),
                           (ins GR16:$src, GR16:$base),
-                          "bis.w\t{@$base, $dst}", []>;
+                          "bis.w\t{@$base+, $dst}", []>;
 }
 
 let Constraints = "" in {
@@ -738,11 +738,11 @@ Constraints = "$base = $base_wb, $src = $dst" in {
 def XOR8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
                          (outs GR8:$dst, GR16:$base_wb),
                          (ins GR8:$src, GR16:$base),
-                         "xor.b\t{@$base, $dst}", []>;
+                         "xor.b\t{@$base+, $dst}", []>;
 def XOR16rm_POST : IForm16<0x0, DstReg, SrcPostInc, Size2Bytes,
                            (outs GR16:$dst, GR16:$base_wb),
                            (ins GR16:$src, GR16:$base),
-                           "xor.w\t{@$base, $dst}", []>;
+                           "xor.w\t{@$base+, $dst}", []>;
 }
 
 let Constraints = "" in {
@@ -819,11 +819,11 @@ Constraints = "$base = $base_wb, $src = $dst" in {
 def SUB8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
                          (outs GR8:$dst, GR16:$base_wb),
                          (ins GR8:$src, GR16:$base),
-                         "sub.b\t{@$base, $dst}", []>;
+                         "sub.b\t{@$base+, $dst}", []>;
 def SUB16rm_POST : IForm16<0x0, DstReg, SrcPostInc, Size2Bytes,
                           (outs GR16:$dst, GR16:$base_wb),
                           (ins GR16:$src, GR16:$base),
-                          "sub.w\t{@$base, $dst}", []>;
+                          "sub.w\t{@$base+, $dst}", []>;
 }
 
 let Constraints = "" in {
@@ -959,16 +959,16 @@ def SHL16r1 : I16rr<0x0,
                     [(set GR16:$dst, (PIC16rla GR16:$src)),
                      (implicit SR)]>;
 
-//def SAR8r1c  : Pseudo<(outs GR8:$dst), (ins GR8:$src),
-//                      "clrc\n\t"
-//                      "rrc.b\t$dst",
-//                      [(set GR8:$dst, (PIC16rrc GR8:$src)),
-//                       (implicit SR)]>;
-//def SAR16r1c : Pseudo<(outs GR16:$dst), (ins GR16:$src),
-//                      "clrc\n\t"
-//                      "rrc.w\t$dst",
-//                      [(set GR16:$dst, (PIC16rrc GR16:$src)),
-//                       (implicit SR)]>;
+def SAR8r1c  : Pseudo<(outs GR8:$dst), (ins GR8:$src),
+                      "clrc\n\t"
+                      "rrc.b\t$dst",
+                      [(set GR8:$dst, (PIC16rrc GR8:$src)),
+                       (implicit SR)]>;
+def SAR16r1c : Pseudo<(outs GR16:$dst), (ins GR16:$src),
+                      "clrc\n\t"
+                      "rrc.w\t$dst",
+                      [(set GR16:$dst, (PIC16rrc GR16:$src)),
+                       (implicit SR)]>;
 
 // FIXME: Memory sext's ?
 def SEXT16r : II16r<0x0,

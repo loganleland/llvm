@@ -43,8 +43,6 @@ public:
                                         size_t NumResults) {
     llvm_unreachable("emitIndirectFunctionType not implemented");
   }
-  /// .indidx
-  virtual void emitIndIdx(const MCExpr *Value) = 0;
 };
 
 /// This part is for ascii assembly output
@@ -61,7 +59,6 @@ public:
   void emitIndirectFunctionType(StringRef name,
                                 SmallVectorImpl<MVT> &SignatureVTs,
                                 size_t NumResults) override;
-  void emitIndIdx(const MCExpr *Value) override;
 };
 
 /// This part is for ELF object output
@@ -73,7 +70,6 @@ public:
   void emitResult(ArrayRef<MVT> Types) override;
   void emitLocal(ArrayRef<MVT> Types) override;
   void emitEndFunc() override;
-  void emitIndIdx(const MCExpr *Value) override;
 };
 
 } // end namespace llvm

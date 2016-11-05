@@ -21,16 +21,11 @@
 
 using namespace llvm;
 
-static cl::opt<bool> EnableSubRegLiveness("enable-subreg-liveness", cl::Hidden,
-  cl::init(true), cl::desc("Enable subregister liveness tracking."));
-
 // Pin the vtable to this file.
 void MachineRegisterInfo::Delegate::anchor() {}
 
 MachineRegisterInfo::MachineRegisterInfo(MachineFunction *MF)
-    : MF(MF), TheDelegate(nullptr),
-      TracksSubRegLiveness(MF->getSubtarget().enableSubRegLiveness() &&
-                           EnableSubRegLiveness) {
+    : MF(MF), TheDelegate(nullptr), TracksSubRegLiveness(false) {
   unsigned NumRegs = getTargetRegisterInfo()->getNumRegs();
   VRegInfo.reserve(256);
   RegAllocHints.reserve(256);
@@ -119,9 +114,6 @@ MachineRegisterInfo::getSize(unsigned VReg) const {
 }
 
 void MachineRegisterInfo::setSize(unsigned VReg, unsigned Size) {
-  // Check that VReg doesn't have a class.
-  assert(!getRegClassOrRegBank(VReg).is<const TargetRegisterClass *>() &&
-         "Can't set the size of a non-generic virtual register");
   getVRegToSize()[VReg] = Size;
 }
 
@@ -132,27 +124,13 @@ MachineRegisterInfo::createGenericVirtualRegister(unsigned Size) {
   // New virtual register number.
   unsigned Reg = TargetRegisterInfo::index2VirtReg(getNumVirtRegs());
   VRegInfo.grow(Reg);
-  // FIXME: Should we use a dummy register bank?
-  VRegInfo[Reg].first = static_cast<RegisterBank *>(nullptr);
+  // FIXME: Should we use a dummy register class?
+  VRegInfo[Reg].first = static_cast<TargetRegisterClass *>(nullptr);
   getVRegToSize()[Reg] = Size;
   RegAllocHints.grow(Reg);
   if (TheDelegate)
     TheDelegate->MRI_NoteNewVirtualRegister(Reg);
   return Reg;
-}
-
-void MachineRegisterInfo::clearVirtRegSizes() {
-#ifndef NDEBUG
-  // Verify that the size of the now-constrained vreg is unchanged.
-  for (auto &VRegToSize : getVRegToSize()) {
-    auto *RC = getRegClass(VRegToSize.first);
-    if (VRegToSize.second != (RC->getSize() * 8))
-      llvm_unreachable(
-          "Virtual register has explicit size different from its class size");
-  }
-#endif
-
-  getVRegToSize().clear();
 }
 
 /// clearVirtRegs - Remove all virtual registers (after physreg assignment).

@@ -105,7 +105,6 @@ void PPCSubtarget::initializeEnvironment() {
   HasFusion = false;
   HasFloat128 = false;
   IsISA3_0 = false;
-  UseLongCalls = false;
 
   HasPOPCNTD = POPCNTD_Unavailable;
 }

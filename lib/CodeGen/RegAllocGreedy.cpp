@@ -334,11 +334,6 @@ public:
   /// Perform register allocation.
   bool runOnMachineFunction(MachineFunction &mf) override;
 
-  MachineFunctionProperties getRequiredProperties() const override {
-    return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::NoPHIs);
-  }
-
   static char ID;
 
 private:

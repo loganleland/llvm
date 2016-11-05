@@ -17,6 +17,7 @@
 
 #include "llvm/Target/TargetRecip.h"
 #include "llvm/MC/MCTargetOptions.h"
+#include "llvm/MC/MCAsmInfo.h"
 
 namespace llvm {
   class MachineFunction;
@@ -53,15 +54,6 @@ namespace llvm {
     enum Model {
       POSIX,  // POSIX Threads
       Single  // Single Threaded Environment
-    };
-  }
-
-  namespace FPDenormal {
-    enum DenormalType {
-      IEEE,           // IEEE 754 denormal numbers
-      PreserveSign,   // the sign of a flushed-to-zero number is preserved in
-                      // the sign of 0
-      PositiveZero    // denormals are flushed to positive zero
     };
   }
 
@@ -102,7 +94,6 @@ namespace llvm {
     TargetOptions()
         : PrintMachineCode(false), LessPreciseFPMADOption(false),
           UnsafeFPMath(false), NoInfsFPMath(false), NoNaNsFPMath(false),
-          NoTrappingFPMath(false),
           HonorSignDependentRoundingFPMathOption(false), NoZerosInBSS(false),
           GuaranteedTailCallOpt(false), StackAlignmentOverride(0),
           StackSymbolOrdering(true), EnableFastISel(false), UseInitArray(false),
@@ -114,7 +105,6 @@ namespace llvm {
           AllowFPOpFusion(FPOpFusion::Standard), Reciprocals(TargetRecip()),
           JTType(JumpTable::Single), ThreadModel(ThreadModel::POSIX),
           EABIVersion(EABI::Default), DebuggerTuning(DebuggerKind::Default),
-          FPDenormalType(FPDenormal::IEEE),
           ExceptionModel(ExceptionHandling::None) {}
 
     /// PrintMachineCode - This flag is enabled when the -print-machineinstrs
@@ -153,11 +143,6 @@ namespace llvm {
     /// this flag is off (the default), the code generator is not allowed to
     /// assume the FP arithmetic arguments and results are never NaNs.
     unsigned NoNaNsFPMath : 1;
-
-    /// NoTrappingFPMath - This flag is enabled when the 
-    /// -enable-no-trapping-fp-math is specified on the command line. This 
-    /// specifies that there are no trap handlers to handle exceptions.
-    unsigned NoTrappingFPMath : 1;
 
     /// HonorSignDependentRoundingFPMath - This returns true when the
     /// -enable-sign-dependent-rounding-fp-math is specified.  If this returns
@@ -269,10 +254,6 @@ namespace llvm {
     /// Which debugger to tune for.
     DebuggerKind DebuggerTuning;
 
-    /// FPDenormalType - This flags specificies which denormal numbers the code
-    /// is permitted to require.
-    FPDenormal::DenormalType FPDenormalType;
-
     /// What exception model to use
     ExceptionHandling ExceptionModel;
 
@@ -290,7 +271,6 @@ inline bool operator==(const TargetOptions &LHS,
     ARE_EQUAL(UnsafeFPMath) &&
     ARE_EQUAL(NoInfsFPMath) &&
     ARE_EQUAL(NoNaNsFPMath) &&
-    ARE_EQUAL(NoTrappingFPMath) &&
     ARE_EQUAL(HonorSignDependentRoundingFPMathOption) &&
     ARE_EQUAL(NoZerosInBSS) &&
     ARE_EQUAL(GuaranteedTailCallOpt) &&
@@ -306,7 +286,6 @@ inline bool operator==(const TargetOptions &LHS,
     ARE_EQUAL(ThreadModel) &&
     ARE_EQUAL(EABIVersion) &&
     ARE_EQUAL(DebuggerTuning) &&
-    ARE_EQUAL(FPDenormalType) &&
     ARE_EQUAL(ExceptionModel) &&
     ARE_EQUAL(MCOptions) &&
     ARE_EQUAL(EnableIPRA);

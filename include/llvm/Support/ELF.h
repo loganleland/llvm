@@ -312,7 +312,7 @@ enum {
   EM_AMDGPU        = 224, // AMD GPU architecture
   EM_LANAI         = 244, // Lanai 32-bit processor
   EM_BPF           = 247, // Linux kernel bpf virtual machine
-  EM_PIC16         = 248, // PIC16 microcontroller
+
   // A request has been made to the maintainer of the official registry for
   // such numbers for an official value for WebAssembly. As soon as one is
   // allocated, this enum will be updated to use it.
@@ -1323,20 +1323,7 @@ enum {
 
 // SHT_NOTE section types
 enum {
-  NT_GNU_ABI_TAG = 1,
-  NT_GNU_HWCAP = 2,
-  NT_GNU_BUILD_ID = 3,
-  NT_GNU_GOLD_VERSION = 4,
-};
-
-enum {
-  GNU_ABI_TAG_LINUX = 0,
-  GNU_ABI_TAG_HURD = 1,
-  GNU_ABI_TAG_SOLARIS = 2,
-  GNU_ABI_TAG_FREEBSD = 3,
-  GNU_ABI_TAG_NETBSD = 4,
-  GNU_ABI_TAG_SYLLABLE = 5,
-  GNU_ABI_TAG_NACL = 6,
+  NT_GNU_BUILD_ID = 3
 };
 
 // Compressed section header for ELF32.

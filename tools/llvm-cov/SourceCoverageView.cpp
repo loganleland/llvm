@@ -46,7 +46,6 @@ std::string CoveragePrinter::getOutputPath(StringRef Path, StringRef Extension,
 
   auto PathFilename = (sys::path::filename(Path) + "." + Extension).str();
   sys::path::append(FullPath, PathFilename);
-  sys::path::native(FullPath);
 
   return FullPath.str();
 }
@@ -110,15 +109,14 @@ bool SourceCoverageView::hasSubViews() const {
 std::unique_ptr<SourceCoverageView>
 SourceCoverageView::create(StringRef SourceName, const MemoryBuffer &File,
                            const CoverageViewOptions &Options,
-                           coverage::CoverageData &&CoverageInfo,
-                           bool FunctionView) {
+                           coverage::CoverageData &&CoverageInfo) {
   switch (Options.Format) {
   case CoverageViewOptions::OutputFormat::Text:
-    return llvm::make_unique<SourceCoverageViewText>(
-        SourceName, File, Options, std::move(CoverageInfo), FunctionView);
+    return llvm::make_unique<SourceCoverageViewText>(SourceName, File, Options,
+                                                     std::move(CoverageInfo));
   case CoverageViewOptions::OutputFormat::HTML:
-    return llvm::make_unique<SourceCoverageViewHTML>(
-        SourceName, File, Options, std::move(CoverageInfo), FunctionView);
+    return llvm::make_unique<SourceCoverageViewHTML>(SourceName, File, Options,
+                                                     std::move(CoverageInfo));
   }
   llvm_unreachable("Unknown coverage output format!");
 }
@@ -137,15 +135,11 @@ void SourceCoverageView::addInstantiation(
 
 void SourceCoverageView::print(raw_ostream &OS, bool WholeFile,
                                bool ShowSourceName, unsigned ViewDepth) {
-  if (WholeFile)
-    renderCellInTitle(OS, "Code Coverage Report");
+  if (ShowSourceName)
+    renderSourceName(OS);
 
   renderViewHeader(OS);
 
-  if (ShowSourceName)
-    renderSourceName(OS, WholeFile);
-
-  renderTableHeader(OS, ViewDepth);
   // We need the expansions and instantiations sorted so we can go through them
   // while we iterate lines.
   std::sort(ExpansionSubViews.begin(), ExpansionSubViews.end());
@@ -188,10 +182,10 @@ void SourceCoverageView::print(raw_ostream &OS, bool WholeFile,
         LineCount.addRegionStartCount(S->Count);
 
     renderLinePrefix(OS, ViewDepth);
-    if (getOptions().ShowLineNumbers)
-      renderLineNumberColumn(OS, LI.line_number());
     if (getOptions().ShowLineStats)
       renderLineCoverageColumn(OS, LineCount);
+    if (getOptions().ShowLineNumbers)
+      renderLineNumberColumn(OS, LI.line_number());
 
     // If there are expansion subviews, we want to highlight the first one.
     unsigned ExpansionColumn = 0;

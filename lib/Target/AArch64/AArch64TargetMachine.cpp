@@ -12,15 +12,11 @@
 
 #include "AArch64.h"
 #include "AArch64CallLowering.h"
-#include "AArch64InstructionSelector.h"
-#include "AArch64MachineLegalizer.h"
 #include "AArch64RegisterBankInfo.h"
 #include "AArch64TargetMachine.h"
 #include "AArch64TargetObjectFile.h"
 #include "AArch64TargetTransformInfo.h"
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
-#include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
-#include "llvm/CodeGen/GlobalISel/MachineLegalizePass.h"
 #include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
@@ -34,56 +30,53 @@
 #include "llvm/Transforms/Scalar.h"
 using namespace llvm;
 
-static cl::opt<bool> EnableCCMP("aarch64-enable-ccmp",
-                                cl::desc("Enable the CCMP formation pass"),
-                                cl::init(true), cl::Hidden);
+static cl::opt<bool>
+EnableCCMP("aarch64-ccmp", cl::desc("Enable the CCMP formation pass"),
+           cl::init(true), cl::Hidden);
 
-static cl::opt<bool> EnableMCR("aarch64-enable-mcr",
+static cl::opt<bool> EnableMCR("aarch64-mcr",
                                cl::desc("Enable the machine combiner pass"),
                                cl::init(true), cl::Hidden);
 
-static cl::opt<bool> EnableStPairSuppress("aarch64-enable-stp-suppress",
-                                          cl::desc("Suppress STP for AArch64"),
-                                          cl::init(true), cl::Hidden);
-
-static cl::opt<bool> EnableAdvSIMDScalar(
-    "aarch64-enable-simd-scalar",
-    cl::desc("Enable use of AdvSIMD scalar integer instructions"),
-    cl::init(false), cl::Hidden);
+static cl::opt<bool>
+EnableStPairSuppress("aarch64-stp-suppress", cl::desc("Suppress STP for AArch64"),
+                     cl::init(true), cl::Hidden);
 
 static cl::opt<bool>
-    EnablePromoteConstant("aarch64-enable-promote-const",
-                          cl::desc("Enable the promote constant pass"),
-                          cl::init(true), cl::Hidden);
-
-static cl::opt<bool> EnableCollectLOH(
-    "aarch64-enable-collect-loh",
-    cl::desc("Enable the pass that emits the linker optimization hints (LOH)"),
-    cl::init(true), cl::Hidden);
+EnableAdvSIMDScalar("aarch64-simd-scalar", cl::desc("Enable use of AdvSIMD scalar"
+                    " integer instructions"), cl::init(false), cl::Hidden);
 
 static cl::opt<bool>
-    EnableDeadRegisterElimination("aarch64-enable-dead-defs", cl::Hidden,
-                                  cl::desc("Enable the pass that removes dead"
-                                           " definitons and replaces stores to"
-                                           " them with stores to the zero"
-                                           " register"),
-                                  cl::init(true));
+EnablePromoteConstant("aarch64-promote-const", cl::desc("Enable the promote "
+                      "constant pass"), cl::init(true), cl::Hidden);
 
-static cl::opt<bool> EnableRedundantCopyElimination(
-    "aarch64-enable-copyelim",
-    cl::desc("Enable the redundant copy elimination pass"), cl::init(true),
-    cl::Hidden);
+static cl::opt<bool>
+EnableCollectLOH("aarch64-collect-loh", cl::desc("Enable the pass that emits the"
+                 " linker optimization hints (LOH)"), cl::init(true),
+                 cl::Hidden);
 
-static cl::opt<bool> EnableLoadStoreOpt("aarch64-enable-ldst-opt",
-                                        cl::desc("Enable the load/store pair"
-                                                 " optimization pass"),
-                                        cl::init(true), cl::Hidden);
+static cl::opt<bool>
+EnableDeadRegisterElimination("aarch64-dead-def-elimination", cl::Hidden,
+                              cl::desc("Enable the pass that removes dead"
+                                       " definitons and replaces stores to"
+                                       " them with stores to the zero"
+                                       " register"),
+                              cl::init(true));
 
-static cl::opt<bool> EnableAtomicTidy(
-    "aarch64-enable-atomic-cfg-tidy", cl::Hidden,
-    cl::desc("Run SimplifyCFG after expanding atomic operations"
-             " to make use of cmpxchg flow-based information"),
-    cl::init(true));
+static cl::opt<bool>
+EnableRedundantCopyElimination("aarch64-redundant-copy-elim",
+              cl::desc("Enable the redundant copy elimination pass"),
+              cl::init(true), cl::Hidden);
+
+static cl::opt<bool>
+EnableLoadStoreOpt("aarch64-load-store-opt", cl::desc("Enable the load/store pair"
+                   " optimization pass"), cl::init(true), cl::Hidden);
+
+static cl::opt<bool>
+EnableAtomicTidy("aarch64-atomic-cfg-tidy", cl::Hidden,
+                 cl::desc("Run SimplifyCFG after expanding atomic operations"
+                          " to make use of cmpxchg flow-based information"),
+                 cl::init(true));
 
 static cl::opt<bool>
 EnableEarlyIfConversion("aarch64-enable-early-ifcvt", cl::Hidden,
@@ -91,9 +84,9 @@ EnableEarlyIfConversion("aarch64-enable-early-ifcvt", cl::Hidden,
                         cl::init(true));
 
 static cl::opt<bool>
-    EnableCondOpt("aarch64-enable-condopt",
-                  cl::desc("Enable the condition optimizer pass"),
-                  cl::init(true), cl::Hidden);
+EnableCondOpt("aarch64-condopt",
+              cl::desc("Enable the condition optimizer pass"),
+              cl::init(true), cl::Hidden);
 
 static cl::opt<bool>
 EnableA53Fix835769("aarch64-fix-cortex-a53-835769", cl::Hidden,
@@ -101,26 +94,17 @@ EnableA53Fix835769("aarch64-fix-cortex-a53-835769", cl::Hidden,
                 cl::init(false));
 
 static cl::opt<bool>
-    EnableAddressTypePromotion("aarch64-enable-type-promotion", cl::Hidden,
-                               cl::desc("Enable the type promotion pass"),
-                               cl::init(true));
-
-static cl::opt<bool>
-    EnableGEPOpt("aarch64-enable-gep-opt", cl::Hidden,
-                 cl::desc("Enable optimizations on complex GEPs"),
-                 cl::init(false));
-
-static cl::opt<bool>
-    BranchRelaxation("aarch64-enable-branch-relax", cl::Hidden, cl::init(true),
-                     cl::desc("Relax out of range conditional branches"));
+EnableGEPOpt("aarch64-gep-opt", cl::Hidden,
+             cl::desc("Enable optimizations on complex GEPs"),
+             cl::init(false));
 
 // FIXME: Unify control over GlobalMerge.
 static cl::opt<cl::boolOrDefault>
-    EnableGlobalMerge("aarch64-enable-global-merge", cl::Hidden,
-                      cl::desc("Enable the global merge pass"));
+EnableGlobalMerge("aarch64-global-merge", cl::Hidden,
+                  cl::desc("Enable the global merge pass"));
 
 static cl::opt<bool>
-    EnableLoopDataPrefetch("aarch64-enable-loop-data-prefetch", cl::Hidden,
+    EnableLoopDataPrefetch("aarch64-loop-data-prefetch", cl::Hidden,
                            cl::desc("Enable the loop data prefetch pass"),
                            cl::init(true));
 
@@ -131,21 +115,7 @@ extern "C" void LLVMInitializeAArch64Target() {
   RegisterTargetMachine<AArch64leTargetMachine> Z(TheARM64Target);
   auto PR = PassRegistry::getPassRegistry();
   initializeGlobalISel(*PR);
-  initializeAArch64A53Fix835769Pass(*PR);
-  initializeAArch64A57FPLoadBalancingPass(*PR);
-  initializeAArch64AddressTypePromotionPass(*PR);
-  initializeAArch64AdvSIMDScalarPass(*PR);
-  initializeAArch64BranchRelaxationPass(*PR);
-  initializeAArch64CollectLOHPass(*PR);
-  initializeAArch64ConditionalComparesPass(*PR);
-  initializeAArch64ConditionOptimizerPass(*PR);
-  initializeAArch64DeadRegisterDefinitionsPass(*PR);
   initializeAArch64ExpandPseudoPass(*PR);
-  initializeAArch64LoadStoreOptPass(*PR);
-  initializeAArch64PromoteConstantPass(*PR);
-  initializeAArch64RedundantCopyEliminationPass(*PR);
-  initializeAArch64StorePairSuppressPass(*PR);
-  initializeLDTLSCleanupPass(*PR);
 }
 
 //===----------------------------------------------------------------------===//
@@ -225,17 +195,9 @@ AArch64TargetMachine::~AArch64TargetMachine() {}
 namespace {
 struct AArch64GISelActualAccessor : public GISelAccessor {
   std::unique_ptr<CallLowering> CallLoweringInfo;
-  std::unique_ptr<InstructionSelector> InstSelector;
-  std::unique_ptr<MachineLegalizer> Legalizer;
   std::unique_ptr<RegisterBankInfo> RegBankInfo;
   const CallLowering *getCallLowering() const override {
     return CallLoweringInfo.get();
-  }
-  const InstructionSelector *getInstructionSelector() const override {
-    return InstSelector.get();
-  }
-  const class MachineLegalizer *getMachineLegalizer() const override {
-    return Legalizer.get();
   }
   const RegisterBankInfo *getRegBankInfo() const override {
     return RegBankInfo.get();
@@ -271,16 +233,8 @@ AArch64TargetMachine::getSubtargetImpl(const Function &F) const {
         new AArch64GISelActualAccessor();
     GISel->CallLoweringInfo.reset(
         new AArch64CallLowering(*I->getTargetLowering()));
-    GISel->Legalizer.reset(new AArch64MachineLegalizer());
-
-    auto *RBI = new AArch64RegisterBankInfo(*I->getRegisterInfo());
-
-    // FIXME: At this point, we can't rely on Subtarget having RBI.
-    // It's awkward to mix passing RBI and the Subtarget; should we pass
-    // TII/TRI as well?
-    GISel->InstSelector.reset(new AArch64InstructionSelector(*I, *RBI));
-
-    GISel->RegBankInfo.reset(RBI);
+    GISel->RegBankInfo.reset(
+        new AArch64RegisterBankInfo(*I->getRegisterInfo()));
 #endif
     I->setGISelAccessor(*GISel);
   }
@@ -322,9 +276,7 @@ public:
   bool addInstSelector() override;
 #ifdef LLVM_BUILD_GLOBAL_ISEL
   bool addIRTranslator() override;
-  bool addLegalizeMachineIR() override;
   bool addRegBankSelect() override;
-  bool addGlobalInstructionSelect() override;
 #endif
   bool addILPOpts() override;
   void addPreRegAlloc() override;
@@ -399,7 +351,7 @@ bool AArch64PassConfig::addPreISel() {
     addPass(createGlobalMergePass(TM, 4095, OnlyOptimizeForSize));
   }
 
-  if (TM->getOptLevel() != CodeGenOpt::None && EnableAddressTypePromotion)
+  if (TM->getOptLevel() != CodeGenOpt::None)
     addPass(createAArch64AddressTypePromotionPass());
 
   return false;
@@ -422,16 +374,8 @@ bool AArch64PassConfig::addIRTranslator() {
   addPass(new IRTranslator());
   return false;
 }
-bool AArch64PassConfig::addLegalizeMachineIR() {
-  addPass(new MachineLegalizePass());
-  return false;
-}
 bool AArch64PassConfig::addRegBankSelect() {
   addPass(new RegBankSelect());
-  return false;
-}
-bool AArch64PassConfig::addGlobalInstructionSelect() {
-  addPass(new InstructionSelect());
   return false;
 }
 #endif
@@ -486,8 +430,7 @@ void AArch64PassConfig::addPreEmitPass() {
     addPass(createAArch64A53Fix835769());
   // Relax conditional branch instructions if they're otherwise out of
   // range of their destination.
-  if (BranchRelaxation)
-    addPass(createAArch64BranchRelaxation());
+  addPass(createAArch64BranchRelaxation());
   if (TM->getOptLevel() != CodeGenOpt::None && EnableCollectLOH &&
       TM->getTargetTriple().isOSBinFormatMachO())
     addPass(createAArch64CollectLOHPass());

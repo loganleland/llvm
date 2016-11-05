@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=arm64-eabi | FileCheck %s
+; RUN: llc < %s -march=arm64 | FileCheck %s
 
 define void @caller(i32* nocapture %p, i32 %a, i32 %b) nounwind optsize ssp {
 ; CHECK-NOT: stp

@@ -196,7 +196,7 @@ const DIType *DbgVariable::getType() const {
   return Ty;
 }
 
-static const DwarfAccelTable::Atom TypeAtoms[] = {
+static LLVM_CONSTEXPR DwarfAccelTable::Atom TypeAtoms[] = {
     DwarfAccelTable::Atom(dwarf::DW_ATOM_die_offset, dwarf::DW_FORM_data4),
     DwarfAccelTable::Atom(dwarf::DW_ATOM_die_tag, dwarf::DW_FORM_data2),
     DwarfAccelTable::Atom(dwarf::DW_ATOM_type_flags, dwarf::DW_FORM_data1)};
@@ -349,11 +349,10 @@ bool DwarfDebug::isLexicalScopeDIENull(LexicalScope *Scope) {
   return !getLabelAfterInsn(Ranges.front().second);
 }
 
-template <typename Func> static void forBothCUs(DwarfCompileUnit &CU, Func F) {
+template <typename Func> void forBothCUs(DwarfCompileUnit &CU, Func F) {
   F(CU);
   if (auto *SkelCU = CU.getSkeleton())
-    if (CU.getCUNode()->getSplitDebugInlining())
-      F(*SkelCU);
+    F(*SkelCU);
 }
 
 void DwarfDebug::constructAbstractSubprogramScopeDIE(LexicalScope *Scope) {
@@ -450,8 +449,8 @@ DwarfDebug::constructDwarfCompileUnit(const DICompileUnit *DIUnit) {
                       DIUnit->getSplitDebugFilename());
   }
 
-  CUMap.insert({DIUnit, &NewCU});
-  CUDieMap.insert({&Die, &NewCU});
+  CUMap.insert(std::make_pair(DIUnit, &NewCU));
+  CUDieMap.insert(std::make_pair(&Die, &NewCU));
   return NewCU;
 }
 
@@ -845,7 +844,8 @@ DwarfDebug::buildLocationList(SmallVectorImpl<DebugLocEntry> &DebugLoc,
 
     // If this piece overlaps with any open ranges, truncate them.
     const DIExpression *DIExpr = Begin->getDebugExpression();
-    auto Last = remove_if(OpenRanges, [&](DebugLocEntry::Value R) {
+    auto Last = std::remove_if(OpenRanges.begin(), OpenRanges.end(),
+                               [&](DebugLocEntry::Value R) {
       return piecesOverlap(DIExpr, R.getExpression());
     });
     OpenRanges.erase(Last, OpenRanges.end());
@@ -1156,8 +1156,7 @@ void DwarfDebug::endFunction(const MachineFunction *MF) {
 
   TheCU.constructSubprogramScopeDIE(FnScope);
   if (auto *SkelCU = TheCU.getSkeleton())
-    if (!LScopes.getAbstractScopesList().empty() &&
-        TheCU.getCUNode()->getSplitDebugInlining())
+    if (!LScopes.getAbstractScopesList().empty())
       SkelCU->constructSubprogramScopeDIE(FnScope);
 
   // Clear debug info
@@ -1438,7 +1437,7 @@ void DebugLocEntry::finalize(const AsmPrinter &AP,
   const DebugLocEntry::Value &Value = Values[0];
   if (Value.isBitPiece()) {
     // Emit all pieces that belong to the same variable and range.
-    assert(all_of(Values, [](DebugLocEntry::Value P) {
+    assert(std::all_of(Values.begin(), Values.end(), [](DebugLocEntry::Value P) {
           return P.isBitPiece();
         }) && "all values are expected to be pieces");
     assert(std::is_sorted(Values.begin(), Values.end()) &&
@@ -1890,7 +1889,8 @@ void DwarfDebug::addDwarfTypeUnitType(DwarfCompileUnit &CU,
                                               getDwoLineTable(CU));
   DwarfTypeUnit &NewTU = *OwnedUnit;
   DIE &UnitDie = NewTU.getUnitDie();
-  TypeUnitsUnderConstruction.emplace_back(std::move(OwnedUnit), CTy);
+  TypeUnitsUnderConstruction.push_back(
+      std::make_pair(std::move(OwnedUnit), CTy));
 
   NewTU.addUInt(UnitDie, dwarf::DW_AT_language, dwarf::DW_FORM_data2,
                 CU.getLanguage());

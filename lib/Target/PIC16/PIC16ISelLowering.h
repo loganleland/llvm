@@ -104,7 +104,7 @@ namespace llvm {
                                  StringRef Constraint, MVT VT) const override;
 
     /// isTruncateFree - Return true if it's free to truncate a value of type
-    /// Ty1 to type Ty2. e.g. On PIC16 it's free to truncate a i16 value in
+    /// Ty1 to type Ty2. e.g. On pic16 it's free to truncate a i16 value in
     /// register R15W to i8 by referencing its sub-register R15B.
     bool isTruncateFree(Type *Ty1, Type *Ty2) const override;
     bool isTruncateFree(EVT VT1, EVT VT2) const override;
@@ -114,7 +114,7 @@ namespace llvm {
     /// register. This does not necessarily include registers defined in unknown
     /// ways, such as incoming arguments, or copies from unknown virtual
     /// registers. Also, if isTruncateFree(Ty2, Ty1) is true, this does not
-    /// necessarily apply to truncate instructions. e.g. on PIC16, all
+    /// necessarily apply to truncate instructions. e.g. on pic16, all
     /// instructions that define 8-bit values implicit zero-extend the result
     /// out to 16 bits.
     bool isZExtFree(Type *Ty1, Type *Ty2) const override;

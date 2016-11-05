@@ -912,95 +912,84 @@ class BitPermutationSelector {
     }
   };
 
-  using ValueBitsMemoizedValue = std::pair<bool, SmallVector<ValueBit, 64>>;
-  using ValueBitsMemoizer =
-      DenseMap<SDValue, std::unique_ptr<ValueBitsMemoizedValue>>;
-  ValueBitsMemoizer Memoizer;
-
-  // Return a pair of bool and a SmallVector pointer to a memoization entry.
-  // The bool is true if something interesting was deduced, otherwise if we're
+  // Return true if something interesting was deduced, return false if we're
   // providing only a generic representation of V (or something else likewise
-  // uninteresting for instruction selection) through the SmallVector.
-  std::pair<bool, SmallVector<ValueBit, 64> *> getValueBits(SDValue V,
-                                                            unsigned NumBits) {
-    auto &ValueEntry = Memoizer[V];
-    if (ValueEntry)
-      return std::make_pair(ValueEntry->first, &ValueEntry->second);
-    ValueEntry.reset(new ValueBitsMemoizedValue());
-    bool &Interesting = ValueEntry->first;
-    SmallVector<ValueBit, 64> &Bits = ValueEntry->second;
-    Bits.resize(NumBits);
-
+  // uninteresting for instruction selection).
+  bool getValueBits(SDValue V, SmallVector<ValueBit, 64> &Bits) {
     switch (V.getOpcode()) {
     default: break;
     case ISD::ROTL:
       if (isa<ConstantSDNode>(V.getOperand(1))) {
         unsigned RotAmt = V.getConstantOperandVal(1);
 
-        const auto &LHSBits = *getValueBits(V.getOperand(0), NumBits).second;
+        SmallVector<ValueBit, 64> LHSBits(Bits.size());
+        getValueBits(V.getOperand(0), LHSBits);
 
-        for (unsigned i = 0; i < NumBits; ++i)
-          Bits[i] = LHSBits[i < RotAmt ? i + (NumBits - RotAmt) : i - RotAmt];
+        for (unsigned i = 0; i < Bits.size(); ++i)
+          Bits[i] = LHSBits[i < RotAmt ? i + (Bits.size() - RotAmt) : i - RotAmt];
 
-        return std::make_pair(Interesting = true, &Bits);
+        return true;
       }
       break;
     case ISD::SHL:
       if (isa<ConstantSDNode>(V.getOperand(1))) {
         unsigned ShiftAmt = V.getConstantOperandVal(1);
 
-        const auto &LHSBits = *getValueBits(V.getOperand(0), NumBits).second;
+        SmallVector<ValueBit, 64> LHSBits(Bits.size());
+        getValueBits(V.getOperand(0), LHSBits);
 
-        for (unsigned i = ShiftAmt; i < NumBits; ++i)
+        for (unsigned i = ShiftAmt; i < Bits.size(); ++i)
           Bits[i] = LHSBits[i - ShiftAmt];
 
         for (unsigned i = 0; i < ShiftAmt; ++i)
           Bits[i] = ValueBit(ValueBit::ConstZero);
 
-        return std::make_pair(Interesting = true, &Bits);
+        return true;
       }
       break;
     case ISD::SRL:
       if (isa<ConstantSDNode>(V.getOperand(1))) {
         unsigned ShiftAmt = V.getConstantOperandVal(1);
 
-        const auto &LHSBits = *getValueBits(V.getOperand(0), NumBits).second;
+        SmallVector<ValueBit, 64> LHSBits(Bits.size());
+        getValueBits(V.getOperand(0), LHSBits);
 
-        for (unsigned i = 0; i < NumBits - ShiftAmt; ++i)
+        for (unsigned i = 0; i < Bits.size() - ShiftAmt; ++i)
           Bits[i] = LHSBits[i + ShiftAmt];
 
-        for (unsigned i = NumBits - ShiftAmt; i < NumBits; ++i)
+        for (unsigned i = Bits.size() - ShiftAmt; i < Bits.size(); ++i)
           Bits[i] = ValueBit(ValueBit::ConstZero);
 
-        return std::make_pair(Interesting = true, &Bits);
+        return true;
       }
       break;
     case ISD::AND:
       if (isa<ConstantSDNode>(V.getOperand(1))) {
         uint64_t Mask = V.getConstantOperandVal(1);
 
-        const SmallVector<ValueBit, 64> *LHSBits;
+        SmallVector<ValueBit, 64> LHSBits(Bits.size());
+        bool LHSTrivial = getValueBits(V.getOperand(0), LHSBits);
+
+        for (unsigned i = 0; i < Bits.size(); ++i)
+          if (((Mask >> i) & 1) == 1)
+            Bits[i] = LHSBits[i];
+          else
+            Bits[i] = ValueBit(ValueBit::ConstZero);
+
         // Mark this as interesting, only if the LHS was also interesting. This
         // prevents the overall procedure from matching a single immediate 'and'
         // (which is non-optimal because such an and might be folded with other
         // things if we don't select it here).
-        std::tie(Interesting, LHSBits) = getValueBits(V.getOperand(0), NumBits);
-
-        for (unsigned i = 0; i < NumBits; ++i)
-          if (((Mask >> i) & 1) == 1)
-            Bits[i] = (*LHSBits)[i];
-          else
-            Bits[i] = ValueBit(ValueBit::ConstZero);
-
-        return std::make_pair(Interesting, &Bits);
+        return LHSTrivial;
       }
       break;
     case ISD::OR: {
-      const auto &LHSBits = *getValueBits(V.getOperand(0), NumBits).second;
-      const auto &RHSBits = *getValueBits(V.getOperand(1), NumBits).second;
+      SmallVector<ValueBit, 64> LHSBits(Bits.size()), RHSBits(Bits.size());
+      getValueBits(V.getOperand(0), LHSBits);
+      getValueBits(V.getOperand(1), RHSBits);
 
       bool AllDisjoint = true;
-      for (unsigned i = 0; i < NumBits; ++i)
+      for (unsigned i = 0; i < Bits.size(); ++i)
         if (LHSBits[i].isZero())
           Bits[i] = RHSBits[i];
         else if (RHSBits[i].isZero())
@@ -1013,14 +1002,14 @@ class BitPermutationSelector {
       if (!AllDisjoint)
         break;
 
-      return std::make_pair(Interesting = true, &Bits);
+      return true;
     }
     }
 
-    for (unsigned i = 0; i < NumBits; ++i)
+    for (unsigned i = 0; i < Bits.size(); ++i)
       Bits[i] = ValueBit(V, i);
 
-    return std::make_pair(Interesting = false, &Bits);
+    return false;
   }
 
   // For each value (except the constant ones), compute the left-rotate amount
@@ -1897,7 +1886,8 @@ class BitPermutationSelector {
   }
 
   void eraseMatchingBitGroups(function_ref<bool(const BitGroup &)> F) {
-    BitGroups.erase(remove_if(BitGroups, F), BitGroups.end());
+    BitGroups.erase(std::remove_if(BitGroups.begin(), BitGroups.end(), F),
+                    BitGroups.end());
   }
 
   SmallVector<ValueBit, 64> Bits;
@@ -1920,12 +1910,9 @@ public:
   // rotate-and-shift/shift/and/or instructions, using a set of heuristics
   // known to produce optimial code for common cases (like i32 byte swapping).
   SDNode *Select(SDNode *N) {
-    Memoizer.clear();
-    auto Result =
-        getValueBits(SDValue(N, 0), N->getValueType(0).getSizeInBits());
-    if (!Result.first)
+    Bits.resize(N->getValueType(0).getSizeInBits());
+    if (!getValueBits(SDValue(N, 0), Bits))
       return nullptr;
-    Bits = std::move(*Result.second);
 
     DEBUG(dbgs() << "Considering bit-permutation-based instruction"
                     " selection for:    ");
@@ -3575,8 +3562,7 @@ void PPCDAGToDAGISel::PeepholeCROps() {
                    Op.getOperand(0) == Op.getOperand(1))
             Op2Not = true;
         }
-        LLVM_FALLTHROUGH;
-      }
+        }  // fallthrough
       case PPC::BC:
       case PPC::BCn:
       case PPC::SELECT_I4:

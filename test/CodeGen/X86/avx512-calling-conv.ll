@@ -4,10 +4,15 @@
 ; RUN: llc < %s -mtriple=i686-apple-darwin9 -mcpu=knl | FileCheck %s --check-prefix=KNL_X32
 
 define <16 x i1> @test1() {
-; ALL_X64-LABEL: test1:
-; ALL_X64:       ## BB#0:
-; ALL_X64-NEXT:    vxorps %xmm0, %xmm0, %xmm0
-; ALL_X64-NEXT:    retq
+; KNL-LABEL: test1:
+; KNL:       ## BB#0:
+; KNL-NEXT:    vxorps %xmm0, %xmm0, %xmm0
+; KNL-NEXT:    retq
+;
+; SKX-LABEL: test1:
+; SKX:       ## BB#0:
+; SKX-NEXT:    vpxord %xmm0, %xmm0, %xmm0
+; SKX-NEXT:    retq
 ;
 ; KNL_X32-LABEL: test1:
 ; KNL_X32:       ## BB#0:

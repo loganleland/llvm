@@ -1567,14 +1567,14 @@ TwoAddressInstructionPass::processTiedPairs(MachineInstr *MI,
     if (!IsEarlyClobber) {
       // Replace other (un-tied) uses of regB with LastCopiedReg.
       for (MachineOperand &MO : MI->operands()) {
-        if (MO.isReg() && MO.getReg() == RegB &&
+        if (MO.isReg() && MO.getReg() == RegB && MO.getSubReg() == SubRegB &&
             MO.isUse()) {
           if (MO.isKill()) {
             MO.setIsKill(false);
             RemovedKillFlag = true;
           }
           MO.setReg(LastCopiedReg);
-          MO.setSubReg(MO.getSubReg());
+          MO.setSubReg(0);
         }
       }
     }

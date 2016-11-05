@@ -128,7 +128,7 @@ public:
   void addValues(ArrayRef<DebugLocEntry::Value> Vals) {
     Values.append(Vals.begin(), Vals.end());
     sortUniqueValues();
-    assert(all_of(Values, [](DebugLocEntry::Value V) {
+    assert(std::all_of(Values.begin(), Values.end(), [](DebugLocEntry::Value V){
           return V.isBitPiece();
         }) && "value must be a piece");
   }

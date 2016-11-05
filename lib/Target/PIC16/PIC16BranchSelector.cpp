@@ -25,7 +25,7 @@
 #include "llvm/Target/TargetMachine.h"
 using namespace llvm;
 
-#define DEBUG_TYPE "PIC16-branch-select"
+#define DEBUG_TYPE "pic16-branch-select"
 
 STATISTIC(NumExpanded, "Number of branches expanded to long format");
 

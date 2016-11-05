@@ -10,7 +10,6 @@
 #ifndef LLVM_MC_MCASSEMBLER_H
 #define LLVM_MC_MCASSEMBLER_H
 
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
@@ -403,7 +402,8 @@ public:
   ArrayRef<std::string> getFileNames() { return FileNames; }
 
   void addFileName(StringRef FileName) {
-    if (!is_contained(FileNames, FileName))
+    if (std::find(FileNames.begin(), FileNames.end(), FileName) ==
+        FileNames.end())
       FileNames.push_back(FileName);
   }
 

@@ -3,12 +3,12 @@
 
 ; CHECK-LABEL: t:
 ; CHECK: movl (%r9,%rax,4), %e{{..}}
-; CHECK-NEXT: testq
+; CHECK-NEXT: decq
 ; CHECK-NEXT: jne
 
 ; ATOM-LABEL: t:
 ; ATOM: movl (%r9,%r{{.+}},4), %e{{..}}
-; ATOM-NEXT: testq
+; ATOM-NEXT: decq
 ; ATOM-NEXT: jne
 
 @Te0 = external global [256 x i32]		; <[256 x i32]*> [#uses=5]

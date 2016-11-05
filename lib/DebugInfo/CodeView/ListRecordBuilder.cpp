@@ -17,7 +17,7 @@ using namespace codeview;
 ListRecordBuilder::ListRecordBuilder(TypeRecordKind Kind)
     : Kind(Kind), Builder(Kind) {}
 
-void ListRecordBuilder::writeMemberType(const ListContinuationRecord &R) {
+void ListRecordBuilder::writeListContinuation(const ListContinuationRecord &R) {
   TypeRecordBuilder &Builder = getBuilder();
 
   assert(getLastContinuationSize() < 65535 - 8 && "continuation won't fit");

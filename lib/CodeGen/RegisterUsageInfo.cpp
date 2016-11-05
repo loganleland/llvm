@@ -22,7 +22,7 @@ using namespace llvm;
 
 #define DEBUG_TYPE "ip-regalloc"
 
-static cl::opt<bool> DumpRegUsage(
+cl::opt<bool> DumpRegUsage(
     "print-regusage", cl::init(false), cl::Hidden,
     cl::desc("print register usage details collected for analysis."));
 

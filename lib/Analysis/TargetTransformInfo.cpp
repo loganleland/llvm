@@ -150,11 +150,6 @@ int TargetTransformInfo::getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
   return Cost;
 }
 
-bool TargetTransformInfo::isFoldableMemAccessOffset(Instruction *I,
-                                                    int64_t Offset) const {
-  return TTIImpl->isFoldableMemAccessOffset(I, Offset);
-}
-
 bool TargetTransformInfo::isTruncateFree(Type *Ty1, Type *Ty2) const {
   return TTIImpl->isTruncateFree(Ty1, Ty2);
 }
@@ -191,12 +186,11 @@ bool TargetTransformInfo::isFPVectorizationPotentiallyUnsafe() const {
   return TTIImpl->isFPVectorizationPotentiallyUnsafe();
 }
 
-bool TargetTransformInfo::allowsMisalignedMemoryAccesses(LLVMContext &Context,
-                                                         unsigned BitWidth,
+bool TargetTransformInfo::allowsMisalignedMemoryAccesses(unsigned BitWidth,
                                                          unsigned AddressSpace,
                                                          unsigned Alignment,
                                                          bool *Fast) const {
-  return TTIImpl->allowsMisalignedMemoryAccesses(Context, BitWidth, AddressSpace,
+  return TTIImpl->allowsMisalignedMemoryAccesses(BitWidth, AddressSpace,
                                                  Alignment, Fast);
 }
 
@@ -432,7 +426,7 @@ TargetIRAnalysis::TargetIRAnalysis(
     : TTICallback(std::move(TTICallback)) {}
 
 TargetIRAnalysis::Result TargetIRAnalysis::run(const Function &F,
-                                               FunctionAnalysisManager &) {
+                                               AnalysisManager<Function> &) {
   return TTICallback(F);
 }
 
@@ -463,7 +457,7 @@ TargetTransformInfoWrapperPass::TargetTransformInfoWrapperPass(
 }
 
 TargetTransformInfo &TargetTransformInfoWrapperPass::getTTI(const Function &F) {
-  FunctionAnalysisManager DummyFAM;
+  AnalysisManager<Function> DummyFAM;
   TTI = TIRA.run(F, DummyFAM);
   return *TTI;
 }

@@ -1174,7 +1174,8 @@ bool HexagonAsmParser::isLabel(AsmToken &Token) {
   StringRef Raw (String.data(), Third.getString().data() - String.data() +
                  Third.getString().size());
   std::string Collapsed = Raw;
-  Collapsed.erase(remove_if(Collapsed, isspace), Collapsed.end());
+  Collapsed.erase(std::remove_if(Collapsed.begin(), Collapsed.end(), isspace),
+                  Collapsed.end());
   StringRef Whole = Collapsed;
   std::pair<StringRef, StringRef> DotSplit = Whole.split('.');
   if (!matchRegister(DotSplit.first.lower()))
@@ -1218,7 +1219,8 @@ bool HexagonAsmParser::ParseRegister(unsigned &RegNo, SMLoc &StartLoc, SMLoc &En
     NeededWorkaround = NeededWorkaround || (Again && !(Contigious && Type));
   }
   std::string Collapsed = RawString;
-  Collapsed.erase(remove_if(Collapsed, isspace), Collapsed.end());
+  Collapsed.erase(std::remove_if(Collapsed.begin(), Collapsed.end(), isspace),
+                  Collapsed.end());
   StringRef FullString = Collapsed;
   std::pair<StringRef, StringRef> DotSplit = FullString.split('.');
   unsigned DotReg = matchRegister(DotSplit.first.lower());
@@ -1642,7 +1644,7 @@ int HexagonAsmParser::processInstruction(MCInst &Inst,
   }
 
   // Translate a "$Vdd = $Vss" to "$Vdd = vcombine($Vs, $Vt)"
-  case Hexagon::V6_vassignp: {
+  case Hexagon::HEXAGON_V6_vassignpair: {
     MCOperand &MO = Inst.getOperand(1);
     unsigned int RegPairNum = RI->getEncodingValue(MO.getReg());
     std::string R1 = v + llvm::utostr(RegPairNum + 1);
@@ -1656,9 +1658,14 @@ int HexagonAsmParser::processInstruction(MCInst &Inst,
 
   // Translate a "$Rx =  CONST32(#imm)" to "$Rx = memw(gp+#LABEL) "
   case Hexagon::CONST32:
+  case Hexagon::CONST32_Float_Real:
+  case Hexagon::CONST32_Int_Real:
+  case Hexagon::FCONST32_nsdata:
     is32bit = true;
   // Translate a "$Rx:y =  CONST64(#imm)" to "$Rx:y = memd(gp+#LABEL) "
-  case Hexagon::CONST64:
+  case Hexagon::CONST64_Float_Real:
+  case Hexagon::CONST64_Int_Real:
+
     // FIXME: need better way to detect AsmStreamer (upstream removed getKind())
     if (!Parser.getStreamer().hasRawTextSupport()) {
       MCELFStreamer *MES = static_cast<MCELFStreamer *>(&Parser.getStreamer());

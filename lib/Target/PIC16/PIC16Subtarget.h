@@ -8,8 +8,6 @@
 //===----------------------------------------------------------------------===//
 //
 // This file declares the PIC16 specific subclass of TargetSubtargetInfo.
-// Currently there is only one subtarget, but this will allow us to
-// more easily add more features/other microcontrollers in the PIC16 family
 //
 //===----------------------------------------------------------------------===//
 

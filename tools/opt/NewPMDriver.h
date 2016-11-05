@@ -52,8 +52,7 @@ bool runPassPipeline(StringRef Arg0, LLVMContext &Context, Module &M,
                      StringRef PassPipeline, opt_tool::OutputKind OK,
                      opt_tool::VerifierKind VK,
                      bool ShouldPreserveAssemblyUseListOrder,
-                     bool ShouldPreserveBitcodeUseListOrder,
-                     bool EmitSummaryIndex, bool EmitModuleHash);
+                     bool ShouldPreserveBitcodeUseListOrder);
 }
 
 #endif

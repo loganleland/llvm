@@ -136,10 +136,6 @@ public:
       StringRef FixedSizePortion) override;
   void EmitCVStringTableDirective() override;
   void EmitCVFileChecksumsDirective() override;
-  void EmitDTPRel32Value(const MCExpr *Value) override;
-  void EmitDTPRel64Value(const MCExpr *Value) override;
-  void EmitTPRel32Value(const MCExpr *Value) override;
-  void EmitTPRel64Value(const MCExpr *Value) override;
   void EmitGPRel32Value(const MCExpr *Value) override;
   void EmitGPRel64Value(const MCExpr *Value) override;
   bool EmitRelocDirective(const MCExpr &Offset, StringRef Name,

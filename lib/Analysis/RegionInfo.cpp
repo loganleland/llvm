@@ -184,7 +184,7 @@ namespace llvm {
 
 char RegionInfoAnalysis::PassID;
 
-RegionInfo RegionInfoAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
+RegionInfo RegionInfoAnalysis::run(Function &F, AnalysisManager<Function> &AM) {
   RegionInfo RI;
   auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
   auto *PDT = &AM.getResult<PostDominatorTreeAnalysis>(F);
@@ -206,7 +206,7 @@ PreservedAnalyses RegionInfoPrinterPass::run(Function &F,
 }
 
 PreservedAnalyses RegionInfoVerifierPass::run(Function &F,
-                                              FunctionAnalysisManager &AM) {
+                                              AnalysisManager<Function> &AM) {
   AM.getResult<RegionInfoAnalysis>(F).verifyAnalysis();
 
   return PreservedAnalyses::all();

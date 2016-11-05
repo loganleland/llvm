@@ -14,7 +14,6 @@
 #include "MIParser.h"
 #include "MILexer.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/AsmParser/SlotMapping.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -27,14 +26,12 @@
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/IR/ValueSymbolTable.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetInstrInfo.h"
-#include "llvm/Target/TargetIntrinsicInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 
 using namespace llvm;
@@ -133,7 +130,10 @@ public:
   bool parseIRConstant(StringRef::iterator Loc, StringRef Source,
                        const Constant *&C);
   bool parseIRConstant(StringRef::iterator Loc, const Constant *&C);
-  bool parseLowLevelType(StringRef::iterator Loc, LLT &Ty);
+  bool parseIRType(StringRef::iterator Loc, StringRef Source, unsigned &Read,
+                   Type *&Ty);
+  // \p MustBeSized defines whether or not \p Ty must be sized.
+  bool parseIRType(StringRef::iterator Loc, Type *&Ty, bool MustBeSized = true);
   bool parseTypedImmediateOperand(MachineOperand &Dest);
   bool parseFPImmediateOperand(MachineOperand &Dest);
   bool parseMBBReference(MachineBasicBlock *&MBB);
@@ -155,8 +155,6 @@ public:
   bool parseCFIOperand(MachineOperand &Dest);
   bool parseIRBlock(BasicBlock *&BB, const Function &F);
   bool parseBlockAddressOperand(MachineOperand &Dest);
-  bool parseIntrinsicOperand(MachineOperand &Dest);
-  bool parsePredicateOperand(MachineOperand &Dest);
   bool parseTargetIndexOperand(MachineOperand &Dest);
   bool parseLiveoutRegisterMaskOperand(MachineOperand &Dest);
   bool parseMachineOperand(MachineOperand &Dest,
@@ -599,23 +597,12 @@ bool MIParser::parse(MachineInstr *&MI) {
   if (Token.isError() || parseInstruction(OpCode, Flags))
     return true;
 
-  SmallVector<LLT, 1> Tys;
+  Type *Ty = nullptr;
   if (isPreISelGenericOpcode(OpCode)) {
-    // For generic opcode, at least one type is mandatory.
+    // For generic opcode, a type is mandatory.
     auto Loc = Token.location();
-    bool ManyTypes = Token.is(MIToken::lbrace);
-    if (ManyTypes)
-      lex();
-
-    // Now actually parse the type(s).
-    do {
-      Tys.resize(Tys.size() + 1);
-      if (parseLowLevelType(Loc, Tys[Tys.size() - 1]))
-        return true;
-    } while (ManyTypes && consumeIfPresent(MIToken::comma));
-
-    if (ManyTypes)
-      expectAndConsume(MIToken::rbrace);
+    if (parseIRType(Loc, Ty))
+      return true;
   }
 
   // Parse the remaining machine operands.
@@ -673,10 +660,8 @@ bool MIParser::parse(MachineInstr *&MI) {
   // TODO: Check for extraneous machine operands.
   MI = MF.CreateMachineInstr(MCID, DebugLocation, /*NoImplicit=*/true);
   MI->setFlags(Flags);
-  if (Tys.size() > 0) {
-    for (unsigned i = 0; i < Tys.size(); ++i)
-      MI->setType(Tys[i], i);
-  }
+  if (Ty)
+    MI->setType(Ty);
   for (const auto &Operand : Operands)
     MI->addOperand(MF, Operand.Operand);
   if (assignRegisterTies(*MI, Operands))
@@ -886,10 +871,10 @@ bool MIParser::parseRegisterFlag(unsigned &Flags) {
 }
 
 bool MIParser::parseSubRegisterIndex(unsigned &SubReg) {
-  assert(Token.is(MIToken::dot));
+  assert(Token.is(MIToken::colon));
   lex();
   if (Token.isNot(MIToken::Identifier))
-    return error("expected a subregister index after '.'");
+    return error("expected a subregister index after ':'");
   auto Name = Token.stringValue();
   SubReg = getSubRegIndex(Name);
   if (!SubReg)
@@ -974,7 +959,7 @@ bool MIParser::parseRegisterOperand(MachineOperand &Dest,
     return true;
   lex();
   unsigned SubReg = 0;
-  if (Token.is(MIToken::dot)) {
+  if (Token.is(MIToken::colon)) {
     if (parseSubRegisterIndex(SubReg))
       return true;
     if (!TargetRegisterInfo::isVirtualRegister(Reg))
@@ -988,18 +973,14 @@ bool MIParser::parseRegisterOperand(MachineOperand &Dest,
       TiedDefIdx = Idx;
     }
   } else if (consumeIfPresent(MIToken::lparen)) {
-    MachineRegisterInfo &MRI = MF.getRegInfo();
-
     // Virtual registers may have a size with GlobalISel.
     if (!TargetRegisterInfo::isVirtualRegister(Reg))
       return error("unexpected size on physical register");
-    if (MRI.getRegClassOrRegBank(Reg).is<const TargetRegisterClass *>())
-      return error("unexpected size on non-generic virtual register");
-
     unsigned Size;
     if (parseSize(Size))
       return true;
 
+    MachineRegisterInfo &MRI = MF.getRegInfo();
     MRI.setSize(Reg, Size);
   } else if (PFS.GenericVRegs.count(Reg)) {
     // Generic virtual registers must have a size.
@@ -1043,47 +1024,35 @@ bool MIParser::parseIRConstant(StringRef::iterator Loc, const Constant *&C) {
   return false;
 }
 
-bool MIParser::parseLowLevelType(StringRef::iterator Loc, LLT &Ty) {
-  if (Token.is(MIToken::Identifier) && Token.stringValue() == "unsized") {
-    lex();
-    Ty = LLT::unsized();
-    return false;
-  } else if (Token.is(MIToken::ScalarType)) {
-    Ty = LLT::scalar(APSInt(Token.range().drop_front()).getZExtValue());
-    lex();
-    return false;
-  } else if (Token.is(MIToken::PointerType)) {
-    Ty = LLT::pointer(APSInt(Token.range().drop_front()).getZExtValue());
-    lex();
-    return false;
-  }
+bool MIParser::parseIRType(StringRef::iterator Loc, StringRef StringValue,
+                           unsigned &Read, Type *&Ty) {
+  auto Source = StringValue.str(); // The source has to be null terminated.
+  SMDiagnostic Err;
+  Ty = parseTypeAtBeginning(Source.c_str(), Read, Err,
+                            *MF.getFunction()->getParent(), &PFS.IRSlots);
+  if (!Ty)
+    return error(Loc + Err.getColumnNo(), Err.getMessage());
+  return false;
+}
 
-  // Now we're looking for a vector.
-  if (Token.isNot(MIToken::less))
-    return error(Loc,
-                 "expected unsized, pN, sN or <N x sM> for GlobalISel type");
-
-  lex();
-
-  if (Token.isNot(MIToken::IntegerLiteral))
-    return error(Loc, "expected <N x sM> for vctor type");
-  uint64_t NumElements = Token.integerValue().getZExtValue();
-  lex();
-
-  if (Token.isNot(MIToken::Identifier) || Token.stringValue() != "x")
-    return error(Loc, "expected '<N x sM>' for vector type");
-  lex();
-
-  if (Token.isNot(MIToken::ScalarType))
-    return error(Loc, "expected '<N x sM>' for vector type");
-  uint64_t ScalarSize = APSInt(Token.range().drop_front()).getZExtValue();
-  lex();
-
-  if (Token.isNot(MIToken::greater))
-    return error(Loc, "expected '<N x sM>' for vector type");
-  lex();
-
-  Ty = LLT::vector(NumElements, ScalarSize);
+bool MIParser::parseIRType(StringRef::iterator Loc, Type *&Ty,
+                           bool MustBeSized) {
+  // At this point we enter in the IR world, i.e., to get the correct type,
+  // we need to hand off the whole string, not just the current token.
+  // E.g., <4 x i64> would give '<' as a token and there is not much
+  // the IR parser can do with that.
+  unsigned Read = 0;
+  if (parseIRType(Loc, StringRef(Loc), Read, Ty))
+    return true;
+  // The type must be sized, otherwise there is not much the backend
+  // can do with it.
+  if (MustBeSized && !Ty->isSized())
+    return error("expected a sized type");
+  // The next token is Read characters from the Loc.
+  // However, the current location is not Loc, but Loc + the length of Token.
+  // Therefore, subtract the length of Token (range().end() - Loc) to the
+  // number of characters to skip before the next token.
+  lex(Read - (Token.range().end() - Loc));
   return false;
 }
 
@@ -1159,7 +1128,7 @@ bool MIParser::parseStackFrameIndex(int &FI) {
                  "'");
   StringRef Name;
   if (const auto *Alloca =
-          MF.getFrameInfo().getObjectAllocation(ObjectInfo->second))
+          MF.getFrameInfo()->getObjectAllocation(ObjectInfo->second))
     Name = Alloca->getName();
   if (!Token.stringValue().empty() && Token.stringValue() != Name)
     return error(Twine("the name of the stack object '%stack.") + Twine(ID) +
@@ -1442,93 +1411,6 @@ bool MIParser::parseBlockAddressOperand(MachineOperand &Dest) {
   return false;
 }
 
-bool MIParser::parseIntrinsicOperand(MachineOperand &Dest) {
-  assert(Token.is(MIToken::kw_intrinsic));
-  lex();
-  if (expectAndConsume(MIToken::lparen))
-    return error("expected syntax intrinsic(@llvm.whatever)");
-
-  if (Token.isNot(MIToken::NamedGlobalValue))
-    return error("expected syntax intrinsic(@llvm.whatever)");
-
-  std::string Name = Token.stringValue();
-  lex();
-
-  if (expectAndConsume(MIToken::rparen))
-    return error("expected ')' to terminate intrinsic name");
-
-  // Find out what intrinsic we're dealing with, first try the global namespace
-  // and then the target's private intrinsics if that fails.
-  const TargetIntrinsicInfo *TII = MF.getTarget().getIntrinsicInfo();
-  Intrinsic::ID ID = Function::lookupIntrinsicID(Name);
-  if (ID == Intrinsic::not_intrinsic && TII)
-    ID = static_cast<Intrinsic::ID>(TII->lookupName(Name));
-
-  if (ID == Intrinsic::not_intrinsic)
-    return error("unknown intrinsic name");
-  Dest = MachineOperand::CreateIntrinsicID(ID);
-
-  return false;
-}
-
-bool MIParser::parsePredicateOperand(MachineOperand &Dest) {
-  assert(Token.is(MIToken::kw_intpred) || Token.is(MIToken::kw_floatpred));
-  bool IsFloat = Token.is(MIToken::kw_floatpred);
-  lex();
-
-  if (expectAndConsume(MIToken::lparen))
-    return error("expected syntax intpred(whatever) or floatpred(whatever");
-
-  if (Token.isNot(MIToken::Identifier))
-    return error("whatever");
-
-  CmpInst::Predicate Pred;
-  if (IsFloat) {
-    Pred = StringSwitch<CmpInst::Predicate>(Token.stringValue())
-               .Case("false", CmpInst::FCMP_FALSE)
-               .Case("oeq", CmpInst::FCMP_OEQ)
-               .Case("ogt", CmpInst::FCMP_OGT)
-               .Case("oge", CmpInst::FCMP_OGE)
-               .Case("olt", CmpInst::FCMP_OLT)
-               .Case("ole", CmpInst::FCMP_OLE)
-               .Case("one", CmpInst::FCMP_ONE)
-               .Case("ord", CmpInst::FCMP_ORD)
-               .Case("uno", CmpInst::FCMP_UNO)
-               .Case("ueq", CmpInst::FCMP_UEQ)
-               .Case("ugt", CmpInst::FCMP_UGT)
-               .Case("uge", CmpInst::FCMP_UGE)
-               .Case("ult", CmpInst::FCMP_ULT)
-               .Case("ule", CmpInst::FCMP_ULE)
-               .Case("une", CmpInst::FCMP_UNE)
-               .Case("true", CmpInst::FCMP_TRUE)
-               .Default(CmpInst::BAD_FCMP_PREDICATE);
-    if (!CmpInst::isFPPredicate(Pred))
-      return error("invalid floating-point predicate");
-  } else {
-    Pred = StringSwitch<CmpInst::Predicate>(Token.stringValue())
-               .Case("eq", CmpInst::ICMP_EQ)
-               .Case("ne", CmpInst::ICMP_NE)
-               .Case("sgt", CmpInst::ICMP_SGT)
-               .Case("sge", CmpInst::ICMP_SGE)
-               .Case("slt", CmpInst::ICMP_SLT)
-               .Case("sle", CmpInst::ICMP_SLE)
-               .Case("ugt", CmpInst::ICMP_UGT)
-               .Case("uge", CmpInst::ICMP_UGE)
-               .Case("ult", CmpInst::ICMP_ULT)
-               .Case("ule", CmpInst::ICMP_ULE)
-               .Default(CmpInst::BAD_ICMP_PREDICATE);
-    if (!CmpInst::isIntPredicate(Pred))
-      return error("invalid integer predicate");
-  }
-
-  lex();
-  Dest = MachineOperand::CreatePredicate(Pred);
-  if (expectAndConsume(MIToken::rparen))
-    return error("predicate should be terminated by ')'.");
-
-  return false;
-}
-
 bool MIParser::parseTargetIndexOperand(MachineOperand &Dest) {
   assert(Token.is(MIToken::kw_target_index));
   lex();
@@ -1629,15 +1511,10 @@ bool MIParser::parseMachineOperand(MachineOperand &Dest,
     return parseCFIOperand(Dest);
   case MIToken::kw_blockaddress:
     return parseBlockAddressOperand(Dest);
-  case MIToken::kw_intrinsic:
-    return parseIntrinsicOperand(Dest);
   case MIToken::kw_target_index:
     return parseTargetIndexOperand(Dest);
   case MIToken::kw_liveout:
     return parseLiveoutRegisterMaskOperand(Dest);
-  case MIToken::kw_floatpred:
-  case MIToken::kw_intpred:
-    return parsePredicateOperand(Dest);
   case MIToken::Error:
     return true;
   case MIToken::Identifier:
@@ -1646,7 +1523,7 @@ bool MIParser::parseMachineOperand(MachineOperand &Dest,
       lex();
       break;
     }
-    LLVM_FALLTHROUGH;
+  // fallthrough
   default:
     // FIXME: Parse the MCSymbol machine operand.
     return error("expected a machine operand");

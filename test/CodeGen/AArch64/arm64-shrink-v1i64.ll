@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=arm64-eabi
+; RUN: llc -march=arm64 < %s
 
 ; The DAGCombiner tries to do following shrink:
 ;     Convert x+y to (VT)((SmallVT)x+(SmallVT)y)

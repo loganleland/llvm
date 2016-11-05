@@ -15,7 +15,6 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/PatternMatch.h"
 using namespace llvm;
 using namespace PatternMatch;
@@ -155,9 +154,8 @@ Instruction *InstCombiner::FoldSelectOpOp(SelectInst &SI, Instruction *TI,
     }
 
     // Fold this by inserting a select from the input values.
-    Value *NewSI =
-        Builder->CreateSelect(SI.getCondition(), TI->getOperand(0),
-                              FI->getOperand(0), SI.getName() + ".v", &SI);
+    Value *NewSI = Builder->CreateSelect(SI.getCondition(), TI->getOperand(0),
+                                         FI->getOperand(0), SI.getName()+".v");
     return CastInst::Create(Instruction::CastOps(TI->getOpcode()), NewSI,
                             TI->getType());
   }
@@ -201,8 +199,8 @@ Instruction *InstCombiner::FoldSelectOpOp(SelectInst &SI, Instruction *TI,
   }
 
   // If we reach here, they do have operations in common.
-  Value *NewSI = Builder->CreateSelect(SI.getCondition(), OtherOpT, OtherOpF,
-                                       SI.getName() + ".v", &SI);
+  Value *NewSI = Builder->CreateSelect(SI.getCondition(), OtherOpT,
+                                       OtherOpF, SI.getName()+".v");
 
   if (BinaryOperator *BO = dyn_cast<BinaryOperator>(TI)) {
     if (MatchIsOpZero)
@@ -499,7 +497,6 @@ Instruction *InstCombiner::visitSelectInstWithICmp(SelectInst &SI,
         ICI->setOperand(1, CmpRHS);
         SI.setOperand(1, TrueVal);
         SI.setOperand(2, FalseVal);
-        SI.swapProfMetadata();
 
         // Move ICI instruction right before the select instruction. Otherwise
         // the sext/zext value may be defined after the ICI instruction uses it.
@@ -715,9 +712,8 @@ Instruction *InstCombiner::FoldSPFofSPF(Instruction *Inner,
   if ((SPF1 == SPF_ABS && SPF2 == SPF_NABS) ||
       (SPF1 == SPF_NABS && SPF2 == SPF_ABS)) {
     SelectInst *SI = cast<SelectInst>(Inner);
-    Value *NewSI =
-        Builder->CreateSelect(SI->getCondition(), SI->getFalseValue(),
-                              SI->getTrueValue(), SI->getName(), SI);
+    Value *NewSI = Builder->CreateSelect(
+        SI->getCondition(), SI->getFalseValue(), SI->getTrueValue());
     return replaceInstUsesWith(Outer, NewSI);
   }
 
@@ -899,7 +895,7 @@ static Instruction *foldAddSubSelect(SelectInst &SI,
       if (AddOp != TI)
         std::swap(NewTrueOp, NewFalseOp);
       Value *NewSel = Builder.CreateSelect(CondVal, NewTrueOp, NewFalseOp,
-                                           SI.getName() + ".p", &SI);
+                                           SI.getName() + ".p");
 
       if (SI.getType()->isFPOrFPVectorTy()) {
         Instruction *RI =
@@ -916,37 +912,6 @@ static Instruction *foldAddSubSelect(SelectInst &SI,
   return nullptr;
 }
 
-/// If one of the operands is a sext/zext from i1 and the other is a constant,
-/// we may be able to create an i1 select which can be further folded to
-/// logical ops.
-static Instruction *foldSelectExtConst(InstCombiner::BuilderTy &Builder,
-                                       SelectInst &SI, Instruction *EI,
-                                       const APInt &C, bool isExtTrueVal,
-                                       bool isSigned) {
-  Value *SmallVal = EI->getOperand(0);
-  Type *SmallType = SmallVal->getType();
-
-  // TODO Handle larger types as well? Note this requires adjusting
-  // FoldOpIntoSelect as well.
-  if (!SmallType->getScalarType()->isIntegerTy(1))
-    return nullptr;
-
-  if (C != 0 && (isSigned || C != 1) &&
-      (!isSigned || !C.isAllOnesValue()))
-    return nullptr;
-
-  Value *SmallConst = ConstantInt::get(SmallType, C.trunc(1));
-  Value *TrueVal = isExtTrueVal ? SmallVal : SmallConst;
-  Value *FalseVal = isExtTrueVal ? SmallConst : SmallVal;
-  Value *Select = Builder.CreateSelect(SI.getOperand(0), TrueVal, FalseVal,
-                                       "fold." + SI.getName(), &SI);
-
-  if (isSigned)
-    return new SExtInst(Select, SI.getType());
-
-  return new ZExtInst(Select, SI.getType());
-}
-
 Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
   Value *CondVal = SI.getCondition();
   Value *TrueVal = SI.getTrueValue();
@@ -954,7 +919,7 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
   Type *SelType = SI.getType();
 
   if (Value *V =
-          SimplifySelectInst(CondVal, TrueVal, FalseVal, DL, &TLI, &DT, &AC))
+          SimplifySelectInst(CondVal, TrueVal, FalseVal, DL, TLI, DT, AC))
     return replaceInstUsesWith(SI, V);
 
   if (SelType->getScalarType()->isIntegerTy(1) &&
@@ -1133,31 +1098,6 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
     if (Instruction *IV = FoldSelectOpOp(SI, TI, FI))
       return IV;
 
-  // (select C, (sext X), const) -> (sext (select C, X, const')) and
-  // variations thereof when extending from i1, as that allows further folding
-  // into logic ops. When the sext is from a larger type, we prefer to have it
-  // as an operand.
-  if (TI &&
-      (TI->getOpcode() == Instruction::ZExt || TI->getOpcode() == Instruction::SExt)) {
-    bool IsSExt = TI->getOpcode() == Instruction::SExt;
-    const APInt *C;
-    if (match(FalseVal, m_APInt(C))) {
-      if (Instruction *IV =
-              foldSelectExtConst(*Builder, SI, TI, *C, true, IsSExt))
-        return IV;
-    }
-  }
-  if (FI &&
-      (FI->getOpcode() == Instruction::ZExt || FI->getOpcode() == Instruction::SExt)) {
-    bool IsSExt = FI->getOpcode() == Instruction::SExt;
-    const APInt *C;
-    if (match(TrueVal, m_APInt(C))) {
-      if (Instruction *IV =
-              foldSelectExtConst(*Builder, SI, FI, *C, false, IsSExt))
-          return IV;
-    }
-  }
-
   // See if we can fold the select into one of our operands.
   if (SelType->isIntOrIntVectorTy() || SelType->isFPOrFPVectorTy()) {
     if (Instruction *FoldI = FoldSelectIntoOp(SI, TrueVal, FalseVal))
@@ -1184,9 +1124,9 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
           Cmp = Builder->CreateFCmp(Pred, LHS, RHS);
         }
 
-        Value *NewSI = Builder->CreateCast(
-            CastOp, Builder->CreateSelect(Cmp, LHS, RHS, SI.getName(), &SI),
-            SelType);
+        Value *NewSI = Builder->CreateCast(CastOp,
+                                           Builder->CreateSelect(Cmp, LHS, RHS),
+                                           SelType);
         return replaceInstUsesWith(SI, NewSI);
       }
     }

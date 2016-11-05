@@ -30,7 +30,7 @@ class AMDGPUCallLowering: public CallLowering {
   bool
   lowerFormalArguments(MachineIRBuilder &MIRBuilder,
                        const Function::ArgumentListType &Args,
-                       ArrayRef<unsigned> VRegs) const override;
+                       const SmallVectorImpl<unsigned> &VRegs) const override;
 };
 } // End of namespace llvm;
 #endif

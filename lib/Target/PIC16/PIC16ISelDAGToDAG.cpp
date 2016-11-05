@@ -30,7 +30,7 @@
 #include "llvm/Target/TargetLowering.h"
 using namespace llvm;
 
-#define DEBUG_TYPE "PIC16-isel"
+#define DEBUG_TYPE "pic16-isel"
 
 namespace {
   struct PIC16ISelAddressMode {

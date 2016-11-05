@@ -196,7 +196,7 @@ public:
 
     MachineFunctionProperties getRequiredProperties() const override {
       return MachineFunctionProperties().set(
-          MachineFunctionProperties::Property::NoVRegs);
+          MachineFunctionProperties::Property::AllVRegsAllocated);
     }
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {

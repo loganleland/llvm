@@ -246,11 +246,11 @@ In general CMake if blocks work the way you'd expect:
 .. code-block:: cmake
 
   if(<condition>)
-    message("do stuff")
+    .. do stuff
   elseif(<condition>)
-    message("do other stuff")
+    .. do other stuff
   else()
-    message("do other other stuff")
+    .. do other other stuff
   endif()
 
 The single most important thing to know about CMake's if blocks coming from a C
@@ -265,7 +265,7 @@ The most common form of the CMake ``foreach`` block is:
 .. code-block:: cmake
 
   foreach(var ...)
-    message("do stuff")
+    .. do stuff
   endforeach()
 
 The variable argument portion of the ``foreach`` block can contain dereferenced

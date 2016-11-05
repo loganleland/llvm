@@ -63,6 +63,7 @@ public:
     ppc64,          // PPC64: powerpc64, ppu
     ppc64le,        // PPC64LE: powerpc64le
     r600,           // R600: AMD GPUs HD2XXX - HD6XXX
+    pic16,			// prints NOPs
     amdgcn,         // AMDGCN: AMD GCN GPUs
     sparc,          // Sparc: sparc
     sparcv9,        // Sparcv9: Sparcv9
@@ -91,7 +92,6 @@ public:
     wasm64,         // WebAssembly with 64-bit pointers
     renderscript32, // 32-bit RenderScript
     renderscript64, // 64-bit RenderScript
-    pic16,          // PIC16
     LastArchType = renderscript64
   };
   enum SubArchType {
@@ -136,7 +136,6 @@ public:
     Myriad,
     AMD,
     Mesa,
-    MicrochipTechnologyInc,
     LastVendorType = Mesa
   };
   enum OSType {

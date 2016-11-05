@@ -27,7 +27,6 @@
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/Valgrind.h"
-#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 //Enable this macro to debug bugpoint itself.
@@ -74,10 +73,6 @@ OptLevelO1("O1",
 static cl::opt<bool>
 OptLevelO2("O2",
            cl::desc("Optimization level 2. Identical to 'opt -O2'"));
-
-static cl::opt<bool>
-OptLevelOs("Os",
-           cl::desc("Like -O2 with extra optimizations for size. Similar to clang -Os"));
 
 static cl::opt<bool>
 OptLevelO3("O3",
@@ -180,9 +175,9 @@ int main(int argc, char **argv) {
   if (OptLevelO1 || OptLevelO2 || OptLevelO3) {
     PassManagerBuilder Builder;
     if (OptLevelO1)
-      Builder.Inliner = createAlwaysInlinerLegacyPass();
-    else if (OptLevelOs || OptLevelO2)
-      Builder.Inliner = createFunctionInliningPass(2, OptLevelOs ? 1 : 0);
+      Builder.Inliner = createAlwaysInlinerPass();
+    else if (OptLevelO2)
+      Builder.Inliner = createFunctionInliningPass(225);
     else
       Builder.Inliner = createFunctionInliningPass(275);
     Builder.populateFunctionPassManager(PM);

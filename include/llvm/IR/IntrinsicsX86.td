@@ -1694,6 +1694,16 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
         Intrinsic<[], [], []>;
 }
 
+// Vector load with broadcast
+let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
+  def int_x86_avx_vbroadcastf128_pd_256 :
+        GCCBuiltin<"__builtin_ia32_vbroadcastf128_pd256">,
+        Intrinsic<[llvm_v4f64_ty], [llvm_ptr_ty], [IntrReadMem, IntrArgMemOnly]>;
+  def int_x86_avx_vbroadcastf128_ps_256 :
+        GCCBuiltin<"__builtin_ia32_vbroadcastf128_ps256">,
+        Intrinsic<[llvm_v8f32_ty], [llvm_ptr_ty], [IntrReadMem, IntrArgMemOnly]>;
+}
+
 // SIMD load ops
 let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
   def int_x86_avx_ldu_dq_256 : GCCBuiltin<"__builtin_ia32_lddqu256">,
@@ -4130,10 +4140,6 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
               Intrinsic<[], [llvm_ptr_ty, llvm_i32_ty, llvm_i32_ty], []>;
   def int_x86_xsaves64 :
               Intrinsic<[], [llvm_ptr_ty, llvm_i32_ty, llvm_i32_ty], []>;
-  def int_x86_xgetbv :
-              Intrinsic<[llvm_i64_ty], [llvm_i32_ty], []>;
-  def int_x86_xsetbv :
-              Intrinsic<[], [llvm_i32_ty, llvm_i32_ty, llvm_i32_ty], []>;
 }
 
 //===----------------------------------------------------------------------===//
@@ -5695,9 +5701,9 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
             Intrinsic<[llvm_v2f64_ty], [llvm_v2f64_ty, llvm_v2f64_ty,
                                         llvm_v2f64_ty, llvm_i8_ty, llvm_i32_ty],
                       [IntrNoMem]>;
-  def int_x86_avx512_psad_bw_512 : GCCBuiltin<"__builtin_ia32_psadbw512">,
-              Intrinsic<[llvm_v8i64_ty], [llvm_v64i8_ty, llvm_v64i8_ty],
-                        [IntrNoMem, Commutative]>;
+def int_x86_avx512_psad_bw_512 : GCCBuiltin<"__builtin_ia32_psadbw512">,
+            Intrinsic<[llvm_v8i64_ty], [llvm_v64i8_ty, llvm_v64i8_ty],
+                      [IntrNoMem]>;
 }
 // FP logical ops
 let TargetPrefix = "x86" in {

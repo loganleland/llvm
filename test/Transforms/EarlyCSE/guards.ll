@@ -1,5 +1,4 @@
 ; RUN: opt -S -early-cse < %s | FileCheck %s
-; RUN: opt < %s -S -basicaa -early-cse-memssa | FileCheck %s
 
 declare void @llvm.experimental.guard(i1,...)
 

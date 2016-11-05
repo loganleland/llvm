@@ -12,8 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Utils/NameAnonFunctions.h"
-
 #include "llvm/ADT/SmallString.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MD5.h"
@@ -21,7 +19,6 @@
 
 using namespace llvm;
 
-namespace {
 // Compute a "unique" hash for the module based on the name of the public
 // functions.
 class ModuleHasher {
@@ -60,7 +57,6 @@ public:
     return TheHash;
   }
 };
-} // end anonymous namespace
 
 // Rename all the anon functions in the module
 bool llvm::nameUnamedFunctions(Module &M) {
@@ -78,8 +74,8 @@ bool llvm::nameUnamedFunctions(Module &M) {
 
 namespace {
 
-// Legacy pass that provides a name to every anon function.
-class NameAnonFunctionLegacyPass : public ModulePass {
+// Simple pass that provides a name to every anon function.
+class NameAnonFunction : public ModulePass {
 
 public:
   /// Pass identification, replacement for typeid
@@ -88,29 +84,19 @@ public:
   /// Specify pass name for debug output
   const char *getPassName() const override { return "Name Anon Functions"; }
 
-  explicit NameAnonFunctionLegacyPass() : ModulePass(ID) {}
+  explicit NameAnonFunction() : ModulePass(ID) {}
 
   bool runOnModule(Module &M) override { return nameUnamedFunctions(M); }
 };
-char NameAnonFunctionLegacyPass::ID = 0;
+char NameAnonFunction::ID = 0;
 
 } // anonymous namespace
 
-PreservedAnalyses NameAnonFunctionPass::run(Module &M,
-                                            ModuleAnalysisManager &AM) {
-  if (!nameUnamedFunctions(M))
-    return PreservedAnalyses::all();
-
-  return PreservedAnalyses::none();
-}
-
-INITIALIZE_PASS_BEGIN(NameAnonFunctionLegacyPass, "name-anon-functions",
+INITIALIZE_PASS_BEGIN(NameAnonFunction, "name-anon-functions",
                       "Provide a name to nameless functions", false, false)
-INITIALIZE_PASS_END(NameAnonFunctionLegacyPass, "name-anon-functions",
+INITIALIZE_PASS_END(NameAnonFunction, "name-anon-functions",
                     "Provide a name to nameless functions", false, false)
 
 namespace llvm {
-ModulePass *createNameAnonFunctionPass() {
-  return new NameAnonFunctionLegacyPass();
-}
+ModulePass *createNameAnonFunctionPass() { return new NameAnonFunction(); }
 }

@@ -25,7 +25,6 @@ namespace llvm {
 class MCContext;
 class MCObjectStreamer;
 class MCStreamer;
-class CodeViewContext;
 
 /// \brief Instances of this class represent the information from a
 /// .cv_loc directive.
@@ -37,8 +36,8 @@ class MCCVLoc {
   uint16_t PrologueEnd : 1;
   uint16_t IsStmt : 1;
 
-private: // CodeViewContext manages these
-  friend class CodeViewContext;
+private: // MCContext manages these
+  friend class MCContext;
   MCCVLoc(unsigned functionid, unsigned fileNum, unsigned line, unsigned column,
           bool prologueend, bool isstmt)
       : FunctionId(functionid), FileNum(fileNum), Line(line), Column(column),
@@ -115,27 +114,6 @@ public:
   bool addFile(unsigned FileNumber, StringRef Filename);
   ArrayRef<StringRef> getFilenames() { return Filenames; }
 
-  /// Saves the information from the currently parsed .cv_loc directive
-  /// and sets CVLocSeen.  When the next instruction is assembled an entry
-  /// in the line number table with this information and the address of the
-  /// instruction will be created.
-  void setCurrentCVLoc(unsigned FunctionId, unsigned FileNo, unsigned Line,
-                       unsigned Column, bool PrologueEnd, bool IsStmt) {
-    CurrentCVLoc.setFunctionId(FunctionId);
-    CurrentCVLoc.setFileNum(FileNo);
-    CurrentCVLoc.setLine(Line);
-    CurrentCVLoc.setColumn(Column);
-    CurrentCVLoc.setPrologueEnd(PrologueEnd);
-    CurrentCVLoc.setIsStmt(IsStmt);
-    CVLocSeen = true;
-  }
-  void clearCVLocSeen() { CVLocSeen = false; }
-
-  bool getCVLocSeen() { return CVLocSeen; }
-  const MCCVLoc &getCurrentCVLoc() { return CurrentCVLoc; }
-
-  bool isValidCVFileNumber(unsigned FileNumber);
-
   /// \brief Add a line entry.
   void addLineEntry(const MCCVLineEntry &LineEntry) {
     size_t Offset = MCCVLines.size();
@@ -202,10 +180,6 @@ public:
   void emitFileChecksums(MCObjectStreamer &OS);
 
 private:
-  /// The current CodeView line information from the last .cv_loc directive.
-  MCCVLoc CurrentCVLoc = MCCVLoc(0, 0, 0, 0, false, true);
-  bool CVLocSeen = false;
-
   /// Map from string to string table offset.
   StringMap<unsigned> StringTable;
 

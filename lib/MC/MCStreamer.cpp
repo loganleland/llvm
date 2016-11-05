@@ -12,7 +12,6 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCCodeView.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
@@ -128,22 +127,6 @@ void MCStreamer::EmitSymbolValue(const MCSymbol *Sym, unsigned Size,
     EmitCOFFSecRel32(Sym);
 }
 
-void MCStreamer::EmitDTPRel64Value(const MCExpr *Value) {
-  report_fatal_error("unsupported directive in streamer");
-}
-
-void MCStreamer::EmitDTPRel32Value(const MCExpr *Value) {
-  report_fatal_error("unsupported directive in streamer");
-}
-
-void MCStreamer::EmitTPRel64Value(const MCExpr *Value) {
-  report_fatal_error("unsupported directive in streamer");
-}
-
-void MCStreamer::EmitTPRel32Value(const MCExpr *Value) {
-  report_fatal_error("unsupported directive in streamer");
-}
-
 void MCStreamer::EmitGPRel64Value(const MCExpr *Value) {
   report_fatal_error("unsupported directive in streamer");
 }
@@ -216,16 +199,16 @@ void MCStreamer::EnsureValidDwarfFrame() {
     report_fatal_error("No open frame");
 }
 
-bool MCStreamer::EmitCVFileDirective(unsigned FileNo, StringRef Filename) {
-  return getContext().getCVContext().addFile(FileNo, Filename);
+unsigned MCStreamer::EmitCVFileDirective(unsigned FileNo, StringRef Filename) {
+  return getContext().getCVFile(Filename, FileNo);
 }
 
 void MCStreamer::EmitCVLocDirective(unsigned FunctionId, unsigned FileNo,
                                     unsigned Line, unsigned Column,
                                     bool PrologueEnd, bool IsStmt,
                                     StringRef FileName) {
-  getContext().getCVContext().setCurrentCVLoc(FunctionId, FileNo, Line, Column,
-                                              PrologueEnd, IsStmt);
+  getContext().setCurrentCVLoc(FunctionId, FileNo, Line, Column, PrologueEnd,
+                               IsStmt);
 }
 
 void MCStreamer::EmitCVLinetableDirective(unsigned FunctionId,

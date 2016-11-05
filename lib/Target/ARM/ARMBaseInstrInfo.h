@@ -154,7 +154,7 @@ public:
 
   /// GetInstSize - Returns the size of the specified MachineInstr.
   ///
-  unsigned getInstSizeInBytes(const MachineInstr &MI) const override;
+  virtual unsigned GetInstSizeInBytes(const MachineInstr &MI) const;
 
   unsigned isLoadFromStackSlot(const MachineInstr &MI,
                                int &FrameIndex) const override;

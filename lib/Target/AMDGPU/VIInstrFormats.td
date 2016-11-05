@@ -11,6 +11,26 @@
 //
 //===----------------------------------------------------------------------===//
 
+class DSe_vi <bits<8> op> : Enc64 {
+  bits<8> vdst;
+  bits<1> gds;
+  bits<8> addr;
+  bits<8> data0;
+  bits<8> data1;
+  bits<8> offset0;
+  bits<8> offset1;
+
+  let Inst{7-0} = offset0;
+  let Inst{15-8} = offset1;
+  let Inst{16} = gds;
+  let Inst{24-17} = op;
+  let Inst{31-26} = 0x36; //encoding
+  let Inst{39-32} = addr;
+  let Inst{47-40} = data0;
+  let Inst{55-48} = data1;
+  let Inst{63-56} = vdst;
+}
+
 class MUBUFe_vi <bits<7> op> : Enc64 {
   bits<12> offset;
   bits<1> offen;
@@ -67,6 +87,29 @@ class MTBUFe_vi <bits<4> op> : Enc64 {
   let Inst{54}    = slc;
   let Inst{55}    = tfe;
   let Inst{63-56} = soffset;
+}
+
+class SMEMe_vi <bits<8> op, bit imm> : Enc64 {
+  bits<7>  sbase;
+  bits<7>  sdst;
+  bits<1>  glc;
+
+  let Inst{5-0}   = sbase{6-1};
+  let Inst{12-6}  = sdst;
+  let Inst{16}    = glc;
+  let Inst{17}    = imm;
+  let Inst{25-18} = op;
+  let Inst{31-26} = 0x30; //encoding
+}
+
+class SMEM_IMMe_vi <bits<8> op> : SMEMe_vi<op, 1> {
+  bits<20> offset;
+  let Inst{51-32} = offset;
+}
+
+class SMEM_SOFFe_vi <bits<8> op> : SMEMe_vi<op, 0> {
+  bits<20> soff;
+  let Inst{51-32} = soff;
 }
 
 class VOP3a_vi <bits<10> op> : Enc64 {

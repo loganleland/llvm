@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=arm64-eabi | FileCheck %s
+; RUN: llc -march=arm64 -o - %s | FileCheck %s
 
 ; This is mostly a "don't assert" test. The type of the RHS of a shift depended
 ; on the phase of legalization, which led to the creation of an unexpected and

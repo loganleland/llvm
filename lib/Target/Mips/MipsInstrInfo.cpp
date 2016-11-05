@@ -58,7 +58,7 @@ MachineMemOperand *
 MipsInstrInfo::GetMemOperand(MachineBasicBlock &MBB, int FI,
                              MachineMemOperand::Flags Flags) const {
   MachineFunction &MF = *MBB.getParent();
-  MachineFrameInfo &MFI = MF.getFrameInfo();
+  MachineFrameInfo &MFI = *MF.getFrameInfo();
   unsigned Align = MFI.getObjectAlignment(FI);
 
   return MF.getMachineMemOperand(MachinePointerInfo::getFixedStack(MF, FI),
@@ -269,9 +269,7 @@ unsigned MipsInstrInfo::getEquivalentCompactForm(
   if (Subtarget.inMicroMipsMode()) {
     switch (Opcode) {
     case Mips::BNE:
-    case Mips::BNE_MM:
     case Mips::BEQ:
-    case Mips::BEQ_MM:
     // microMIPS has NE,EQ branches that do not have delay slots provided one
     // of the operands is zero.
       if (I->getOperand(1).getReg() == Subtarget.getABI().GetZeroReg())
@@ -282,7 +280,6 @@ unsigned MipsInstrInfo::getEquivalentCompactForm(
     case Mips::JR:
     case Mips::PseudoReturn:
     case Mips::PseudoIndirectBranch:
-    case Mips::TAILCALLREG:
       canUseShortMicroMipsCTI = true;
       break;
     }
@@ -305,14 +302,12 @@ unsigned MipsInstrInfo::getEquivalentCompactForm(
     case Mips::BAL:
       return Mips::BALC;
     case Mips::BEQ:
-    case Mips::BEQ_MM:
       if (canUseShortMicroMipsCTI)
         return Mips::BEQZC_MM;
       else if (I->getOperand(0).getReg() == I->getOperand(1).getReg())
         return 0;
       return Mips::BEQC;
     case Mips::BNE:
-    case Mips::BNE_MM:
       if (canUseShortMicroMipsCTI)
         return Mips::BNEZC_MM;
       else if (I->getOperand(0).getReg() == I->getOperand(1).getReg())
@@ -342,28 +337,11 @@ unsigned MipsInstrInfo::getEquivalentCompactForm(
       return Mips::BLTUC;
     case Mips::BLTZ:
       return Mips::BLTZC;
-    case Mips::BEQ64:
-      if (I->getOperand(0).getReg() == I->getOperand(1).getReg())
-        return 0;
-      return Mips::BEQC64;
-    case Mips::BNE64:
-      if (I->getOperand(0).getReg() == I->getOperand(1).getReg())
-        return 0;
-      return Mips::BNEC64;
-    case Mips::BGTZ64:
-      return Mips::BGTZC64;
-    case Mips::BGEZ64:
-      return Mips::BGEZC64;
-    case Mips::BLTZ64:
-      return Mips::BLTZC64;
-    case Mips::BLEZ64:
-      return Mips::BLEZC64;
     // For MIPSR6, the instruction 'jic' can be used for these cases. Some
     // tools will accept 'jrc reg' as an alias for 'jic 0, $reg'.
     case Mips::JR:
     case Mips::PseudoReturn:
     case Mips::PseudoIndirectBranch:
-    case Mips::TAILCALLREG:
       if (canUseShortMicroMipsCTI)
         return Mips::JRC16_MM;
       return Mips::JIC;
@@ -372,7 +350,6 @@ unsigned MipsInstrInfo::getEquivalentCompactForm(
     case Mips::JR64:
     case Mips::PseudoReturn64:
     case Mips::PseudoIndirectBranch64:
-    case Mips::TAILCALLREG64:
       return Mips::JIC64;
     case Mips::JALR64Pseudo:
       return Mips::JIALC64;
@@ -401,7 +378,7 @@ bool MipsInstrInfo::HasForbiddenSlot(const MachineInstr &MI) const {
 }
 
 /// Return the number of bytes of code the specified instruction may be.
-unsigned MipsInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
+unsigned MipsInstrInfo::GetInstSizeInBytes(const MachineInstr &MI) const {
   switch (MI.getOpcode()) {
   default:
     return MI.getDesc().getSize();
@@ -422,22 +399,17 @@ MipsInstrInfo::genInstrWithNewOpc(unsigned NewOpc,
                                   MachineBasicBlock::iterator I) const {
   MachineInstrBuilder MIB;
 
-  // Certain branches have two forms: e.g beq $1, $zero, dest vs beqz $1, dest
+  // Certain branches have two forms: e.g beq $1, $zero, dst vs beqz $1, dest
   // Pick the zero form of the branch for readable assembly and for greater
   // branch distance in non-microMIPS mode.
-  // Additional MIPSR6 does not permit the use of register $zero for compact
-  // branches.
   // FIXME: Certain atomic sequences on mips64 generate 32bit references to
   // Mips::ZERO, which is incorrect. This test should be updated to use
   // Subtarget.getABI().GetZeroReg() when those atomic sequences and others
   // are fixed.
-  int ZeroOperandPosition = -1;
-  bool BranchWithZeroOperand = false;
-  if (I->isBranch() && !I->isPseudo()) {
-    auto TRI = I->getParent()->getParent()->getSubtarget().getRegisterInfo();
-    ZeroOperandPosition = I->findRegisterUseOperandIdx(Mips::ZERO, false, TRI);
-    BranchWithZeroOperand = ZeroOperandPosition != -1;
-  }
+  bool BranchWithZeroOperand =
+      (I->isBranch() && !I->isPseudo() && I->getOperand(1).isReg() &&
+       (I->getOperand(1).getReg() == Mips::ZERO ||
+        I->getOperand(1).getReg() == Mips::ZERO_64));
 
   if (BranchWithZeroOperand) {
     switch (NewOpc) {
@@ -452,12 +424,6 @@ MipsInstrInfo::genInstrWithNewOpc(unsigned NewOpc,
       break;
     case Mips::BLTC:
       NewOpc = Mips::BLTZC;
-      break;
-    case Mips::BEQC64:
-      NewOpc = Mips::BEQZC64;
-      break;
-    case Mips::BNEC64:
-      NewOpc = Mips::BNEZC64;
       break;
     }
   }
@@ -480,11 +446,17 @@ MipsInstrInfo::genInstrWithNewOpc(unsigned NewOpc,
 
     MIB.addImm(0);
 
-  } else {
-    for (unsigned J = 0, E = I->getDesc().getNumOperands(); J < E; ++J) {
-      if (BranchWithZeroOperand && (unsigned)ZeroOperandPosition == J)
-        continue;
+ } else if (BranchWithZeroOperand) {
+    // For MIPSR6 and microMIPS branches with an explicit zero operand, copy
+    // everything after the zero.
+     MIB.addOperand(I->getOperand(0));
 
+    for (unsigned J = 2, E = I->getDesc().getNumOperands(); J < E; ++J) {
+      MIB.addOperand(I->getOperand(J));
+    }
+  } else {
+    // All other cases copy all other operands.
+    for (unsigned J = 0, E = I->getDesc().getNumOperands(); J < E; ++J) {
       MIB.addOperand(I->getOperand(J));
     }
   }

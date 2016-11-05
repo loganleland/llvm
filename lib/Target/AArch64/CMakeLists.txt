@@ -19,8 +19,6 @@ add_public_tablegen_target(AArch64CommonTableGen)
 # List of all GlobalISel files.
 set(GLOBAL_ISEL_FILES
       AArch64CallLowering.cpp
-      AArch64InstructionSelector.cpp
-      AArch64MachineLegalizer.cpp
       AArch64RegisterBankInfo.cpp
       )
 

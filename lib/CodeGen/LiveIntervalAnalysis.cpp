@@ -58,6 +58,10 @@ static cl::opt<bool> EnablePrecomputePhysRegs(
 static bool EnablePrecomputePhysRegs = false;
 #endif // NDEBUG
 
+static cl::opt<bool> EnableSubRegLiveness(
+  "enable-subreg-liveness", cl::Hidden, cl::init(true),
+  cl::desc("Enable subregister liveness tracking."));
+
 namespace llvm {
 cl::opt<bool> UseSegmentSetForPhysRegs(
     "use-segment-set-for-physregs", cl::Hidden, cl::init(true),
@@ -114,6 +118,9 @@ bool LiveIntervals::runOnMachineFunction(MachineFunction &fn) {
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   Indexes = &getAnalysis<SlotIndexes>();
   DomTree = &getAnalysis<MachineDominatorTree>();
+
+  if (EnableSubRegLiveness && MF->getSubtarget().enableSubRegLiveness())
+    MRI->enableSubRegLiveness(true);
 
   if (!LRCalc)
     LRCalc = new LiveRangeCalc();
@@ -497,7 +504,8 @@ bool LiveIntervals::computeDeadValues(LiveInterval &LI,
   return MayHaveSplitComponents;
 }
 
-void LiveIntervals::shrinkToUses(LiveInterval::SubRange &SR, unsigned Reg) {
+void LiveIntervals::shrinkToUses(LiveInterval::SubRange &SR, unsigned Reg)
+{
   DEBUG(dbgs() << "Shrink: " << SR << '\n');
   assert(TargetRegisterInfo::isVirtualRegister(Reg)
          && "Can only shrink virtual registers");
@@ -508,14 +516,12 @@ void LiveIntervals::shrinkToUses(LiveInterval::SubRange &SR, unsigned Reg) {
   SlotIndex LastIdx;
   for (MachineOperand &MO : MRI->reg_operands(Reg)) {
     MachineInstr *UseMI = MO.getParent();
-    if (UseMI->isDebugValue() || !MO.readsReg())
+    if (UseMI->isDebugValue())
       continue;
     // Maybe the operand is for a subregister we don't care about.
     unsigned SubReg = MO.getSubReg();
     if (SubReg != 0) {
       LaneBitmask LaneMask = TRI->getSubRegIndexLaneMask(SubReg);
-      if (MO.isDef())
-        LaneMask = ~LaneMask & MRI->getMaxLaneMaskForVReg(Reg);
       if ((LaneMask & SR.LaneMask) == 0)
         continue;
     }
@@ -568,12 +574,11 @@ void LiveIntervals::shrinkToUses(LiveInterval::SubRange &SR, unsigned Reg) {
 }
 
 void LiveIntervals::extendToIndices(LiveRange &LR,
-                                    ArrayRef<SlotIndex> Indices,
-                                    ArrayRef<SlotIndex> Undefs) {
+                                    ArrayRef<SlotIndex> Indices) {
   assert(LRCalc && "LRCalc not initialized.");
   LRCalc->reset(MF, getSlotIndexes(), DomTree, &getVNInfoAllocator());
   for (unsigned i = 0, e = Indices.size(); i != e; ++i)
-    LRCalc->extend(LR, Indices[i], /*PhysReg=*/0, Undefs);
+    LRCalc->extend(LR, Indices[i]);
 }
 
 void LiveIntervals::pruneValue(LiveRange &LR, SlotIndex Kill,
@@ -949,8 +954,7 @@ public:
         LiveInterval &LI = LIS.getInterval(Reg);
         if (LI.hasSubRanges()) {
           unsigned SubReg = MO.getSubReg();
-          LaneBitmask LaneMask = SubReg ? TRI.getSubRegIndexLaneMask(SubReg)
-                                        : MRI.getMaxLaneMaskForVReg(Reg);
+          LaneBitmask LaneMask = TRI.getSubRegIndexLaneMask(SubReg);
           for (LiveInterval::SubRange &S : LI.subranges()) {
             if ((S.LaneMask & LaneMask) == 0)
               continue;
@@ -1035,8 +1039,6 @@ private:
           LiveRange::iterator Prev = std::prev(NewIdxIn);
           Prev->end = NewIdx.getRegSlot();
         }
-        // Extend OldIdxIn.
-        OldIdxIn->end = Next->start;
         return;
       }
 
@@ -1392,11 +1394,6 @@ void LiveIntervals::repairOldRegInRange(const MachineBasicBlock::iterator Begin,
                                         LaneBitmask LaneMask) {
   LiveInterval::iterator LII = LR.find(endIdx);
   SlotIndex lastUseIdx;
-  if (LII == LR.begin()) {
-    // This happens when the function is called for a subregister that only
-    // occurs _after_ the range that is to be repaired.
-    return;
-  }
   if (LII != LR.end() && LII->start < endIdx)
     lastUseIdx = LII->end;
   else
@@ -1541,19 +1538,15 @@ void LiveIntervals::removePhysRegDefAt(unsigned Reg, SlotIndex Pos) {
 }
 
 void LiveIntervals::removeVRegDefAt(LiveInterval &LI, SlotIndex Pos) {
-  // LI may not have the main range computed yet, but its subranges may
-  // be present.
   VNInfo *VNI = LI.getVNInfoAt(Pos);
-  if (VNI != nullptr) {
-    assert(VNI->def.getBaseIndex() == Pos.getBaseIndex());
-    LI.removeValNo(VNI);
-  }
+  if (VNI == nullptr)
+    return;
+  LI.removeValNo(VNI);
 
-  // Also remove the value defined in subranges.
+  // Also remove the value in subranges.
   for (LiveInterval::SubRange &S : LI.subranges()) {
     if (VNInfo *SVNI = S.getVNInfoAt(Pos))
-      if (SVNI->def.getBaseIndex() == Pos.getBaseIndex())
-        S.removeValNo(SVNI);
+      S.removeValNo(SVNI);
   }
   LI.removeEmptySubRanges();
 }

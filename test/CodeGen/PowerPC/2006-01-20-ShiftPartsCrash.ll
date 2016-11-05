@@ -1,4 +1,4 @@
-; RUN: llc -verify-machineinstrs < %s
+; RUN: llc < %s
 ; REQUIRES: default_triple
 
 define void @iterative_hash_host_wide_int() {

@@ -1,15 +1,14 @@
-; RUN: opt -mtriple=x86_64-unknown-linux-gnu -load-store-vectorizer -S -o - %s | FileCheck %s
+; RUN: opt -mtriple=x86-linux -load-store-vectorizer -S -o - %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-i128:128-n32:64-S128"
 
 ; CHECK-LABEL: @correct_order(
-; CHECK: [[LOAD_PTR:%[0-9]+]] = bitcast i32* %next.gep1
-; CHECK: load <2 x i32>, <2 x i32>* [[LOAD_PTR]]
-; CHECK: load i32, i32* %next.gep
-; CHECK: [[STORE_PTR:%[0-9]+]] = bitcast i32* %next.gep
+; CHECK: bitcast i32*
+; CHECK: load <2 x i32>
+; CHECK: load i32
+; CHECK: bitcast i32*
 ; CHECK: store <2 x i32>
-; CHECK-SAME: <2 x i32>* [[STORE_PTR]]
-; CHECK: load i32, i32* %next.gep1
+; CHECK: load i32
 define void @correct_order(i32* noalias %ptr) {
   %next.gep = getelementptr i32, i32* %ptr, i64 0
   %next.gep1 = getelementptr i32, i32* %ptr, i64 1

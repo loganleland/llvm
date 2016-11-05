@@ -187,7 +187,7 @@ SimplifyCFGPass::SimplifyCFGPass(int BonusInstThreshold)
     : BonusInstThreshold(BonusInstThreshold) {}
 
 PreservedAnalyses SimplifyCFGPass::run(Function &F,
-                                       FunctionAnalysisManager &AM) {
+                                       AnalysisManager<Function> &AM) {
   auto &TTI = AM.getResult<TargetIRAnalysis>(F);
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
 

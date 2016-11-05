@@ -134,7 +134,7 @@ bool JumpThreading::runOnFunction(Function &F) {
 }
 
 PreservedAnalyses JumpThreadingPass::run(Function &F,
-                                         FunctionAnalysisManager &AM) {
+                                         AnalysisManager<Function> &AM) {
 
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &LVI = AM.getResult<LazyValueAnalysis>(F);
@@ -951,16 +951,11 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LI) {
   // Scan a few instructions up from the load, to see if it is obviously live at
   // the entry to its block.
   BasicBlock::iterator BBIt(LI);
-  bool IsLoadCSE;
+
   if (Value *AvailableVal =
-        FindAvailableLoadedValue(LI, LoadBB, BBIt, DefMaxInstsToScan, nullptr, &IsLoadCSE)) {
+        FindAvailableLoadedValue(LI, LoadBB, BBIt, DefMaxInstsToScan)) {
     // If the value of the load is locally available within the block, just use
     // it.  This frequently occurs for reg2mem'd allocas.
-
-    if (IsLoadCSE) {
-      LoadInst *NLI = cast<LoadInst>(AvailableVal);
-      combineMetadataForCSE(NLI, LI);
-    };
 
     // If the returned value is the load itself, replace with an undef. This can
     // only happen in dead loops.
@@ -988,7 +983,6 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LI) {
   typedef SmallVector<std::pair<BasicBlock*, Value*>, 8> AvailablePredsTy;
   AvailablePredsTy AvailablePreds;
   BasicBlock *OneUnavailablePred = nullptr;
-  SmallVector<LoadInst*, 8> CSELoads;
 
   // If we got here, the loaded value is transparent through to the start of the
   // block.  Check to see if it is available in any of the predecessor blocks.
@@ -999,17 +993,17 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LI) {
 
     // Scan the predecessor to see if the value is available in the pred.
     BBIt = PredBB->end();
+    AAMDNodes ThisAATags;
     Value *PredAvailable = FindAvailableLoadedValue(LI, PredBB, BBIt,
                                                     DefMaxInstsToScan,
-                                                    nullptr,
-                                                    &IsLoadCSE);
+                                                    nullptr, &ThisAATags);
     if (!PredAvailable) {
       OneUnavailablePred = PredBB;
       continue;
     }
 
-    if (IsLoadCSE)
-      CSELoads.push_back(cast<LoadInst>(PredAvailable));
+    // If AA tags disagree or are not present, forget about them.
+    if (AATags != ThisAATags) AATags = AAMDNodes();
 
     // If so, this load is partially redundant.  Remember this info so that we
     // can create a PHI node.
@@ -1107,10 +1101,6 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LI) {
     PN->addIncoming(PredV, I->first);
   }
 
-  for (LoadInst *PredLI : CSELoads) {
-    combineMetadataForCSE(PredLI, LI);
-  }
-
   LI->replaceAllUsesWith(PN);
   LI->eraseFromParent();
 
@@ -1167,7 +1157,8 @@ FindMostPopularDest(BasicBlock *BB,
     for (unsigned i = 0; ; ++i) {
       assert(i != TI->getNumSuccessors() && "Didn't find any successor!");
 
-      if (!is_contained(SamePopularity, TI->getSuccessor(i)))
+      if (std::find(SamePopularity.begin(), SamePopularity.end(),
+                    TI->getSuccessor(i)) == SamePopularity.end())
         continue;
 
       MostPopularDest = TI->getSuccessor(i);

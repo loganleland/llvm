@@ -129,10 +129,12 @@ void MCExpr::print(raw_ostream &OS, const MCAsmInfo *MAI, bool InParens) const {
   llvm_unreachable("Invalid expression kind!");
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void MCExpr::dump() const {
   dbgs() << *this;
   dbgs() << '\n';
 }
+#endif
 
 /* *** */
 
@@ -275,8 +277,6 @@ StringRef MCSymbolRefExpr::getVariantKindName(VariantKind Kind) {
   case VK_Hexagon_IE: return "IE";
   case VK_Hexagon_IE_GOT: return "IEGOT";
   case VK_WebAssembly_FUNCTION: return "FUNCTION";
-  case VK_PIC16_LO: return "PIC16 Low";
-  case VK_PIC16_HI: return "PIC16 High";
   }
   llvm_unreachable("Invalid variant kind");
 }

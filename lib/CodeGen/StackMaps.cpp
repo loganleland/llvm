@@ -35,15 +35,11 @@ static cl::opt<int> StackMapVersion(
 
 const char *StackMaps::WSMP = "Stack Maps: ";
 
-StackMapOpers::StackMapOpers(const MachineInstr *MI)
-  : MI(MI) {
-  assert(getVarIdx() <= MI->getNumOperands() &&
-         "invalid stackmap definition");
-}
-
 PatchPointOpers::PatchPointOpers(const MachineInstr *MI)
     : MI(MI), HasDef(MI->getOperand(0).isReg() && MI->getOperand(0).isDef() &&
-                     !MI->getOperand(0).isImplicit()) {
+                     !MI->getOperand(0).isImplicit()),
+      IsAnyReg(MI->getOperand(getMetaIdx(CCPos)).getImm() ==
+               CallingConv::AnyReg) {
 #ifndef NDEBUG
   unsigned CheckStartIdx = 0, e = MI->getNumOperands();
   while (CheckStartIdx < e && MI->getOperand(CheckStartIdx).isReg() &&
@@ -276,7 +272,8 @@ StackMaps::parseRegisterLiveOutMask(const uint32_t *Mask) const {
   }
 
   LiveOuts.erase(
-      remove_if(LiveOuts, [](const LiveOutReg &LO) { return LO.Reg == 0; }),
+      std::remove_if(LiveOuts.begin(), LiveOuts.end(),
+                     [](const LiveOutReg &LO) { return LO.Reg == 0; }),
       LiveOuts.end());
 
   return LiveOuts;
@@ -336,20 +333,19 @@ void StackMaps::recordStackMapOpers(const MachineInstr &MI, uint64_t ID,
                        std::move(LiveOuts));
 
   // Record the stack size of the current function.
-  const MachineFrameInfo &MFI = AP.MF->getFrameInfo();
+  const MachineFrameInfo *MFI = AP.MF->getFrameInfo();
   const TargetRegisterInfo *RegInfo = AP.MF->getSubtarget().getRegisterInfo();
   bool HasDynamicFrameSize =
-      MFI.hasVarSizedObjects() || RegInfo->needsStackRealignment(*(AP.MF));
+      MFI->hasVarSizedObjects() || RegInfo->needsStackRealignment(*(AP.MF));
   FnStackSize[AP.CurrentFnSym] =
-      HasDynamicFrameSize ? UINT64_MAX : MFI.getStackSize();
+      HasDynamicFrameSize ? UINT64_MAX : MFI->getStackSize();
 }
 
 void StackMaps::recordStackMap(const MachineInstr &MI) {
   assert(MI.getOpcode() == TargetOpcode::STACKMAP && "expected stackmap");
 
-  StackMapOpers opers(&MI);
-  const int64_t ID = MI.getOperand(PatchPointOpers::IDPos).getImm();
-  recordStackMapOpers(MI, ID, std::next(MI.operands_begin(), opers.getVarIdx()),
+  int64_t ID = MI.getOperand(0).getImm();
+  recordStackMapOpers(MI, ID, std::next(MI.operands_begin(), 2),
                       MI.operands_end());
 }
 
@@ -357,7 +353,8 @@ void StackMaps::recordPatchPoint(const MachineInstr &MI) {
   assert(MI.getOpcode() == TargetOpcode::PATCHPOINT && "expected patchpoint");
 
   PatchPointOpers opers(&MI);
-  const int64_t ID = opers.getID();
+  int64_t ID = opers.getMetaOper(PatchPointOpers::IDPos).getImm();
+
   auto MOI = std::next(MI.operands_begin(), opers.getStackMapStartIdx());
   recordStackMapOpers(MI, ID, MOI, MI.operands_end(),
                       opers.isAnyReg() && opers.hasDef());
@@ -366,7 +363,7 @@ void StackMaps::recordPatchPoint(const MachineInstr &MI) {
   // verify anyregcc
   auto &Locations = CSInfos.back().Locations;
   if (opers.isAnyReg()) {
-    unsigned NArgs = opers.getNumCallArgs();
+    unsigned NArgs = opers.getMetaOper(PatchPointOpers::NArgPos).getImm();
     for (unsigned i = 0, e = (opers.hasDef() ? NArgs + 1 : NArgs); i != e; ++i)
       assert(Locations[i].Type == Location::Register &&
              "anyreg arg must be in reg.");
