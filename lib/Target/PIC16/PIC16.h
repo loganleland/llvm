@@ -29,13 +29,6 @@ namespace PIC16CC {
     COND_BTFSS=5,
     COND_IORLW=6,
     COND_XORLW=7,
-    //just so it builds
-    COND_E=8,  // aka COND_Z
-    COND_NE=9,  // aka COND_NZ
-    COND_HS=10,  // aka COND_C
-    COND_LO=11,  // aka COND_NC
-    COND_GE=12,
-    COND_L=13,
     COND_INVALID=-1
   };
 }

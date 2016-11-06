@@ -134,23 +134,8 @@ ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
 
   switch (CC) {
   default: llvm_unreachable("Invalid branch condition!");
-  case PIC16CC::COND_E:
-    CC = PIC16CC::COND_NE;
-    break;
-  case PIC16CC::COND_NE:
-    CC = PIC16CC::COND_E;
-    break;
-  case PIC16CC::COND_L:
-    CC = PIC16CC::COND_GE;
-    break;
-  case PIC16CC::COND_GE:
-    CC = PIC16CC::COND_L;
-    break;
-  case PIC16CC::COND_HS:
-    CC = PIC16CC::COND_LO;
-    break;
-  case PIC16CC::COND_LO:
-    CC = PIC16CC::COND_HS;
+  case PIC16CC::COND_INVALID:
+    CC = PIC16CC::COND_INVALID;
     break;
   }
 

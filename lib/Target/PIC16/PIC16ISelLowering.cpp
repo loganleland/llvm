@@ -793,14 +793,14 @@ static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, SDValue &TargetCC,
   switch (CC) {
   default: llvm_unreachable("Invalid integer condition!");
   case ISD::SETEQ:
-    TCC = PIC16CC::COND_E;     // aka COND_Z
+    TCC = PIC16CC::COND_INVALID;     // aka COND_Z
     // Minor optimization: if LHS is a constant, swap operands, then the
     // constant can be folded into comparison.
     if (LHS.getOpcode() == ISD::Constant)
       std::swap(LHS, RHS);
     break;
   case ISD::SETNE:
-    TCC = PIC16CC::COND_NE;    // aka COND_NZ
+    TCC = PIC16CC::COND_INVALID;    // aka COND_NZ
     // Minor optimization: if LHS is a constant, swap operands, then the
     // constant can be folded into comparison.
     if (LHS.getOpcode() == ISD::Constant)
@@ -814,10 +814,10 @@ static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, SDValue &TargetCC,
     if (const ConstantSDNode * C = dyn_cast<ConstantSDNode>(LHS)) {
       LHS = RHS;
       RHS = DAG.getConstant(C->getSExtValue() + 1, dl, C->getValueType(0));
-      TCC = PIC16CC::COND_LO;
+      TCC = PIC16CC::COND_INVALID;
       break;
     }
-    TCC = PIC16CC::COND_HS;    // aka COND_C
+    TCC = PIC16CC::COND_INVALID;    // aka COND_C
     break;
   case ISD::SETUGT:
     std::swap(LHS, RHS);        // FALLTHROUGH
@@ -827,10 +827,10 @@ static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, SDValue &TargetCC,
     if (const ConstantSDNode * C = dyn_cast<ConstantSDNode>(LHS)) {
       LHS = RHS;
       RHS = DAG.getConstant(C->getSExtValue() + 1, dl, C->getValueType(0));
-      TCC = PIC16CC::COND_HS;
+      TCC = PIC16CC::COND_INVALID;
       break;
     }
-    TCC = PIC16CC::COND_LO;    // aka COND_NC
+    TCC = PIC16CC::COND_INVALID;    // aka COND_NC
     break;
   case ISD::SETLE:
     std::swap(LHS, RHS);        // FALLTHROUGH
@@ -840,10 +840,10 @@ static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, SDValue &TargetCC,
     if (const ConstantSDNode * C = dyn_cast<ConstantSDNode>(LHS)) {
       LHS = RHS;
       RHS = DAG.getConstant(C->getSExtValue() + 1, dl, C->getValueType(0));
-      TCC = PIC16CC::COND_L;
+      TCC = PIC16CC::COND_INVALID;
       break;
     }
-    TCC = PIC16CC::COND_GE;
+    TCC = PIC16CC::COND_INVALID;
     break;
   case ISD::SETGT:
     std::swap(LHS, RHS);        // FALLTHROUGH
@@ -853,10 +853,10 @@ static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, SDValue &TargetCC,
     if (const ConstantSDNode * C = dyn_cast<ConstantSDNode>(LHS)) {
       LHS = RHS;
       RHS = DAG.getConstant(C->getSExtValue() + 1, dl, C->getValueType(0));
-      TCC = PIC16CC::COND_GE;
+      TCC = PIC16CC::COND_INVALID;
       break;
     }
-    TCC = PIC16CC::COND_L;
+    TCC = PIC16CC::COND_INVALID;
     break;
   }
 
@@ -914,26 +914,9 @@ SDValue PIC16TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
    default:
     Convert = false;
     break;
-   case PIC16CC::COND_HS:
-     // Res = SR & 1, no processing is required
-     break;
-   case PIC16CC::COND_LO:
+   case PIC16CC::COND_INVALID:
      // Res = ~(SR & 1)
      Invert = true;
-     break;
-   case PIC16CC::COND_NE:
-     if (andCC) {
-       // C = ~Z, thus Res = SR & 1, no processing is required
-     } else {
-       // Res = ~((SR >> 1) & 1)
-       Shift = true;
-       Invert = true;
-     }
-     break;
-   case PIC16CC::COND_E:
-     Shift = true;
-     // C = ~Z for AND instruction, thus we can put Res = ~(SR & 1), however,
-     // Res = (SR >> 1) & 1 is 1 word shorter.
      break;
   }
   EVT VT = Op.getValueType();
@@ -1237,7 +1220,7 @@ PIC16TargetLowering::EmitShiftInstr(MachineInstr &MI,
     .addReg(ShiftAmtSrcReg).addImm(0);
   BuildMI(BB, dl, TII.get(PIC16::JCC))
     .addMBB(RemBB)
-    .addImm(PIC16CC::COND_E);
+    .addImm(PIC16CC::COND_INVALID);
 
   // LoopBB:
   // ShiftReg = phi [%SrcReg, BB], [%ShiftReg2, LoopBB]
@@ -1256,7 +1239,7 @@ PIC16TargetLowering::EmitShiftInstr(MachineInstr &MI,
     .addReg(ShiftAmtReg).addImm(1);
   BuildMI(LoopBB, dl, TII.get(PIC16::JCC))
     .addMBB(LoopBB)
-    .addImm(PIC16CC::COND_NE);
+    .addImm(PIC16CC::COND_INVALID);
 
   // RemBB:
   // DestReg = phi [%SrcReg, BB], [%ShiftReg, LoopBB]
