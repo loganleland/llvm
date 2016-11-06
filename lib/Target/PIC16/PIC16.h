@@ -19,17 +19,25 @@
 #include "llvm/Target/TargetMachine.h"
 
 namespace PIC16CC {
-    // PIC16 specific condition code.
-    enum CondCodes {
-        COND_E = 0,  // aka COND_Z
-        COND_NE = 1,  // aka COND_NZ
-        COND_HS = 2,  // aka COND_C
-        COND_LO = 3,  // aka COND_NC
-        COND_GE = 4,
-        COND_L = 5,
-
-        COND_INVALID = -1
-    };
+  // PIC16 specific condition code.
+  enum CondCodes {
+    COND_DECFSZ=0,
+    COND_INCFSZ=1,
+    COND_IORWF=2,
+    COND_XORWF=3,
+    COND_BTFSC=4,
+    COND_BTFSS=5,
+    COND_IORLW=6,
+    COND_XORLW=7,
+    //just so it builds
+    COND_E=8,  // aka COND_Z
+    COND_NE=9,  // aka COND_NZ
+    COND_HS=10,  // aka COND_C
+    COND_LO=11,  // aka COND_NC
+    COND_GE=12,
+    COND_L=13,
+    COND_INVALID=-1
+  };
 }
 
 namespace llvm {
