@@ -22,7 +22,7 @@ define void @tail_jmp_imm() {
 }
 
 ; CHECK-LABEL: tail_jmp_imm:
-; CHECK: jmp tail_tgt
+; CHECK: rex64 jmp tail_tgt
 
 @g_fptr = global void ()* @tail_tgt
 

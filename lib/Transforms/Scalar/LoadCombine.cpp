@@ -44,6 +44,9 @@ struct PointerOffsetPair {
 };
 
 struct LoadPOPPair {
+  LoadPOPPair() = default;
+  LoadPOPPair(LoadInst *L, PointerOffsetPair P, unsigned O)
+      : Load(L), POP(P), InsertOrder(O) {}
   LoadInst *Load;
   PointerOffsetPair POP;
   /// \brief The new load needs to be created before the first load in IR order.
@@ -261,7 +264,7 @@ bool LoadCombine::runOnBasicBlock(BasicBlock &BB) {
     auto POP = getPointerOffsetPair(*LI);
     if (!POP.Pointer)
       continue;
-    LoadMap[POP.Pointer].push_back({LI, std::move(POP), Index++});
+    LoadMap[POP.Pointer].push_back(LoadPOPPair(LI, POP, Index++));
     AST.add(LI);
   }
   if (combineLoads(LoadMap))

@@ -135,7 +135,7 @@ def : ProcessorModel<"iceland", SIQuarterSpeedModel,
 >;
 
 def : ProcessorModel<"carrizo", SIQuarterSpeedModel,
-  [FeatureVolcanicIslands, FeatureISAVersion8_0_1, FeatureLDSBankCount32, FeatureXNACK]
+  [FeatureVolcanicIslands, FeatureISAVersion8_0_1, FeatureLDSBankCount32]
 >;
 
 def : ProcessorModel<"fiji", SIQuarterSpeedModel,
@@ -143,7 +143,7 @@ def : ProcessorModel<"fiji", SIQuarterSpeedModel,
 >;
 
 def : ProcessorModel<"stoney", SIQuarterSpeedModel,
-  [FeatureVolcanicIslands, FeatureISAVersion8_0_1, FeatureLDSBankCount16, FeatureXNACK]
+  [FeatureVolcanicIslands, FeatureISAVersion8_0_1, FeatureLDSBankCount16]
 >;
 
 def : ProcessorModel<"polaris10", SIQuarterSpeedModel,

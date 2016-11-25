@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=arm64-eabi
+; RUN: llc < %s -march=arm64
 
 ; The target lowering for integer comparisons was replacing some DAG nodes
 ; during operation legalization, which resulted in dangling pointers,

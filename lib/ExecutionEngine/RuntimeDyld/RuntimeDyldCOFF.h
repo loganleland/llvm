@@ -33,11 +33,11 @@ public:
 
   static std::unique_ptr<RuntimeDyldCOFF>
   create(Triple::ArchType Arch, RuntimeDyld::MemoryManager &MemMgr,
-         JITSymbolResolver &Resolver);
+         RuntimeDyld::SymbolResolver &Resolver);
 
 protected:
   RuntimeDyldCOFF(RuntimeDyld::MemoryManager &MemMgr,
-                  JITSymbolResolver &Resolver)
+                  RuntimeDyld::SymbolResolver &Resolver)
     : RuntimeDyldImpl(MemMgr, Resolver) {}
   uint64_t getSymbolOffset(const SymbolRef &Sym);
 };

@@ -26,6 +26,10 @@
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/RWMutex.h"
+#include "llvm/Support/StringPool.h"
+#include "llvm/Support/Threading.h"
 using namespace llvm;
 
 // Explicit instantiations of SymbolTableListTraits since some of the methods
@@ -258,10 +262,7 @@ Function::Function(FunctionType *Ty, LinkageTypes Linkage, const Twine &name,
   assert(FunctionType::isValidReturnType(getReturnType()) &&
          "invalid return type");
   setGlobalObjectSubClassData(0);
-
-  // We only need a symbol table for a function if the context keeps value names
-  if (!getContext().shouldDiscardValueNames())
-    SymTab = make_unique<ValueSymbolTable>();
+  SymTab = new ValueSymbolTable();
 
   // If the function has arguments, mark them as lazily built.
   if (Ty->getNumParams())
@@ -282,6 +283,7 @@ Function::~Function() {
 
   // Delete all of the method arguments and unlink from symbol table...
   ArgumentList.clear();
+  delete SymTab;
 
   // Remove the function from the on-the-side GC table.
   clearGC();
@@ -486,7 +488,9 @@ static ArrayRef<const char *> findTargetSubtable(StringRef Name) {
 
 /// \brief This does the actual lookup of an intrinsic ID which
 /// matches the given function name.
-Intrinsic::ID Function::lookupIntrinsicID(StringRef Name) {
+static Intrinsic::ID lookupIntrinsicID(const ValueName *ValName) {
+  StringRef Name = ValName->getKey();
+
   ArrayRef<const char *> NameTable = findTargetSubtable(Name);
   int Idx = Intrinsic::lookupLLVMIntrinsicByName(NameTable, Name);
   if (Idx == -1)
@@ -509,7 +513,7 @@ void Function::recalculateIntrinsicID() {
     IntID = Intrinsic::not_intrinsic;
     return;
   }
-  IntID = lookupIntrinsicID(ValName->getKey());
+  IntID = lookupIntrinsicID(ValName);
 }
 
 /// Returns a stable mangling for the type specified for use in the name
@@ -551,13 +555,6 @@ static std::string getMangledTypeStr(Type* Ty) {
   else if (Ty)
     Result += EVT::getEVT(Ty).getEVTString();
   return Result;
-}
-
-StringRef Intrinsic::getName(ID id) {
-  assert(id < num_intrinsics && "Invalid intrinsic ID!");
-  assert(!isOverloaded(id) &&
-         "This version of getName does not support overloading");
-  return IntrinsicNameTable[id];
 }
 
 std::string Intrinsic::getName(ID id, ArrayRef<Type*> Tys) {
@@ -757,9 +754,9 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
   case IIT_EMPTYSTRUCT:
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Struct, 0));
     return;
-  case IIT_STRUCT5: ++StructElts; LLVM_FALLTHROUGH;
-  case IIT_STRUCT4: ++StructElts; LLVM_FALLTHROUGH;
-  case IIT_STRUCT3: ++StructElts; LLVM_FALLTHROUGH;
+  case IIT_STRUCT5: ++StructElts; // FALL THROUGH.
+  case IIT_STRUCT4: ++StructElts; // FALL THROUGH.
+  case IIT_STRUCT3: ++StructElts; // FALL THROUGH.
   case IIT_STRUCT2: {
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Struct,StructElts));
 
@@ -1267,10 +1264,7 @@ Optional<uint64_t> Function::getEntryCount() const {
     if (MDString *MDS = dyn_cast<MDString>(MD->getOperand(0)))
       if (MDS->getString().equals("function_entry_count")) {
         ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(1));
-        uint64_t Count = CI->getValue().getZExtValue();
-        if (Count == 0)
-          return None;
-        return Count;
+        return CI->getValue().getZExtValue();
       }
   return None;
 }

@@ -18,7 +18,6 @@
 #define LLVM_TRANSFORMS_SCALAR_LOOPSIMPLIFYCFG_H
 
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/LoopPassManager.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
@@ -26,7 +25,7 @@ namespace llvm {
 /// Performs basic CFG simplifications to assist other loop passes.
 class LoopSimplifyCFGPass : public PassInfoMixin<LoopSimplifyCFGPass> {
 public:
-  PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM);
+  PreservedAnalyses run(Loop &L, AnalysisManager<Loop> &AM);
 };
 } // end namespace llvm
 

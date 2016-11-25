@@ -132,7 +132,6 @@ protected:
   bool HasFusion;
   bool HasFloat128;
   bool IsISA3_0;
-  bool UseLongCalls;
 
   POPCNTDKind HasPOPCNTD;
 
@@ -276,10 +275,6 @@ public:
   bool hasFusion() const { return HasFusion; }
   bool hasFloat128() const { return HasFloat128; }
   bool isISA3_0() const { return IsISA3_0; }
-  bool useLongCalls() const { return UseLongCalls; }
-  bool needsSwapsForVSXMemOps() const {
-    return hasVSX() && isLittleEndian() && !hasP9Vector();
-  }
 
   POPCNTDKind hasPOPCNTD() const { return HasPOPCNTD; }
 

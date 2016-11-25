@@ -1,12 +1,8 @@
-; RUN: opt < %s -inline-threshold=0 -always-inline -S | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CALL
+; RUN: opt < %s -inline-threshold=0 -always-inline -S | FileCheck %s
 ;
 ; Ensure the threshold has no impact on these decisions.
-; RUN: opt < %s -inline-threshold=20000000 -always-inline -S | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CALL
-; RUN: opt < %s -inline-threshold=-20000000 -always-inline -S | FileCheck %s --check-prefix=CHECK --check-prefix=CHECK-CALL
-;
-; The new pass manager doesn't re-use any threshold based infrastructure for
-; the always inliner, but test that we get the correct result.
-; RUN: opt < %s -passes=always-inline -S | FileCheck %s --check-prefix=CHECK
+; RUN: opt < %s -inline-threshold=20000000 -always-inline -S | FileCheck %s
+; RUN: opt < %s -inline-threshold=-20000000 -always-inline -S | FileCheck %s
 
 define i32 @inner1() alwaysinline {
   ret i32 1
@@ -130,23 +126,10 @@ define i32 @inner7() {
   ret i32 1
 }
 define i32 @outer7() {
-; CHECK-CALL-LABEL: @outer7(
-; CHECK-CALL-NOT: call
-; CHECK-CALL: ret
+; CHECK-LABEL: @outer7(
+; CHECK-NOT: call
+; CHECK: ret
 
    %r = call i32 @inner7() alwaysinline
    ret i32 %r
-}
-
-define float* @inner8(float* nocapture align 128 %a) alwaysinline {
-  ret float* %a
-}
-define float @outer8(float* nocapture %a) {
-; CHECK-LABEL: @outer8(
-; CHECK-NOT: call float* @inner8
-; CHECK: ret
-
-  %inner_a = call float* @inner8(float* %a)
-  %f = load float, float* %inner_a, align 4
-  ret float %f
 }

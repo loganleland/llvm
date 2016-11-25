@@ -20,7 +20,6 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AliasSetTracker.h"
-#include "llvm/Analysis/LoopPassManager.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Pass.h"
@@ -35,7 +34,6 @@ class Loop;
 class SCEV;
 class SCEVUnionPredicate;
 class LoopAccessInfo;
-class OptimizationRemarkEmitter;
 
 /// Optimization analysis message produced during vectorization. Messages inform
 /// the user why vectorization did not occur.
@@ -65,9 +63,10 @@ public:
   /// \brief Emit an analysis note for \p PassName with the debug location from
   /// the instruction in \p Message if available.  Otherwise use the location of
   /// \p TheLoop.
-  static void emitAnalysis(const LoopAccessReport &Message, const Loop *TheLoop,
-                           const char *PassName,
-                           OptimizationRemarkEmitter &ORE);
+  static void emitAnalysis(const LoopAccessReport &Message,
+                           const Function *TheFunction,
+                           const Loop *TheLoop,
+                           const char *PassName);
 };
 
 /// \brief Collection of parameters shared beetween the Loop Vectorizer and the
@@ -335,11 +334,9 @@ public:
   struct PointerInfo {
     /// Holds the pointer value that we need to check.
     TrackingVH<Value> PointerValue;
-    /// Holds the smallest byte address accessed by the pointer throughout all
-    /// iterations of the loop.
+    /// Holds the pointer value at the beginning of the loop.
     const SCEV *Start;
-    /// Holds the largest byte address accessed by the pointer throughout all
-    /// iterations of the loop, plus 1.
+    /// Holds the pointer value at the end of the loop.
     const SCEV *End;
     /// Holds the information if this pointer is used for writing to memory.
     bool IsWritePtr;
@@ -713,7 +710,7 @@ const SCEV *replaceSymbolicStrideSCEV(PredicatedScalarEvolution &PSE,
 /// run-time assumptions.
 int64_t getPtrStride(PredicatedScalarEvolution &PSE, Value *Ptr, const Loop *Lp,
                      const ValueToValueMap &StridesMap = ValueToValueMap(),
-                     bool Assume = false, bool ShouldCheckWrap = true);
+                     bool Assume = false);
 
 /// \brief Returns true if the memory operations \p A and \p B are consecutive.
 /// This is a simple API that does not depend on the analysis pass. 
@@ -778,7 +775,7 @@ class LoopAccessAnalysis
 
 public:
   typedef LoopAccessInfo Result;
-  Result run(Loop &, LoopAnalysisManager &);
+  Result run(Loop &, AnalysisManager<Loop> &);
   static StringRef name() { return "LoopAccessAnalysis"; }
 };
 
@@ -789,7 +786,7 @@ class LoopAccessInfoPrinterPass
 
 public:
   explicit LoopAccessInfoPrinterPass(raw_ostream &OS) : OS(OS) {}
-  PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM);
+  PreservedAnalyses run(Loop &L, AnalysisManager<Loop> &AM);
 };
 
 inline Instruction *MemoryDepChecker::Dependence::getSource(

@@ -8,9 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"
-#include "llvm/DebugInfo/CodeView/RecordSerialization.h"
 #include "llvm/DebugInfo/CodeView/TypeIndex.h"
-#include "llvm/DebugInfo/MSF/ByteStream.h"
+#include "llvm/DebugInfo/CodeView/RecordSerialization.h"
 
 using namespace llvm;
 using namespace llvm::codeview;
@@ -19,11 +18,11 @@ using namespace llvm::codeview;
 // Type record deserialization
 //===----------------------------------------------------------------------===//
 
-Expected<MemberPointerInfo>
+ErrorOr<MemberPointerInfo>
 MemberPointerInfo::deserialize(ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   if (auto EC = consumeObject(Data, L))
-    return std::move(EC);
+    return EC;
 
   TypeIndex T = L->ClassType;
   uint16_t R = L->Representation;
@@ -32,11 +31,11 @@ MemberPointerInfo::deserialize(ArrayRef<uint8_t> &Data) {
   return MemberPointerInfo(T, PMR);
 }
 
-Expected<ModifierRecord> ModifierRecord::deserialize(TypeRecordKind Kind,
-                                                     ArrayRef<uint8_t> &Data) {
+ErrorOr<ModifierRecord> ModifierRecord::deserialize(TypeRecordKind Kind,
+                                                    ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   if (auto EC = consumeObject(Data, L))
-    return std::move(EC);
+    return EC;
 
   TypeIndex M = L->ModifiedType;
   uint16_t O = L->Modifiers;
@@ -44,16 +43,16 @@ Expected<ModifierRecord> ModifierRecord::deserialize(TypeRecordKind Kind,
   return ModifierRecord(M, MO);
 }
 
-Expected<ProcedureRecord>
-ProcedureRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
+ErrorOr<ProcedureRecord> ProcedureRecord::deserialize(TypeRecordKind Kind,
+                                                      ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   if (auto EC = consumeObject(Data, L))
-    return std::move(EC);
+    return EC;
   return ProcedureRecord(L->ReturnType, L->CallConv, L->Options,
                          L->NumParameters, L->ArgListType);
 }
 
-Expected<MemberFunctionRecord>
+ErrorOr<MemberFunctionRecord>
 MemberFunctionRecord::deserialize(TypeRecordKind Kind,
                                   ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
@@ -63,7 +62,7 @@ MemberFunctionRecord::deserialize(TypeRecordKind Kind,
                               L->ArgListType, L->ThisAdjustment);
 }
 
-Expected<MemberFuncIdRecord>
+ErrorOr<MemberFuncIdRecord>
 MemberFuncIdRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   StringRef Name;
@@ -71,12 +70,10 @@ MemberFuncIdRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
   return MemberFuncIdRecord(L->ClassType, L->FunctionType, Name);
 }
 
-Expected<ArgListRecord> ArgListRecord::deserialize(TypeRecordKind Kind,
-                                                   ArrayRef<uint8_t> &Data) {
+ErrorOr<ArgListRecord> ArgListRecord::deserialize(TypeRecordKind Kind,
+                                                  ArrayRef<uint8_t> &Data) {
   if (Kind != TypeRecordKind::StringList && Kind != TypeRecordKind::ArgList)
-    return make_error<CodeViewError>(
-        cv_error_code::corrupt_record,
-        "ArgListRecord contains unexpected TypeRecordKind");
+    return std::make_error_code(std::errc::illegal_byte_sequence);
 
   const Layout *L = nullptr;
   ArrayRef<TypeIndex> Indices;
@@ -84,11 +81,11 @@ Expected<ArgListRecord> ArgListRecord::deserialize(TypeRecordKind Kind,
   return ArgListRecord(Kind, Indices);
 }
 
-Expected<PointerRecord> PointerRecord::deserialize(TypeRecordKind Kind,
-                                                   ArrayRef<uint8_t> &Data) {
+ErrorOr<PointerRecord> PointerRecord::deserialize(TypeRecordKind Kind,
+                                                  ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   if (auto EC = consumeObject(Data, L))
-    return std::move(EC);
+    return EC;
 
   PointerKind PtrKind = L->getPtrKind();
   PointerMode Mode = L->getPtrMode();
@@ -97,17 +94,16 @@ Expected<PointerRecord> PointerRecord::deserialize(TypeRecordKind Kind,
   uint8_t Size = L->getPtrSize();
 
   if (L->isPointerToMember()) {
-    if (auto ExpectedMPI = MemberPointerInfo::deserialize(Data))
-      return PointerRecord(L->PointeeType, PtrKind, Mode, Options, Size,
-                           *ExpectedMPI);
-    else
-      return ExpectedMPI.takeError();
+    auto E = MemberPointerInfo::deserialize(Data);
+    if (E.getError())
+      return std::make_error_code(std::errc::illegal_byte_sequence);
+    return PointerRecord(L->PointeeType, PtrKind, Mode, Options, Size, *E);
   }
 
   return PointerRecord(L->PointeeType, PtrKind, Mode, Options, Size);
 }
 
-Expected<NestedTypeRecord>
+ErrorOr<NestedTypeRecord>
 NestedTypeRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   StringRef Name;
@@ -115,15 +111,8 @@ NestedTypeRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
   return NestedTypeRecord(L->Type, Name);
 }
 
-Expected<FieldListRecord>
-FieldListRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
-  auto FieldListData = Data;
-  Data = ArrayRef<uint8_t>();
-  return FieldListRecord(FieldListData);
-}
-
-Expected<ArrayRecord> ArrayRecord::deserialize(TypeRecordKind Kind,
-                                               ArrayRef<uint8_t> &Data) {
+ErrorOr<ArrayRecord> ArrayRecord::deserialize(TypeRecordKind Kind,
+                                              ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   uint64_t Size;
   StringRef Name;
@@ -131,8 +120,8 @@ Expected<ArrayRecord> ArrayRecord::deserialize(TypeRecordKind Kind,
   return ArrayRecord(L->ElementType, L->IndexType, Size, Name);
 }
 
-Expected<ClassRecord> ClassRecord::deserialize(TypeRecordKind Kind,
-                                               ArrayRef<uint8_t> &Data) {
+ErrorOr<ClassRecord> ClassRecord::deserialize(TypeRecordKind Kind,
+                                              ArrayRef<uint8_t> &Data) {
   uint64_t Size = 0;
   StringRef Name;
   StringRef UniqueName;
@@ -153,8 +142,8 @@ Expected<ClassRecord> ClassRecord::deserialize(TypeRecordKind Kind,
                      L->DerivedFrom, L->VShape, Size, Name, UniqueName);
 }
 
-Expected<UnionRecord> UnionRecord::deserialize(TypeRecordKind Kind,
-                                               ArrayRef<uint8_t> &Data) {
+ErrorOr<UnionRecord> UnionRecord::deserialize(TypeRecordKind Kind,
+                                              ArrayRef<uint8_t> &Data) {
   uint64_t Size = 0;
   StringRef Name;
   StringRef UniqueName;
@@ -173,8 +162,8 @@ Expected<UnionRecord> UnionRecord::deserialize(TypeRecordKind Kind,
                      UniqueName);
 }
 
-Expected<EnumRecord> EnumRecord::deserialize(TypeRecordKind Kind,
-                                             ArrayRef<uint8_t> &Data) {
+ErrorOr<EnumRecord> EnumRecord::deserialize(TypeRecordKind Kind,
+                                            ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   StringRef Name;
   StringRef UniqueName;
@@ -187,25 +176,24 @@ Expected<EnumRecord> EnumRecord::deserialize(TypeRecordKind Kind,
                     UniqueName, L->UnderlyingType);
 }
 
-Expected<BitFieldRecord> BitFieldRecord::deserialize(TypeRecordKind Kind,
-                                                     ArrayRef<uint8_t> &Data) {
+ErrorOr<BitFieldRecord> BitFieldRecord::deserialize(TypeRecordKind Kind,
+                                                    ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   CV_DESERIALIZE(Data, L);
   return BitFieldRecord(L->Type, L->BitSize, L->BitOffset);
 }
 
-Expected<VFTableShapeRecord>
+ErrorOr<VFTableShapeRecord>
 VFTableShapeRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   if (auto EC = consumeObject(Data, L))
-    return std::move(EC);
+    return EC;
 
   std::vector<VFTableSlotKind> Slots;
   uint16_t Count = L->VFEntryCount;
   while (Count > 0) {
     if (Data.empty())
-      return make_error<CodeViewError>(cv_error_code::corrupt_record,
-                                       "VTableShapeRecord contains no entries");
+      return std::make_error_code(std::errc::illegal_byte_sequence);
 
     // Process up to 2 nibbles at a time (if there are at least 2 remaining)
     uint8_t Value = Data[0] & 0x0F;
@@ -221,7 +209,7 @@ VFTableShapeRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
   return VFTableShapeRecord(Slots);
 }
 
-Expected<TypeServer2Record>
+ErrorOr<TypeServer2Record>
 TypeServer2Record::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   StringRef Name;
@@ -229,39 +217,39 @@ TypeServer2Record::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
   return TypeServer2Record(StringRef(L->Guid, 16), L->Age, Name);
 }
 
-Expected<StringIdRecord> StringIdRecord::deserialize(TypeRecordKind Kind,
-                                                     ArrayRef<uint8_t> &Data) {
+ErrorOr<StringIdRecord> StringIdRecord::deserialize(TypeRecordKind Kind,
+                                                    ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   StringRef Name;
   CV_DESERIALIZE(Data, L, Name);
   return StringIdRecord(L->id, Name);
 }
 
-Expected<FuncIdRecord> FuncIdRecord::deserialize(TypeRecordKind Kind,
-                                                 ArrayRef<uint8_t> &Data) {
+ErrorOr<FuncIdRecord> FuncIdRecord::deserialize(TypeRecordKind Kind,
+                                                ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   StringRef Name;
   CV_DESERIALIZE(Data, L, Name);
   return FuncIdRecord(L->ParentScope, L->FunctionType, Name);
 }
 
-Expected<UdtSourceLineRecord>
+ErrorOr<UdtSourceLineRecord>
 UdtSourceLineRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   CV_DESERIALIZE(Data, L);
   return UdtSourceLineRecord(L->UDT, L->SourceFile, L->LineNumber);
 }
 
-Expected<BuildInfoRecord>
-BuildInfoRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
+ErrorOr<BuildInfoRecord> BuildInfoRecord::deserialize(TypeRecordKind Kind,
+                                                      ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   ArrayRef<TypeIndex> Indices;
   CV_DESERIALIZE(Data, L, CV_ARRAY_FIELD_N(Indices, L->NumArgs));
   return BuildInfoRecord(Indices);
 }
 
-Expected<VFTableRecord> VFTableRecord::deserialize(TypeRecordKind Kind,
-                                                   ArrayRef<uint8_t> &Data) {
+ErrorOr<VFTableRecord> VFTableRecord::deserialize(TypeRecordKind Kind,
+                                                  ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   StringRef Name;
   std::vector<StringRef> Names;
@@ -270,8 +258,8 @@ Expected<VFTableRecord> VFTableRecord::deserialize(TypeRecordKind Kind,
                        Name, Names);
 }
 
-Expected<OneMethodRecord>
-OneMethodRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
+ErrorOr<OneMethodRecord> OneMethodRecord::deserialize(TypeRecordKind Kind,
+                                                      ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   StringRef Name;
   int32_t VFTableOffset = -1;
@@ -287,12 +275,11 @@ OneMethodRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
                          Name);
   // Validate the vftable offset.
   if (Method.isIntroducingVirtual() && Method.getVFTableOffset() < 0)
-    return make_error<CodeViewError>(cv_error_code::corrupt_record,
-                                     "Invalid VFTableOffset");
+    return std::make_error_code(std::errc::illegal_byte_sequence);
   return Method;
 }
 
-Expected<MethodOverloadListRecord>
+ErrorOr<MethodOverloadListRecord>
 MethodOverloadListRecord::deserialize(TypeRecordKind Kind,
                                       ArrayRef<uint8_t> &Data) {
   std::vector<OneMethodRecord> Methods;
@@ -312,13 +299,12 @@ MethodOverloadListRecord::deserialize(TypeRecordKind Kind,
     // Validate the vftable offset.
     auto &Method = Methods.back();
     if (Method.isIntroducingVirtual() && Method.getVFTableOffset() < 0)
-      return make_error<CodeViewError>(cv_error_code::corrupt_record,
-                                       "Invalid VFTableOffset");
+      return std::make_error_code(std::errc::illegal_byte_sequence);
   }
   return MethodOverloadListRecord(Methods);
 }
 
-Expected<OverloadedMethodRecord>
+ErrorOr<OverloadedMethodRecord>
 OverloadedMethodRecord::deserialize(TypeRecordKind Kind,
                                     ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
@@ -327,7 +313,7 @@ OverloadedMethodRecord::deserialize(TypeRecordKind Kind,
   return OverloadedMethodRecord(L->MethodCount, L->MethList, Name);
 }
 
-Expected<DataMemberRecord>
+ErrorOr<DataMemberRecord>
 DataMemberRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   uint64_t Offset;
@@ -336,7 +322,7 @@ DataMemberRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
   return DataMemberRecord(L->Attrs.getAccess(), L->Type, Offset, Name);
 }
 
-Expected<StaticDataMemberRecord>
+ErrorOr<StaticDataMemberRecord>
 StaticDataMemberRecord::deserialize(TypeRecordKind Kind,
                                     ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
@@ -345,7 +331,7 @@ StaticDataMemberRecord::deserialize(TypeRecordKind Kind,
   return StaticDataMemberRecord(L->Attrs.getAccess(), L->Type, Name);
 }
 
-Expected<EnumeratorRecord>
+ErrorOr<EnumeratorRecord>
 EnumeratorRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   APSInt Value;
@@ -354,23 +340,23 @@ EnumeratorRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
   return EnumeratorRecord(L->Attrs.getAccess(), Value, Name);
 }
 
-Expected<VFPtrRecord> VFPtrRecord::deserialize(TypeRecordKind Kind,
-                                               ArrayRef<uint8_t> &Data) {
+ErrorOr<VFPtrRecord> VFPtrRecord::deserialize(TypeRecordKind Kind,
+                                              ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   if (auto EC = consumeObject(Data, L))
-    return std::move(EC);
+    return EC;
   return VFPtrRecord(L->Type);
 }
 
-Expected<BaseClassRecord>
-BaseClassRecord::deserialize(TypeRecordKind Kind, ArrayRef<uint8_t> &Data) {
+ErrorOr<BaseClassRecord> BaseClassRecord::deserialize(TypeRecordKind Kind,
+                                                      ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
   uint64_t Offset;
   CV_DESERIALIZE(Data, L, CV_NUMERIC_FIELD(Offset));
   return BaseClassRecord(L->Attrs.getAccess(), L->BaseType, Offset);
 }
 
-Expected<VirtualBaseClassRecord>
+ErrorOr<VirtualBaseClassRecord>
 VirtualBaseClassRecord::deserialize(TypeRecordKind Kind,
                                     ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
@@ -381,7 +367,7 @@ VirtualBaseClassRecord::deserialize(TypeRecordKind Kind,
                                 Offset, Index);
 }
 
-Expected<ListContinuationRecord>
+ErrorOr<ListContinuationRecord>
 ListContinuationRecord::deserialize(TypeRecordKind Kind,
                                     ArrayRef<uint8_t> &Data) {
   const Layout *L = nullptr;
@@ -451,7 +437,7 @@ bool PointerRecord::remapTypeIndices(ArrayRef<TypeIndex> IndexMap) {
   bool Success = true;
   Success &= remapIndex(IndexMap, ReferentType);
   if (isPointerToMember())
-    Success &= MemberInfo->remapTypeIndices(IndexMap);
+    Success &= MemberInfo.remapTypeIndices(IndexMap);
   return Success;
 }
 

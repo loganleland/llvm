@@ -382,10 +382,7 @@ bool ARMBaseInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
 }
 
 
-unsigned ARMBaseInstrInfo::removeBranch(MachineBasicBlock &MBB,
-                                        int *BytesRemoved) const {
-  assert(!BytesRemoved && "code size not handled");
-
+unsigned ARMBaseInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
   MachineBasicBlock::iterator I = MBB.getLastNonDebugInstr();
   if (I == MBB.end())
     return 0;
@@ -409,13 +406,11 @@ unsigned ARMBaseInstrInfo::removeBranch(MachineBasicBlock &MBB,
   return 2;
 }
 
-unsigned ARMBaseInstrInfo::insertBranch(MachineBasicBlock &MBB,
+unsigned ARMBaseInstrInfo::InsertBranch(MachineBasicBlock &MBB,
                                         MachineBasicBlock *TBB,
                                         MachineBasicBlock *FBB,
                                         ArrayRef<MachineOperand> Cond,
-                                        const DebugLoc &DL,
-                                        int *BytesAdded) const {
-  assert(!BytesAdded && "code size not handled");
+                                        const DebugLoc &DL) const {
   ARMFunctionInfo *AFI = MBB.getParent()->getInfo<ARMFunctionInfo>();
   int BOpc   = !AFI->isThumbFunction()
     ? ARM::B : (AFI->isThumb2Function() ? ARM::t2B : ARM::tB);
@@ -424,7 +419,7 @@ unsigned ARMBaseInstrInfo::insertBranch(MachineBasicBlock &MBB,
   bool isThumb = AFI->isThumbFunction() || AFI->isThumb2Function();
 
   // Shouldn't be a fall through.
-  assert(TBB && "insertBranch must not be told to insert a fallthrough");
+  assert(TBB && "InsertBranch must not be told to insert a fallthrough");
   assert((Cond.size() == 2 || Cond.size() == 0) &&
          "ARM branch conditions have two components!");
 
@@ -453,7 +448,7 @@ unsigned ARMBaseInstrInfo::insertBranch(MachineBasicBlock &MBB,
 }
 
 bool ARMBaseInstrInfo::
-reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
+ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
   ARMCC::CondCodes CC = (ARMCC::CondCodes)(int)Cond[0].getImm();
   Cond[0].setImm(ARMCC::getOppositeCondition(CC));
   return false;
@@ -580,9 +575,6 @@ bool ARMBaseInstrInfo::isPredicable(MachineInstr &MI) const {
   if (!MI.isPredicable())
     return false;
 
-  if (MI.isBundle())
-    return false;
-
   if (!isEligibleForITBlock(&MI))
     return false;
 
@@ -618,7 +610,7 @@ template <> bool IsCPSRDead<MachineInstr>(MachineInstr *MI) {
 
 /// GetInstSize - Return the size of the specified MachineInstr.
 ///
-unsigned ARMBaseInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
+unsigned ARMBaseInstrInfo::GetInstSizeInBytes(const MachineInstr &MI) const {
   const MachineBasicBlock &MBB = *MI.getParent();
   const MachineFunction *MF = MBB.getParent();
   const MCAsmInfo *MAI = MF->getTarget().getMCAsmInfo();
@@ -677,7 +669,7 @@ unsigned ARMBaseInstrInfo::getInstBundleLength(const MachineInstr &MI) const {
   MachineBasicBlock::const_instr_iterator E = MI.getParent()->instr_end();
   while (++I != E && I->isInsideBundle()) {
     assert(!I->isBundle() && "No nested bundle!");
-    Size += getInstSizeInBytes(*I);
+    Size += GetInstSizeInBytes(*I);
   }
   return Size;
 }
@@ -876,7 +868,7 @@ storeRegToStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
   DebugLoc DL;
   if (I != MBB.end()) DL = I->getDebugLoc();
   MachineFunction &MF = *MBB.getParent();
-  MachineFrameInfo &MFI = MF.getFrameInfo();
+  MachineFrameInfo &MFI = *MF.getFrameInfo();
   unsigned Align = MFI.getObjectAlignment(FI);
 
   MachineMemOperand *MMO = MF.getMachineMemOperand(
@@ -1059,7 +1051,7 @@ loadRegFromStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
   DebugLoc DL;
   if (I != MBB.end()) DL = I->getDebugLoc();
   MachineFunction &MF = *MBB.getParent();
-  MachineFrameInfo &MFI = MF.getFrameInfo();
+  MachineFrameInfo &MFI = *MF.getFrameInfo();
   unsigned Align = MFI.getObjectAlignment(FI);
   MachineMemOperand *MMO = MF.getMachineMemOperand(
       MachinePointerInfo::getFixedStack(MF, FI), MachineMemOperand::MOLoad,
@@ -2299,7 +2291,6 @@ bool ARMBaseInstrInfo::analyzeCompare(const MachineInstr &MI, unsigned &SrcReg,
   default: break;
   case ARM::CMPri:
   case ARM::t2CMPri:
-  case ARM::tCMPi8:
     SrcReg = MI.getOperand(0).getReg();
     SrcReg2 = 0;
     CmpMask = ~0;
@@ -2486,21 +2477,8 @@ bool ARMBaseInstrInfo::optimizeCompareInstr(
   if (isPredicated(*MI))
     return false;
 
-  bool IsThumb1 = false;
   switch (MI->getOpcode()) {
   default: break;
-  case ARM::tLSLri:
-  case ARM::tLSRri:
-  case ARM::tLSLrr:
-  case ARM::tLSRrr:
-  case ARM::tSUBrr:
-  case ARM::tADDrr:
-  case ARM::tADDi3:
-  case ARM::tADDi8:
-  case ARM::tSUBi3:
-  case ARM::tSUBi8:
-    IsThumb1 = true;
-    LLVM_FALLTHROUGH;
   case ARM::RSBrr:
   case ARM::RSBri:
   case ARM::RSCrr:
@@ -2640,12 +2618,9 @@ bool ARMBaseInstrInfo::optimizeCompareInstr(
           return false;
     }
 
-    // Toggle the optional operand to CPSR (if it exists - in Thumb1 we always
-    // set CPSR so this is represented as an explicit output)
-    if (!IsThumb1) {
-      MI->getOperand(5).setReg(ARM::CPSR);
-      MI->getOperand(5).setIsDef(true);
-    }
+    // Toggle the optional operand to CPSR.
+    MI->getOperand(5).setReg(ARM::CPSR);
+    MI->getOperand(5).setIsDef(true);
     assert(!isPredicated(*MI) && "Can't use flags from predicated instruction");
     CmpInstr.eraseFromParent();
 
@@ -2657,7 +2632,7 @@ bool ARMBaseInstrInfo::optimizeCompareInstr(
     return true;
   }
   }
-  
+
   return false;
 }
 
@@ -4144,9 +4119,6 @@ bool ARMBaseInstrInfo::verifyInstruction(const MachineInstr &MI,
 void ARMBaseInstrInfo::expandLoadStackGuardBase(MachineBasicBlock::iterator MI,
                                                 unsigned LoadImmOpc,
                                                 unsigned LoadOpc) const {
-  assert(!Subtarget.isROPI() && !Subtarget.isRWPI() &&
-         "ROPI/RWPI not currently supported with stack guard");
-
   MachineBasicBlock &MBB = *MI->getParent();
   DebugLoc DL = MI->getDebugLoc();
   unsigned Reg = MI->getOperand(0).getReg();
@@ -4160,9 +4132,7 @@ void ARMBaseInstrInfo::expandLoadStackGuardBase(MachineBasicBlock::iterator MI,
   if (Subtarget.isGVIndirectSymbol(GV)) {
     MIB = BuildMI(MBB, MI, DL, get(LoadOpc), Reg);
     MIB.addReg(Reg, RegState::Kill).addImm(0);
-    auto Flags = MachineMemOperand::MOLoad |
-                 MachineMemOperand::MODereferenceable |
-                 MachineMemOperand::MOInvariant;
+    auto Flags = MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant;
     MachineMemOperand *MMO = MBB.getParent()->getMachineMemOperand(
         MachinePointerInfo::getGOT(*MBB.getParent()), Flags, 4, 4);
     MIB.addMemOperand(MMO);

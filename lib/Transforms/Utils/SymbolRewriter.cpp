@@ -58,7 +58,6 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "symbol-rewriter"
-#include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Pass.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -69,6 +68,7 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/YAMLParser.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/SymbolRewriter.h"
 
 using namespace llvm;
 using namespace SymbolRewriter;
@@ -361,11 +361,9 @@ parseRewriteFunctionDescriptor(yaml::Stream &YS, yaml::ScalarNode *K,
   // TODO see if there is a more elegant solution to selecting the rewrite
   // descriptor type
   if (!Target.empty())
-    DL->push_back(llvm::make_unique<ExplicitRewriteFunctionDescriptor>(
-        Source, Target, Naked));
+    DL->push_back(new ExplicitRewriteFunctionDescriptor(Source, Target, Naked));
   else
-    DL->push_back(
-        llvm::make_unique<PatternRewriteFunctionDescriptor>(Source, Transform));
+    DL->push_back(new PatternRewriteFunctionDescriptor(Source, Transform));
 
   return true;
 }
@@ -423,12 +421,11 @@ parseRewriteGlobalVariableDescriptor(yaml::Stream &YS, yaml::ScalarNode *K,
   }
 
   if (!Target.empty())
-    DL->push_back(llvm::make_unique<ExplicitRewriteGlobalVariableDescriptor>(
-        Source, Target,
-        /*Naked*/ false));
+    DL->push_back(new ExplicitRewriteGlobalVariableDescriptor(Source, Target,
+                                                              /*Naked*/false));
   else
-    DL->push_back(llvm::make_unique<PatternRewriteGlobalVariableDescriptor>(
-        Source, Transform));
+    DL->push_back(new PatternRewriteGlobalVariableDescriptor(Source,
+                                                             Transform));
 
   return true;
 }
@@ -486,80 +483,67 @@ parseRewriteGlobalAliasDescriptor(yaml::Stream &YS, yaml::ScalarNode *K,
   }
 
   if (!Target.empty())
-    DL->push_back(llvm::make_unique<ExplicitRewriteNamedAliasDescriptor>(
-        Source, Target,
-        /*Naked*/ false));
+    DL->push_back(new ExplicitRewriteNamedAliasDescriptor(Source, Target,
+                                                          /*Naked*/false));
   else
-    DL->push_back(llvm::make_unique<PatternRewriteNamedAliasDescriptor>(
-        Source, Transform));
+    DL->push_back(new PatternRewriteNamedAliasDescriptor(Source, Transform));
 
   return true;
 }
 
 namespace {
-class RewriteSymbolsLegacyPass : public ModulePass {
+class RewriteSymbols : public ModulePass {
 public:
   static char ID; // Pass identification, replacement for typeid
 
-  RewriteSymbolsLegacyPass();
-  RewriteSymbolsLegacyPass(SymbolRewriter::RewriteDescriptorList &DL);
+  RewriteSymbols();
+  RewriteSymbols(SymbolRewriter::RewriteDescriptorList &DL);
 
   bool runOnModule(Module &M) override;
 
 private:
-  RewriteSymbolPass Impl;
+  void loadAndParseMapFiles();
+
+  SymbolRewriter::RewriteDescriptorList Descriptors;
 };
 
-char RewriteSymbolsLegacyPass::ID = 0;
+char RewriteSymbols::ID = 0;
 
-RewriteSymbolsLegacyPass::RewriteSymbolsLegacyPass() : ModulePass(ID), Impl() {
-  initializeRewriteSymbolsLegacyPassPass(*PassRegistry::getPassRegistry());  
+RewriteSymbols::RewriteSymbols() : ModulePass(ID) {
+  initializeRewriteSymbolsPass(*PassRegistry::getPassRegistry());
+  loadAndParseMapFiles();
 }
 
-RewriteSymbolsLegacyPass::RewriteSymbolsLegacyPass(
-    SymbolRewriter::RewriteDescriptorList &DL)
-    : ModulePass(ID), Impl(DL) {}
-
-bool RewriteSymbolsLegacyPass::runOnModule(Module &M) {
-  return Impl.runImpl(M);
-}
+RewriteSymbols::RewriteSymbols(SymbolRewriter::RewriteDescriptorList &DL)
+    : ModulePass(ID) {
+  Descriptors.splice(Descriptors.begin(), DL);
 }
 
-namespace llvm {
-PreservedAnalyses RewriteSymbolPass::run(Module &M, ModuleAnalysisManager &AM) {
-  if (!runImpl(M))
-    return PreservedAnalyses::all();
-
-  return PreservedAnalyses::none();
-}
-
-bool RewriteSymbolPass::runImpl(Module &M) {
+bool RewriteSymbols::runOnModule(Module &M) {
   bool Changed;
 
   Changed = false;
   for (auto &Descriptor : Descriptors)
-    Changed |= Descriptor->performOnModule(M);
+    Changed |= Descriptor.performOnModule(M);
 
   return Changed;
 }
 
-void RewriteSymbolPass::loadAndParseMapFiles() {
+void RewriteSymbols::loadAndParseMapFiles() {
   const std::vector<std::string> MapFiles(RewriteMapFiles);
-  SymbolRewriter::RewriteMapParser Parser;
+  SymbolRewriter::RewriteMapParser parser;
 
   for (const auto &MapFile : MapFiles)
-    Parser.parse(MapFile, &Descriptors);
+    parser.parse(MapFile, &Descriptors);
 }
 }
 
-INITIALIZE_PASS(RewriteSymbolsLegacyPass, "rewrite-symbols", "Rewrite Symbols",
-                false, false)
+INITIALIZE_PASS(RewriteSymbols, "rewrite-symbols", "Rewrite Symbols", false,
+                false)
 
-ModulePass *llvm::createRewriteSymbolsPass() {
-  return new RewriteSymbolsLegacyPass();
-}
+ModulePass *llvm::createRewriteSymbolsPass() { return new RewriteSymbols(); }
 
 ModulePass *
 llvm::createRewriteSymbolsPass(SymbolRewriter::RewriteDescriptorList &DL) {
-  return new RewriteSymbolsLegacyPass(DL);
+  return new RewriteSymbols(DL);
 }

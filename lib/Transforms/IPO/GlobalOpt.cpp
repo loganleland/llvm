@@ -1653,7 +1653,7 @@ static bool deleteIfDead(GlobalValue &GV,
                          SmallSet<const Comdat *, 8> &NotDiscardableComdats) {
   GV.removeDeadConstantUsers();
 
-  if (!GV.isDiscardableIfUnused() && !GV.isDeclaration())
+  if (!GV.isDiscardableIfUnused())
     return false;
 
   if (const Comdat *C = GV.getComdat())
@@ -1662,7 +1662,7 @@ static bool deleteIfDead(GlobalValue &GV,
 
   bool Dead;
   if (auto *F = dyn_cast<Function>(&GV))
-    Dead = (F->isDeclaration() && F->use_empty()) || F->isDefTriviallyDead();
+    Dead = F->isDefTriviallyDead();
   else
     Dead = GV.use_empty();
   if (!Dead)
@@ -1737,7 +1737,7 @@ static bool isPointerValueDeadOnEntryToFunction(
 
   for (auto *L : Loads) {
     auto *LTy = L->getType();
-    if (none_of(Stores, [&](const StoreInst *S) {
+    if (!std::any_of(Stores.begin(), Stores.end(), [&](StoreInst *S) {
           auto *STy = S->getValueOperand()->getType();
           // The load is only dominated by the store if DomTree says so
           // and the number of bits loaded in L is less than or equal to
@@ -2079,10 +2079,10 @@ OptimizeGlobalVars(Module &M, TargetLibraryInfo *TLI,
       GV->setLinkage(GlobalValue::InternalLinkage);
     // Simplify the initializer.
     if (GV->hasInitializer())
-      if (auto *C = dyn_cast<Constant>(GV->getInitializer())) {
+      if (ConstantExpr *CE = dyn_cast<ConstantExpr>(GV->getInitializer())) {
         auto &DL = M.getDataLayout();
-        Constant *New = ConstantFoldConstant(C, DL, TLI);
-        if (New && New != C)
+        Constant *New = ConstantFoldConstantExpression(CE, DL, TLI);
+        if (New && New != CE)
           GV->setInitializer(New);
       }
 
@@ -2565,7 +2565,7 @@ static bool optimizeGlobalsInModule(
   return Changed;
 }
 
-PreservedAnalyses GlobalOptPass::run(Module &M, ModuleAnalysisManager &AM) {
+PreservedAnalyses GlobalOptPass::run(Module &M, AnalysisManager<Module> &AM) {
     auto &DL = M.getDataLayout();
     auto &TLI = AM.getResult<TargetLibraryAnalysis>(M);
     auto &FAM =

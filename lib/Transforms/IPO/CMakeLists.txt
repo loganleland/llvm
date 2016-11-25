@@ -1,5 +1,4 @@
 add_llvm_library(LLVMipo
-  AlwaysInliner.cpp
   ArgumentPromotion.cpp
   BarrierNoopPass.cpp
   ConstantMerge.cpp
@@ -15,6 +14,7 @@ add_llvm_library(LLVMipo
   IPConstantPropagation.cpp
   IPO.cpp
   InferFunctionAttrs.cpp
+  InlineAlways.cpp
   InlineSimple.cpp
   Inliner.cpp
   Internalize.cpp

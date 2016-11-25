@@ -8,9 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Bitcode/BitstreamReader.h"
-#include "llvm/ADT/StringRef.h"
-#include <cassert>
-#include <string>
 
 using namespace llvm;
 
@@ -97,6 +94,8 @@ static void skipAbbreviatedField(BitstreamCursor &Cursor,
     break;
   }
 }
+
+
 
 /// skipRecord - Read the current record and discard it.
 void BitstreamCursor::skipRecord(unsigned AbbrevID) {
@@ -280,6 +279,7 @@ unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
   return Code;
 }
 
+
 void BitstreamCursor::ReadAbbrevRecord() {
   BitCodeAbbrev *Abbv = new BitCodeAbbrev();
   unsigned NumOpInfo = ReadVBR(5);
@@ -329,7 +329,7 @@ bool BitstreamCursor::ReadBlockInfoBlock() {
   BitstreamReader::BlockInfo *CurBlockInfo = nullptr;
 
   // Read all the records for this module.
-  while (true) {
+  while (1) {
     BitstreamEntry Entry = advanceSkippingSubblocks(AF_DontAutoprocessAbbrevs);
 
     switch (Entry.Kind) {
@@ -388,3 +388,4 @@ bool BitstreamCursor::ReadBlockInfoBlock() {
     }
   }
 }
+

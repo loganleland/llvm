@@ -545,7 +545,6 @@ public:
                                        && isUInt<5>(getImm())); }
   bool isCRBitMask() const { return Kind == Immediate && isUInt<8>(getImm()) &&
                                     isPowerOf2_32(getImm()); }
-  bool isATBitsAsHint() const { return false; }
   bool isMem() const override { return false; }
   bool isReg() const override { return false; }
 
@@ -870,23 +869,6 @@ void PPCAsmParser::ProcessInstruction(MCInst &Inst,
     MCInst TmpInst;
     TmpInst.setOpcode(PPC::DCBTST);
     TmpInst.addOperand(Inst.getOperand(2));
-    TmpInst.addOperand(Inst.getOperand(0));
-    TmpInst.addOperand(Inst.getOperand(1));
-    Inst = TmpInst;
-    break;
-  }
-  case PPC::DCBFx:
-  case PPC::DCBFL:
-  case PPC::DCBFLP: {
-    int L = 0;
-    if (Opcode == PPC::DCBFL)
-      L = 1;
-    else if (Opcode == PPC::DCBFLP)
-      L = 3;
-
-    MCInst TmpInst;
-    TmpInst.setOpcode(PPC::DCBF);
-    TmpInst.addOperand(MCOperand::createImm(L));
     TmpInst.addOperand(Inst.getOperand(0));
     TmpInst.addOperand(Inst.getOperand(1));
     Inst = TmpInst;
@@ -1589,8 +1571,7 @@ bool PPCAsmParser::ParseOperand(OperandVector &Operands) {
         return false;
       }
     }
-    // Fall-through to process non-register-name identifiers as expression.
-    LLVM_FALLTHROUGH;
+  // Fall-through to process non-register-name identifiers as expression.
   // All other expressions
   case AsmToken::LParen:
   case AsmToken::Plus:
@@ -1663,7 +1644,7 @@ bool PPCAsmParser::ParseOperand(OperandVector &Operands) {
         break;
       }
     }
-    LLVM_FALLTHROUGH;
+    // Fall-through..
 
     default:
       return Error(S, "invalid memory operand");

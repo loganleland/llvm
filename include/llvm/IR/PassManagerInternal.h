@@ -23,7 +23,7 @@
 
 namespace llvm {
 
-template <typename IRUnitT, typename... ExtraArgTs> class AnalysisManager;
+template <typename IRUnitT> class AnalysisManager;
 class PreservedAnalyses;
 
 /// \brief Implementation details of the pass manager interfaces.
@@ -31,8 +31,7 @@ namespace detail {
 
 /// \brief Template for the abstract base class used to dispatch
 /// polymorphically over pass objects.
-template <typename IRUnitT, typename AnalysisManagerT, typename... ExtraArgTs>
-struct PassConcept {
+template <typename IRUnitT> struct PassConcept {
   // Boiler plate necessary for the container of derived classes.
   virtual ~PassConcept() {}
 
@@ -41,8 +40,7 @@ struct PassConcept {
   /// Note that actual pass object can omit the analysis manager argument if
   /// desired. Also that the analysis manager may be null if there is no
   /// analysis manager in the pass pipeline.
-  virtual PreservedAnalyses run(IRUnitT &IR, AnalysisManagerT &AM,
-                                ExtraArgTs... ExtraArgs) = 0;
+  virtual PreservedAnalyses run(IRUnitT &IR, AnalysisManager<IRUnitT> &AM) = 0;
 
   /// \brief Polymorphic method to access the name of a pass.
   virtual StringRef name() = 0;
@@ -52,10 +50,10 @@ struct PassConcept {
 ///
 /// Can be instantiated for any object which provides a \c run method accepting
 /// an \c IRUnitT& and an \c AnalysisManager<IRUnit>&. It requires the pass to
-/// be a copyable object.
-template <typename IRUnitT, typename PassT, typename PreservedAnalysesT,
-          typename AnalysisManagerT, typename... ExtraArgTs>
-struct PassModel : PassConcept<IRUnitT, AnalysisManagerT, ExtraArgTs...> {
+/// be a copyable object. When the
+template <typename IRUnitT, typename PassT,
+          typename PreservedAnalysesT = PreservedAnalyses>
+struct PassModel : PassConcept<IRUnitT> {
   explicit PassModel(PassT Pass) : Pass(std::move(Pass)) {}
   // We have to explicitly define all the special member functions because MSVC
   // refuses to generate them.
@@ -70,9 +68,8 @@ struct PassModel : PassConcept<IRUnitT, AnalysisManagerT, ExtraArgTs...> {
     return *this;
   }
 
-  PreservedAnalysesT run(IRUnitT &IR, AnalysisManagerT &AM,
-                         ExtraArgTs... ExtraArgs) override {
-    return Pass.run(IR, AM, ExtraArgs...);
+  PreservedAnalysesT run(IRUnitT &IR, AnalysisManager<IRUnitT> &AM) override {
+    return Pass.run(IR, AM);
   }
   StringRef name() override { return PassT::name(); }
   PassT Pass;
@@ -101,37 +98,19 @@ template <typename IRUnitT> struct AnalysisResultConcept {
 /// \brief SFINAE metafunction for computing whether \c ResultT provides an
 /// \c invalidate member function.
 template <typename IRUnitT, typename ResultT> class ResultHasInvalidateMethod {
-  typedef char EnabledType;
-  struct DisabledType {
+  typedef char SmallType;
+  struct BigType {
     char a, b;
   };
 
-  // Purely to help out MSVC which fails to disable the below specialization,
-  // explicitly enable using the result type's invalidate routine if we can
-  // successfully call that routine.
-  template <typename T> struct Nonce { typedef EnabledType Type; };
-  template <typename T>
-  static typename Nonce<decltype(std::declval<T>().invalidate(
-      std::declval<IRUnitT &>(), std::declval<PreservedAnalyses>()))>::Type
-      check(rank<2>);
+  template <typename T, bool (T::*)(IRUnitT &, const PreservedAnalyses &)>
+  struct Checker;
 
-  // First we define an overload that can only be taken if there is no
-  // invalidate member. We do this by taking the address of an invalidate
-  // member in an adjacent base class of a derived class. This would be
-  // ambiguous if there were an invalidate member in the result type.
-  template <typename T, typename U> static DisabledType NonceFunction(T U::*);
-  struct CheckerBase { int invalidate; };
-  template <typename T> struct Checker : CheckerBase, T {};
-  template <typename T>
-  static decltype(NonceFunction(&Checker<T>::invalidate)) check(rank<1>);
-
-  // Now we have the fallback that will only be reached when there is an
-  // invalidate member, and enables the trait.
-  template <typename T>
-  static EnabledType check(rank<0>);
+  template <typename T> static SmallType f(Checker<T, &T::invalidate> *);
+  template <typename T> static BigType f(...);
 
 public:
-  enum { Value = sizeof(check<ResultT>(rank<2>())) == sizeof(EnabledType) };
+  enum { Value = sizeof(f<ResultT>(nullptr)) == sizeof(SmallType) };
 };
 
 /// \brief Wrapper to model the analysis result concept.
@@ -212,15 +191,14 @@ struct AnalysisResultModel<IRUnitT, PassT, ResultT, PreservedAnalysesT, true>
 ///
 /// This concept is parameterized over the IR unit that it can run over and
 /// produce an analysis result.
-template <typename IRUnitT, typename... ExtraArgTs> struct AnalysisPassConcept {
+template <typename IRUnitT> struct AnalysisPassConcept {
   virtual ~AnalysisPassConcept() {}
 
   /// \brief Method to run this analysis over a unit of IR.
   /// \returns A unique_ptr to the analysis result object to be queried by
   /// users.
   virtual std::unique_ptr<AnalysisResultConcept<IRUnitT>>
-  run(IRUnitT &IR, AnalysisManager<IRUnitT, ExtraArgTs...> &AM,
-      ExtraArgTs... ExtraArgs) = 0;
+  run(IRUnitT &IR, AnalysisManager<IRUnitT> &AM) = 0;
 
   /// \brief Polymorphic method to access the name of a pass.
   virtual StringRef name() = 0;
@@ -231,8 +209,8 @@ template <typename IRUnitT, typename... ExtraArgTs> struct AnalysisPassConcept {
 /// Can wrap any type which implements a suitable \c run method. The method
 /// must accept an \c IRUnitT& and an \c AnalysisManager<IRUnitT>& as arguments
 /// and produce an object which can be wrapped in a \c AnalysisResultModel.
-template <typename IRUnitT, typename PassT, typename... ExtraArgTs>
-struct AnalysisPassModel : AnalysisPassConcept<IRUnitT, ExtraArgTs...> {
+template <typename IRUnitT, typename PassT>
+struct AnalysisPassModel : AnalysisPassConcept<IRUnitT> {
   explicit AnalysisPassModel(PassT Pass) : Pass(std::move(Pass)) {}
   // We have to explicitly define all the special member functions because MSVC
   // refuses to generate them.
@@ -255,9 +233,8 @@ struct AnalysisPassModel : AnalysisPassConcept<IRUnitT, ExtraArgTs...> {
   ///
   /// The return is wrapped in an \c AnalysisResultModel.
   std::unique_ptr<AnalysisResultConcept<IRUnitT>>
-  run(IRUnitT &IR, AnalysisManager<IRUnitT, ExtraArgTs...> &AM,
-      ExtraArgTs... ExtraArgs) override {
-    return make_unique<ResultModelT>(Pass.run(IR, AM, ExtraArgs...));
+  run(IRUnitT &IR, AnalysisManager<IRUnitT> &AM) override {
+    return make_unique<ResultModelT>(Pass.run(IR, AM));
   }
 
   /// \brief The model delegates to a static \c PassT::name method.

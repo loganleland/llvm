@@ -3,16 +3,12 @@ include(ExternalProject)
 # llvm_ExternalProject_BuildCmd(out_var target)
 #   Utility function for constructing command lines for external project targets
 function(llvm_ExternalProject_BuildCmd out_var target bin_dir)
-  cmake_parse_arguments(ARG "" "CONFIGURATION" "" ${ARGN})
-  if(NOT ARG_CONFIGURATION)
-    set(ARG_CONFIGURATION "$<CONFIGURATION>")
-  endif()
   if (CMAKE_GENERATOR MATCHES "Make")
     # Use special command for Makefiles to support parallelism.
-    set(${out_var} "$(MAKE)" "-C" "${bin_dir}" "${target}" PARENT_SCOPE)
+    set(${out_var} "$(MAKE)" "-C" "${BINARY_DIR}" "${target}" PARENT_SCOPE)
   else()
     set(${out_var} ${CMAKE_COMMAND} --build ${bin_dir} --target ${target}
-                                    --config ${ARG_CONFIGURATION} PARENT_SCOPE)
+                                    --config $<CONFIGURATION> PARENT_SCOPE)
   endif()
 endfunction()
 
@@ -124,7 +120,7 @@ function(llvm_ExternalProject_Add name source_dir)
   endif()
 
   ExternalProject_Add(${name}
-    DEPENDS ${ARG_DEPENDS} llvm-config
+    DEPENDS ${ARG_DEPENDS}
     ${name}-clobber
     PREFIX ${CMAKE_BINARY_DIR}/projects/${name}
     SOURCE_DIR ${source_dir}

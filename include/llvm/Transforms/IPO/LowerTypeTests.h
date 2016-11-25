@@ -205,7 +205,7 @@ struct ByteArrayBuilder {
 
 class LowerTypeTestsPass : public PassInfoMixin<LowerTypeTestsPass> {
 public:
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  PreservedAnalyses run(Module &M, AnalysisManager<Module> &AM);
 };
 
 } // end namespace llvm

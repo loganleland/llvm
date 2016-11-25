@@ -17,7 +17,7 @@
 namespace llvm {
 
 template <support::endianness Endianness>
-class StackMapV2Parser {
+class StackMapV1Parser {
 public:
 
   template <typename AccessorT>
@@ -47,7 +47,7 @@ public:
 
   /// Accessor for function records.
   class FunctionAccessor {
-    friend class StackMapV2Parser;
+    friend class StackMapV1Parser;
   public:
 
     /// Get the function address.
@@ -56,19 +56,14 @@ public:
     }
 
     /// Get the function's stack size.
-    uint64_t getStackSize() const {
+    uint32_t getStackSize() const {
       return read<uint64_t>(P + sizeof(uint64_t));
-    }
-    
-    /// Get the number of callsite records.
-    uint64_t getRecordCount() const {
-      return read<uint64_t>(P + (2 * sizeof(uint64_t)));
     }
 
   private:
     FunctionAccessor(const uint8_t *P) : P(P) {}
 
-    const static int FunctionAccessorSize = 3 * sizeof(uint64_t);
+    const static int FunctionAccessorSize = 2 * sizeof(uint64_t);
 
     FunctionAccessor next() const {
       return FunctionAccessor(P + FunctionAccessorSize);
@@ -79,7 +74,7 @@ public:
 
   /// Accessor for constants.
   class ConstantAccessor {
-    friend class StackMapV2Parser;
+    friend class StackMapV1Parser;
   public:
 
     /// Return the value of this constant.
@@ -108,7 +103,7 @@ public:
 
   /// Accessor for location records.
   class LocationAccessor {
-    friend class StackMapV2Parser;
+    friend class StackMapV1Parser;
     friend class RecordAccessor;
   public:
 
@@ -161,7 +156,7 @@ public:
 
   /// Accessor for stackmap live-out fields.
   class LiveOutAccessor {
-    friend class StackMapV2Parser;
+    friend class StackMapV1Parser;
     friend class RecordAccessor;
   public:
 
@@ -193,7 +188,7 @@ public:
 
   /// Accessor for stackmap records.
   class RecordAccessor {
-    friend class StackMapV2Parser;
+    friend class StackMapV1Parser;
   public:
 
     typedef AccessorIterator<LocationAccessor> location_iterator;
@@ -297,14 +292,14 @@ public:
     const uint8_t *P;
   };
 
-  /// Construct a parser for a version-2 stackmap. StackMap data will be read
+  /// Construct a parser for a version-1 stackmap. StackMap data will be read
   /// from the given array.
-  StackMapV2Parser(ArrayRef<uint8_t> StackMapSection)
+  StackMapV1Parser(ArrayRef<uint8_t> StackMapSection)
       : StackMapSection(StackMapSection) {
     ConstantsListOffset = FunctionListOffset + getNumFunctions() * FunctionSize;
 
-    assert(StackMapSection[0] == 2 &&
-           "StackMapV2Parser can only parse version 2 stackmaps");
+    assert(StackMapSection[0] == 1 &&
+           "StackMapV1Parser can only parse version 1 stackmaps");
 
     unsigned CurrentRecordOffset =
       ConstantsListOffset + getNumConstants() * ConstantSize;
@@ -320,8 +315,8 @@ public:
   typedef AccessorIterator<ConstantAccessor> constant_iterator;
   typedef AccessorIterator<RecordAccessor> record_iterator;
 
-  /// Get the version number of this stackmap. (Always returns 2).
-  unsigned getVersion() const { return 2; }
+  /// Get the version number of this stackmap. (Always returns 1).
+  unsigned getVersion() const { return 1; }
 
   /// Get the number of functions in the stack map.
   uint32_t getNumFunctions() const {
@@ -425,7 +420,7 @@ private:
   static const unsigned NumRecordsOffset = NumConstantsOffset + sizeof(uint32_t);
   static const unsigned FunctionListOffset = NumRecordsOffset + sizeof(uint32_t);
 
-  static const unsigned FunctionSize = 3 * sizeof(uint64_t);
+  static const unsigned FunctionSize = 2 * sizeof(uint64_t);
   static const unsigned ConstantSize = sizeof(uint64_t);
 
   std::size_t getFunctionOffset(unsigned FunctionIndex) const {

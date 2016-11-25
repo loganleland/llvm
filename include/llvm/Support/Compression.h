@@ -43,9 +43,6 @@ bool isAvailable();
 Status compress(StringRef InputBuffer, SmallVectorImpl<char> &CompressedBuffer,
                 CompressionLevel Level = DefaultCompression);
 
-Status uncompress(StringRef InputBuffer, char *UncompressedBuffer,
-                  size_t &UncompressedSize);
-
 Status uncompress(StringRef InputBuffer,
                   SmallVectorImpl<char> &UncompressedBuffer,
                   size_t UncompressedSize);

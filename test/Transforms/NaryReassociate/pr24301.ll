@@ -1,5 +1,4 @@
 ; RUN: opt < %s -nary-reassociate -S | FileCheck %s
-; RUN: opt < %s -passes='nary-reassociate' -S | FileCheck %s
 
 define i32 @foo(i32 %tmp4) {
 ; CHECK-LABEL: @foo(

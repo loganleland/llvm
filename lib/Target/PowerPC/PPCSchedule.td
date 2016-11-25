@@ -109,7 +109,6 @@ def IIC_SprSLBIE     : InstrItinClass;
 def IIC_SprSLBIEG    : InstrItinClass;
 def IIC_SprSLBMTE    : InstrItinClass;
 def IIC_SprSLBMFEE   : InstrItinClass;
-def IIC_SprSLBMFEV   : InstrItinClass;
 def IIC_SprSLBIA     : InstrItinClass;
 def IIC_SprSLBSYNC   : InstrItinClass;
 def IIC_SprTLBIA     : InstrItinClass;

@@ -217,7 +217,7 @@ public:
 
   MachineFunctionProperties getRequiredProperties() const override {
     return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::NoVRegs);
+        MachineFunctionProperties::Property::AllVRegsAllocated);
   }
 
   /// Print to ostream with a message.
@@ -260,7 +260,6 @@ void LiveDebugValues::printVarLocInMBB(const MachineFunction &MF,
                                        const VarLocMap &VarLocIDs,
                                        const char *msg,
                                        raw_ostream &Out) const {
-  Out << '\n' << msg << '\n';
   for (const MachineBasicBlock &BB : MF) {
     const auto &L = V.lookup(&BB);
     Out << "MBB: " << BB.getName() << ":\n";
@@ -269,6 +268,7 @@ void LiveDebugValues::printVarLocInMBB(const MachineFunction &MF,
       Out << " Var: " << VL.Var.getVar()->getName();
       Out << " MI: ";
       VL.dump();
+      Out << "\n";
     }
   }
   Out << "\n";
@@ -468,7 +468,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     // thing twice.  We could avoid this with a custom priority queue, but this
     // is probably not worth it.
     SmallPtrSet<MachineBasicBlock *, 16> OnPending;
-    DEBUG(dbgs() << "Processing Worklist\n");
     while (!Worklist.empty()) {
       MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
       Worklist.pop();

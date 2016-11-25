@@ -74,8 +74,7 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, const MachineBasicBlock &MBB) {
 /// MBBs start out as #-1. When a MBB is added to a MachineFunction, it
 /// gets the next available unique MBB number. If it is removed from a
 /// MachineFunction, it goes back to being #-1.
-void ilist_callback_traits<MachineBasicBlock>::addNodeToList(
-    MachineBasicBlock *N) {
+void ilist_traits<MachineBasicBlock>::addNodeToList(MachineBasicBlock *N) {
   MachineFunction &MF = *N->getParent();
   N->Number = MF.addToMBBNumbering(N);
 
@@ -86,8 +85,7 @@ void ilist_callback_traits<MachineBasicBlock>::addNodeToList(
     I->AddRegOperandsToUseLists(RegInfo);
 }
 
-void ilist_callback_traits<MachineBasicBlock>::removeNodeFromList(
-    MachineBasicBlock *N) {
+void ilist_traits<MachineBasicBlock>::removeNodeFromList(MachineBasicBlock *N) {
   N->getParent()->removeFromMBBNumbering(N->Number);
   N->Number = -1;
 }
@@ -118,13 +116,15 @@ void ilist_traits<MachineInstr>::removeNodeFromList(MachineInstr *N) {
 
 /// When moving a range of instructions from one MBB list to another, we need to
 /// update the parent pointers and the use/def lists.
-void ilist_traits<MachineInstr>::transferNodesFromList(ilist_traits &FromList,
-                                                       instr_iterator First,
-                                                       instr_iterator Last) {
+void ilist_traits<MachineInstr>::
+transferNodesFromList(ilist_traits<MachineInstr> &FromList,
+                      ilist_iterator<MachineInstr> First,
+                      ilist_iterator<MachineInstr> Last) {
   assert(Parent->getParent() == FromList.Parent->getParent() &&
         "MachineInstr parent mismatch!");
-  assert(this != &FromList && "Called without a real transfer...");
-  assert(Parent != FromList.Parent && "Two lists have the same parent?");
+
+  // Splice within the same MBB -> no change.
+  if (Parent == FromList.Parent) return;
 
   // If splicing between two blocks within the same function, just update the
   // parent pointers.
@@ -132,7 +132,7 @@ void ilist_traits<MachineInstr>::transferNodesFromList(ilist_traits &FromList,
     First->setParent(Parent);
 }
 
-void ilist_traits<MachineInstr>::deleteNode(MachineInstr *MI) {
+void ilist_traits<MachineInstr>::deleteNode(MachineInstr* MI) {
   assert(!MI->getParent() && "MI is still in a block!");
   Parent->getParent()->DeleteMachineInstr(MI);
 }
@@ -149,25 +149,12 @@ MachineBasicBlock::iterator MachineBasicBlock::getFirstNonPHI() {
 MachineBasicBlock::iterator
 MachineBasicBlock::SkipPHIsAndLabels(MachineBasicBlock::iterator I) {
   iterator E = end();
-  while (I != E && (I->isPHI() || I->isPosition()))
-    ++I;
-  // FIXME: This needs to change if we wish to bundle labels
-  // inside the bundle.
-  assert((I == E || !I->isInsideBundle()) &&
-         "First non-phi / non-label instruction is inside a bundle!");
-  return I;
-}
-
-MachineBasicBlock::iterator
-MachineBasicBlock::SkipPHIsLabelsAndDebug(MachineBasicBlock::iterator I) {
-  iterator E = end();
   while (I != E && (I->isPHI() || I->isPosition() || I->isDebugValue()))
     ++I;
   // FIXME: This needs to change if we wish to bundle labels / dbg_values
   // inside the bundle.
   assert((I == E || !I->isInsideBundle()) &&
-         "First non-phi / non-label / non-debug "
-         "instruction is inside a bundle!");
+         "First non-phi / non-label instruction is inside a bundle!");
   return I;
 }
 
@@ -336,8 +323,9 @@ void MachineBasicBlock::printAsOperand(raw_ostream &OS,
 }
 
 void MachineBasicBlock::removeLiveIn(MCPhysReg Reg, LaneBitmask LaneMask) {
-  LiveInVector::iterator I = find_if(
-      LiveIns, [Reg](const RegisterMaskPair &LI) { return LI.PhysReg == Reg; });
+  LiveInVector::iterator I = std::find_if(
+      LiveIns.begin(), LiveIns.end(),
+      [Reg] (const RegisterMaskPair &LI) { return LI.PhysReg == Reg; });
   if (I == LiveIns.end())
     return;
 
@@ -347,8 +335,9 @@ void MachineBasicBlock::removeLiveIn(MCPhysReg Reg, LaneBitmask LaneMask) {
 }
 
 bool MachineBasicBlock::isLiveIn(MCPhysReg Reg, LaneBitmask LaneMask) const {
-  livein_iterator I = find_if(
-      LiveIns, [Reg](const RegisterMaskPair &LI) { return LI.PhysReg == Reg; });
+  livein_iterator I = std::find_if(
+      LiveIns.begin(), LiveIns.end(),
+      [Reg] (const RegisterMaskPair &LI) { return LI.PhysReg == Reg; });
   return I != livein_end() && (I->LaneMask & LaneMask) != 0;
 }
 
@@ -429,7 +418,7 @@ void MachineBasicBlock::updateTerminator() {
       // The block has an unconditional branch. If its successor is now its
       // layout successor, delete the branch.
       if (isLayoutSuccessor(TBB))
-        TII->removeBranch(*this);
+        TII->RemoveBranch(*this);
     } else {
       // The block has an unconditional fallthrough. If its successor is not its
       // layout successor, insert a branch. First we have to locate the only
@@ -449,7 +438,7 @@ void MachineBasicBlock::updateTerminator() {
       // Finally update the unconditional successor to be reached via a branch
       // if it would not be reached by fallthrough.
       if (!isLayoutSuccessor(TBB))
-        TII->insertBranch(*this, TBB, nullptr, Cond, DL);
+        TII->InsertBranch(*this, TBB, nullptr, Cond, DL);
     }
     return;
   }
@@ -459,13 +448,13 @@ void MachineBasicBlock::updateTerminator() {
     // successors is its layout successor, rewrite it to a fallthrough
     // conditional branch.
     if (isLayoutSuccessor(TBB)) {
-      if (TII->reverseBranchCondition(Cond))
+      if (TII->ReverseBranchCondition(Cond))
         return;
-      TII->removeBranch(*this);
-      TII->insertBranch(*this, FBB, nullptr, Cond, DL);
+      TII->RemoveBranch(*this);
+      TII->InsertBranch(*this, FBB, nullptr, Cond, DL);
     } else if (isLayoutSuccessor(FBB)) {
-      TII->removeBranch(*this);
-      TII->insertBranch(*this, TBB, nullptr, Cond, DL);
+      TII->RemoveBranch(*this);
+      TII->InsertBranch(*this, TBB, nullptr, Cond, DL);
     }
     return;
   }
@@ -487,37 +476,37 @@ void MachineBasicBlock::updateTerminator() {
       // Remove the conditional jump, leaving unconditional fallthrough.
       // FIXME: This does not seem like a reasonable pattern to support, but it
       // has been seen in the wild coming out of degenerate ARM test cases.
-      TII->removeBranch(*this);
+      TII->RemoveBranch(*this);
   
       // Finally update the unconditional successor to be reached via a branch if
       // it would not be reached by fallthrough.
       if (!isLayoutSuccessor(TBB))
-        TII->insertBranch(*this, TBB, nullptr, Cond, DL);
+        TII->InsertBranch(*this, TBB, nullptr, Cond, DL);
       return;
     }
 
     // We enter here iff exactly one successor is TBB which cannot fallthrough
     // and the rest successors if any are EHPads.  In this case, we need to
     // change the conditional branch into unconditional branch.
-    TII->removeBranch(*this);
+    TII->RemoveBranch(*this);
     Cond.clear();
-    TII->insertBranch(*this, TBB, nullptr, Cond, DL);
+    TII->InsertBranch(*this, TBB, nullptr, Cond, DL);
     return;
   }
 
   // The block has a fallthrough conditional branch.
   if (isLayoutSuccessor(TBB)) {
-    if (TII->reverseBranchCondition(Cond)) {
+    if (TII->ReverseBranchCondition(Cond)) {
       // We can't reverse the condition, add an unconditional branch.
       Cond.clear();
-      TII->insertBranch(*this, FallthroughBB, nullptr, Cond, DL);
+      TII->InsertBranch(*this, FallthroughBB, nullptr, Cond, DL);
       return;
     }
-    TII->removeBranch(*this);
-    TII->insertBranch(*this, FallthroughBB, nullptr, Cond, DL);
+    TII->RemoveBranch(*this);
+    TII->InsertBranch(*this, FallthroughBB, nullptr, Cond, DL);
   } else if (!isLayoutSuccessor(FallthroughBB)) {
-    TII->removeBranch(*this);
-    TII->insertBranch(*this, TBB, FallthroughBB, Cond, DL);
+    TII->RemoveBranch(*this);
+    TII->InsertBranch(*this, TBB, FallthroughBB, Cond, DL);
   }
 }
 
@@ -556,7 +545,7 @@ void MachineBasicBlock::addSuccessorWithoutProb(MachineBasicBlock *Succ) {
 
 void MachineBasicBlock::removeSuccessor(MachineBasicBlock *Succ,
                                         bool NormalizeSuccProbs) {
-  succ_iterator I = find(Successors, Succ);
+  succ_iterator I = std::find(Successors.begin(), Successors.end(), Succ);
   removeSuccessor(I, NormalizeSuccProbs);
 }
 
@@ -622,7 +611,7 @@ void MachineBasicBlock::addPredecessor(MachineBasicBlock *Pred) {
 }
 
 void MachineBasicBlock::removePredecessor(MachineBasicBlock *Pred) {
-  pred_iterator I = find(Predecessors, Pred);
+  pred_iterator I = std::find(Predecessors.begin(), Predecessors.end(), Pred);
   assert(I != Predecessors.end() && "Pred is not a predecessor of this block!");
   Predecessors.erase(I);
 }
@@ -672,11 +661,11 @@ MachineBasicBlock::transferSuccessorsAndUpdatePHIs(MachineBasicBlock *FromMBB) {
 }
 
 bool MachineBasicBlock::isPredecessor(const MachineBasicBlock *MBB) const {
-  return is_contained(predecessors(), MBB);
+  return std::find(pred_begin(), pred_end(), MBB) != pred_end();
 }
 
 bool MachineBasicBlock::isSuccessor(const MachineBasicBlock *MBB) const {
-  return is_contained(successors(), MBB);
+  return std::find(succ_begin(), succ_end(), MBB) != succ_end();
 }
 
 bool MachineBasicBlock::isLayoutSuccessor(const MachineBasicBlock *MBB) const {
@@ -786,7 +775,7 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(MachineBasicBlock *Succ,
           continue;
 
         unsigned Reg = OI->getReg();
-        if (!is_contained(UsedRegs, Reg))
+        if (std::find(UsedRegs.begin(), UsedRegs.end(), Reg) == UsedRegs.end())
           UsedRegs.push_back(Reg);
       }
     }
@@ -813,8 +802,9 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(MachineBasicBlock *Succ,
 
     for (SmallVectorImpl<MachineInstr*>::iterator I = Terminators.begin(),
         E = Terminators.end(); I != E; ++I) {
-      if (!is_contained(NewTerminators, *I))
-        Indexes->removeMachineInstrFromMaps(**I);
+      if (std::find(NewTerminators.begin(), NewTerminators.end(), *I) ==
+          NewTerminators.end())
+       Indexes->removeMachineInstrFromMaps(**I);
     }
   }
 
@@ -823,7 +813,7 @@ MachineBasicBlock *MachineBasicBlock::SplitCriticalEdge(MachineBasicBlock *Succ,
   if (!NMBB->isLayoutSuccessor(Succ)) {
     SmallVector<MachineOperand, 4> Cond;
     const TargetInstrInfo *TII = getParent()->getSubtarget().getInstrInfo();
-    TII->insertBranch(*NMBB, Succ, nullptr, Cond, DL);
+    TII->InsertBranch(*NMBB, Succ, nullptr, Cond, DL);
 
     if (Indexes) {
       for (MachineInstr &MI : NMBB->instrs()) {
@@ -1100,16 +1090,16 @@ bool MachineBasicBlock::CorrectExtraCFGEdges(MachineBasicBlock *DestA,
 
   bool Changed = false;
 
-  MachineBasicBlock *FallThru = getNextNode();
+  MachineFunction::iterator FallThru = std::next(getIterator());
 
   if (!DestA && !DestB) {
     // Block falls through to successor.
-    DestA = FallThru;
-    DestB = FallThru;
+    DestA = &*FallThru;
+    DestB = &*FallThru;
   } else if (DestA && !DestB) {
     if (IsCond)
       // Block ends in conditional jump that falls through to successor.
-      DestB = FallThru;
+      DestB = &*FallThru;
   } else {
     assert(DestA && DestB && IsCond &&
            "CFG in a bad state. Cannot correct CFG edges");

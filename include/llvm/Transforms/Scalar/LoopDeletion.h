@@ -15,7 +15,6 @@
 #define LLVM_TRANSFORMS_SCALAR_LOOPDELETION_H
 
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/LoopPassManager.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/PassManager.h"
 
@@ -24,7 +23,7 @@ namespace llvm {
 class LoopDeletionPass : public PassInfoMixin<LoopDeletionPass> {
 public:
   LoopDeletionPass() {}
-  PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM);
+  PreservedAnalyses run(Loop &L, AnalysisManager<Loop> &AM);
   bool runImpl(Loop *L, DominatorTree &DT, ScalarEvolution &SE,
               LoopInfo &loopInfo);
 

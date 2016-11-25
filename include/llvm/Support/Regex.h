@@ -43,7 +43,6 @@ namespace llvm {
       BasicRegex=4
     };
 
-    Regex();
     /// Compiles the given regular expression \p Regex.
     Regex(StringRef Regex, unsigned Flags = NoFlags);
     Regex(const Regex &) = delete;
@@ -52,7 +51,11 @@ namespace llvm {
       std::swap(error, regex.error);
       return *this;
     }
-    Regex(Regex &&regex);
+    Regex(Regex &&regex) {
+      preg = regex.preg;
+      error = regex.error;
+      regex.preg = nullptr;
+    }
     ~Regex();
 
     /// isValid - returns the error encountered during regex compilation, or

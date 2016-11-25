@@ -47,22 +47,8 @@ enum OperandType {
   OPERAND_REGISTER = 2,
   OPERAND_MEMORY = 3,
   OPERAND_PCREL = 4,
-
-  OPERAND_FIRST_GENERIC = 6,
-  OPERAND_GENERIC_0 = 6,
-  OPERAND_GENERIC_1 = 7,
-  OPERAND_GENERIC_2 = 8,
-  OPERAND_GENERIC_3 = 9,
-  OPERAND_GENERIC_4 = 10,
-  OPERAND_GENERIC_5 = 11,
-  OPERAND_LAST_GENERIC = 11,
-
-  OPERAND_FIRST_TARGET = 12,
+  OPERAND_FIRST_TARGET = 5
 };
-
-enum GenericOperandType {
-};
-
 }
 
 /// \brief This holds information about one operand of a machine instruction,
@@ -97,16 +83,6 @@ public:
 
   /// \brief Set if this operand is a optional def.
   bool isOptionalDef() const { return Flags & (1 << MCOI::OptionalDef); }
-
-  bool isGenericType() const {
-    return OperandType >= MCOI::OPERAND_FIRST_GENERIC &&
-           OperandType <= MCOI::OPERAND_LAST_GENERIC;
-  }
-
-  unsigned getGenericTypeIndex() const {
-    assert(isGenericType() && "non-generic types don't have an index");
-    return OperandType - MCOI::OPERAND_FIRST_GENERIC;
-  }
 };
 
 //===----------------------------------------------------------------------===//
@@ -150,8 +126,7 @@ enum Flag {
   RegSequence,
   ExtractSubreg,
   InsertSubreg,
-  Convergent,
-  Add
+  Convergent
 };
 }
 
@@ -216,35 +191,32 @@ public:
   unsigned getNumDefs() const { return NumDefs; }
 
   /// \brief Return flags of this instruction.
-  uint64_t getFlags() const { return Flags; }
+  unsigned getFlags() const { return Flags; }
 
   /// \brief Return true if this instruction can have a variable number of
   /// operands.  In this case, the variable operands will be after the normal
   /// operands but before the implicit definitions and uses (if any are
   /// present).
-  bool isVariadic() const { return Flags & (1ULL << MCID::Variadic); }
+  bool isVariadic() const { return Flags & (1 << MCID::Variadic); }
 
   /// \brief Set if this instruction has an optional definition, e.g.
   /// ARM instructions which can set condition code if 's' bit is set.
-  bool hasOptionalDef() const { return Flags & (1ULL << MCID::HasOptionalDef); }
+  bool hasOptionalDef() const { return Flags & (1 << MCID::HasOptionalDef); }
 
   /// \brief Return true if this is a pseudo instruction that doesn't
   /// correspond to a real machine instruction.
-  bool isPseudo() const { return Flags & (1ULL << MCID::Pseudo); }
+  bool isPseudo() const { return Flags & (1 << MCID::Pseudo); }
 
   /// \brief Return true if the instruction is a return.
-  bool isReturn() const { return Flags & (1ULL << MCID::Return); }
-
-  /// \brief Return true if the instruction is an add instruction.
-  bool isAdd() const { return Flags & (1ULL << MCID::Add); }
+  bool isReturn() const { return Flags & (1 << MCID::Return); }
 
   /// \brief  Return true if the instruction is a call.
-  bool isCall() const { return Flags & (1ULL << MCID::Call); }
+  bool isCall() const { return Flags & (1 << MCID::Call); }
 
   /// \brief Returns true if the specified instruction stops control flow
   /// from executing the instruction immediately following it.  Examples include
   /// unconditional branches and return instructions.
-  bool isBarrier() const { return Flags & (1ULL << MCID::Barrier); }
+  bool isBarrier() const { return Flags & (1 << MCID::Barrier); }
 
   /// \brief Returns true if this instruction part of the terminator for
   /// a basic block.  Typically this is things like return and branch
@@ -252,17 +224,17 @@ public:
   ///
   /// Various passes use this to insert code into the bottom of a basic block,
   /// but before control flow occurs.
-  bool isTerminator() const { return Flags & (1ULL << MCID::Terminator); }
+  bool isTerminator() const { return Flags & (1 << MCID::Terminator); }
 
   /// \brief Returns true if this is a conditional, unconditional, or
   /// indirect branch.  Predicates below can be used to discriminate between
   /// these cases, and the TargetInstrInfo::AnalyzeBranch method can be used to
   /// get more information.
-  bool isBranch() const { return Flags & (1ULL << MCID::Branch); }
+  bool isBranch() const { return Flags & (1 << MCID::Branch); }
 
   /// \brief Return true if this is an indirect branch, such as a
   /// branch through a register.
-  bool isIndirectBranch() const { return Flags & (1ULL << MCID::IndirectBranch); }
+  bool isIndirectBranch() const { return Flags & (1 << MCID::IndirectBranch); }
 
   /// \brief Return true if this is a branch which may fall
   /// through to the next instruction or may transfer control flow to some other
@@ -289,29 +261,29 @@ public:
   /// that controls execution. It may be set to 'always', or may be set to other
   /// values. There are various methods in TargetInstrInfo that can be used to
   /// control and modify the predicate in this instruction.
-  bool isPredicable() const { return Flags & (1ULL << MCID::Predicable); }
+  bool isPredicable() const { return Flags & (1 << MCID::Predicable); }
 
   /// \brief Return true if this instruction is a comparison.
-  bool isCompare() const { return Flags & (1ULL << MCID::Compare); }
+  bool isCompare() const { return Flags & (1 << MCID::Compare); }
 
   /// \brief Return true if this instruction is a move immediate
   /// (including conditional moves) instruction.
-  bool isMoveImmediate() const { return Flags & (1ULL << MCID::MoveImm); }
+  bool isMoveImmediate() const { return Flags & (1 << MCID::MoveImm); }
 
   /// \brief Return true if this instruction is a bitcast instruction.
-  bool isBitcast() const { return Flags & (1ULL << MCID::Bitcast); }
+  bool isBitcast() const { return Flags & (1 << MCID::Bitcast); }
 
   /// \brief Return true if this is a select instruction.
-  bool isSelect() const { return Flags & (1ULL << MCID::Select); }
+  bool isSelect() const { return Flags & (1 << MCID::Select); }
 
   /// \brief Return true if this instruction cannot be safely
   /// duplicated.  For example, if the instruction has a unique labels attached
   /// to it, duplicating it would cause multiple definition errors.
-  bool isNotDuplicable() const { return Flags & (1ULL << MCID::NotDuplicable); }
+  bool isNotDuplicable() const { return Flags & (1 << MCID::NotDuplicable); }
 
   /// \brief Returns true if the specified instruction has a delay slot which
   /// must be filled by the code generator.
-  bool hasDelaySlot() const { return Flags & (1ULL << MCID::DelaySlot); }
+  bool hasDelaySlot() const { return Flags & (1 << MCID::DelaySlot); }
 
   /// \brief Return true for instructions that can be folded as memory operands
   /// in other instructions. The most common use for this is instructions that
@@ -320,7 +292,7 @@ public:
   /// constant-pool loads, such as V_SETALLONES on x86, to allow them to be
   /// folded when it is beneficial.  This should only be set on instructions
   /// that return a value in their only virtual register definition.
-  bool canFoldAsLoad() const { return Flags & (1ULL << MCID::FoldableAsLoad); }
+  bool canFoldAsLoad() const { return Flags & (1 << MCID::FoldableAsLoad); }
 
   /// \brief Return true if this instruction behaves
   /// the same way as the generic REG_SEQUENCE instructions.
@@ -332,7 +304,7 @@ public:
   /// Note that for the optimizers to be able to take advantage of
   /// this property, TargetInstrInfo::getRegSequenceLikeInputs has to be
   /// override accordingly.
-  bool isRegSequenceLike() const { return Flags & (1ULL << MCID::RegSequence); }
+  bool isRegSequenceLike() const { return Flags & (1 << MCID::RegSequence); }
 
   /// \brief Return true if this instruction behaves
   /// the same way as the generic EXTRACT_SUBREG instructions.
@@ -346,7 +318,7 @@ public:
   /// this property, TargetInstrInfo::getExtractSubregLikeInputs has to be
   /// override accordingly.
   bool isExtractSubregLike() const {
-    return Flags & (1ULL << MCID::ExtractSubreg);
+    return Flags & (1 << MCID::ExtractSubreg);
   }
 
   /// \brief Return true if this instruction behaves
@@ -359,14 +331,14 @@ public:
   /// Note that for the optimizers to be able to take advantage of
   /// this property, TargetInstrInfo::getInsertSubregLikeInputs has to be
   /// override accordingly.
-  bool isInsertSubregLike() const { return Flags & (1ULL << MCID::InsertSubreg); }
+  bool isInsertSubregLike() const { return Flags & (1 << MCID::InsertSubreg); }
 
 
   /// \brief Return true if this instruction is convergent.
   ///
   /// Convergent instructions may not be made control-dependent on any
   /// additional values.
-  bool isConvergent() const { return Flags & (1ULL << MCID::Convergent); }
+  bool isConvergent() const { return Flags & (1 << MCID::Convergent); }
 
   //===--------------------------------------------------------------------===//
   // Side Effect Analysis
@@ -375,13 +347,13 @@ public:
   /// \brief Return true if this instruction could possibly read memory.
   /// Instructions with this flag set are not necessarily simple load
   /// instructions, they may load a value and modify it, for example.
-  bool mayLoad() const { return Flags & (1ULL << MCID::MayLoad); }
+  bool mayLoad() const { return Flags & (1 << MCID::MayLoad); }
 
   /// \brief Return true if this instruction could possibly modify memory.
   /// Instructions with this flag set are not necessarily simple store
   /// instructions, they may store a modified value based on their operands, or
   /// may not actually modify anything, for example.
-  bool mayStore() const { return Flags & (1ULL << MCID::MayStore); }
+  bool mayStore() const { return Flags & (1 << MCID::MayStore); }
 
   /// \brief Return true if this instruction has side
   /// effects that are not modeled by other flags.  This does not return true
@@ -396,7 +368,7 @@ public:
   /// a control register, flushing a cache, modifying a register invisible to
   /// LLVM, etc.
   bool hasUnmodeledSideEffects() const {
-    return Flags & (1ULL << MCID::UnmodeledSideEffects);
+    return Flags & (1 << MCID::UnmodeledSideEffects);
   }
 
   //===--------------------------------------------------------------------===//
@@ -413,7 +385,7 @@ public:
   /// sometimes.  In these cases, the call to commuteInstruction will fail.
   /// Also note that some instructions require non-trivial modification to
   /// commute them.
-  bool isCommutable() const { return Flags & (1ULL << MCID::Commutable); }
+  bool isCommutable() const { return Flags & (1 << MCID::Commutable); }
 
   /// \brief Return true if this is a 2-address instruction which can be changed
   /// into a 3-address instruction if needed.  Doing this transformation can be
@@ -430,7 +402,7 @@ public:
   /// instruction (e.g. shl reg, 4 on x86).
   ///
   bool isConvertibleTo3Addr() const {
-    return Flags & (1ULL << MCID::ConvertibleTo3Addr);
+    return Flags & (1 << MCID::ConvertibleTo3Addr);
   }
 
   /// \brief Return true if this instruction requires custom insertion support
@@ -442,14 +414,14 @@ public:
   /// If this is true, the TargetLoweringInfo::InsertAtEndOfBasicBlock method
   /// is used to insert this into the MachineBasicBlock.
   bool usesCustomInsertionHook() const {
-    return Flags & (1ULL << MCID::UsesCustomInserter);
+    return Flags & (1 << MCID::UsesCustomInserter);
   }
 
   /// \brief Return true if this instruction requires *adjustment* after
   /// instruction selection by calling a target hook. For example, this can be
   /// used to fill in ARM 's' optional operand depending on whether the
   /// conditional flag register is used.
-  bool hasPostISelHook() const { return Flags & (1ULL << MCID::HasPostISelHook); }
+  bool hasPostISelHook() const { return Flags & (1 << MCID::HasPostISelHook); }
 
   /// \brief Returns true if this instruction is a candidate for remat. This
   /// flag is only used in TargetInstrInfo method isTriviallyRematerializable.
@@ -458,7 +430,7 @@ public:
   /// or isReallyTriviallyReMaterializableGeneric methods are called to verify
   /// the instruction is really rematable.
   bool isRematerializable() const {
-    return Flags & (1ULL << MCID::Rematerializable);
+    return Flags & (1 << MCID::Rematerializable);
   }
 
   /// \brief Returns true if this instruction has the same cost (or less) than a
@@ -470,7 +442,7 @@ public:
   ///
   /// This method could be called by interface TargetInstrInfo::isAsCheapAsAMove
   /// for different subtargets.
-  bool isAsCheapAsAMove() const { return Flags & (1ULL << MCID::CheapAsAMove); }
+  bool isAsCheapAsAMove() const { return Flags & (1 << MCID::CheapAsAMove); }
 
   /// \brief Returns true if this instruction source operands have special
   /// register allocation requirements that are not captured by the operand
@@ -479,7 +451,7 @@ public:
   /// allocation passes should not attempt to change allocations for sources of
   /// instructions with this flag.
   bool hasExtraSrcRegAllocReq() const {
-    return Flags & (1ULL << MCID::ExtraSrcRegAllocReq);
+    return Flags & (1 << MCID::ExtraSrcRegAllocReq);
   }
 
   /// \brief Returns true if this instruction def operands have special register
@@ -489,7 +461,7 @@ public:
   /// allocation passes should not attempt to change allocations for definitions
   /// of instructions with this flag.
   bool hasExtraDefRegAllocReq() const {
-    return Flags & (1ULL << MCID::ExtraDefRegAllocReq);
+    return Flags & (1 << MCID::ExtraDefRegAllocReq);
   }
 
   /// \brief Return a list of registers that are potentially read by any

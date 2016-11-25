@@ -27,10 +27,14 @@ template<class GraphType>
 struct GraphTraits {
   // Elements to provide:
 
-  // typedef NodeRef           - Type of Node token in the graph, which should
-  //                             be cheap to copy.
-  // typedef ChildIteratorType - Type used to iterate over children in graph,
-  //                             dereference to a NodeRef.
+  // NOTICE: We are in a transition from migration interfaces that require
+  // NodeType *, to NodeRef. NodeRef is required to be cheap to copy, but does
+  // not have to be a raw pointer. In the transition, user should define
+  // NodeType, and NodeRef = NodeType *.
+  //
+  // typedef NodeType          - Type of Node in the graph
+  // typedef NodeRef           - NodeType *
+  // typedef ChildIteratorType - Type used to iterate over children in graph
 
   // static NodeRef getEntryNode(const GraphType &)
   //    Return the entry node of the graph
@@ -41,7 +45,7 @@ struct GraphTraits {
   //    node list for the specified node.
   //
 
-  // typedef  ...iterator nodes_iterator; - dereference to a NodeRef
+  // typedef  ...iterator nodes_iterator;
   // static nodes_iterator nodes_begin(GraphType *G)
   // static nodes_iterator nodes_end  (GraphType *G)
   //    nodes_iterator/begin/end - Allow iteration over all nodes in the graph
@@ -84,7 +88,23 @@ struct Inverse {
 
 // Provide a partial specialization of GraphTraits so that the inverse of an
 // inverse falls back to the original graph.
-template <class T> struct GraphTraits<Inverse<Inverse<T>>> : GraphTraits<T> {};
+template<class T>
+struct GraphTraits<Inverse<Inverse<T> > > {
+  typedef typename GraphTraits<T>::NodeType NodeType;
+  typedef typename GraphTraits<T>::ChildIteratorType ChildIteratorType;
+
+  static NodeType *getEntryNode(Inverse<Inverse<T> > *G) {
+    return GraphTraits<T>::getEntryNode(G->Graph.Graph);
+  }
+
+  static ChildIteratorType child_begin(NodeType* N) {
+    return GraphTraits<T>::child_begin(N);
+  }
+
+  static ChildIteratorType child_end(NodeType* N) {
+    return GraphTraits<T>::child_end(N);
+  }
+};
 
 } // End llvm namespace
 

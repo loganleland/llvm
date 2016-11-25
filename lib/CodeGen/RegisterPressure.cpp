@@ -328,9 +328,10 @@ void RegPressureTracker::initLiveThru(const RegPressureTracker &RPTracker) {
 
 static LaneBitmask getRegLanes(ArrayRef<RegisterMaskPair> RegUnits,
                                unsigned RegUnit) {
-  auto I = find_if(RegUnits, [RegUnit](const RegisterMaskPair Other) {
-    return Other.RegUnit == RegUnit;
-  });
+  auto I = std::find_if(RegUnits.begin(), RegUnits.end(),
+                        [RegUnit](const RegisterMaskPair Other) {
+                        return Other.RegUnit == RegUnit;
+                        });
   if (I == RegUnits.end())
     return 0;
   return I->LaneMask;
@@ -340,9 +341,10 @@ static void addRegLanes(SmallVectorImpl<RegisterMaskPair> &RegUnits,
                         RegisterMaskPair Pair) {
   unsigned RegUnit = Pair.RegUnit;
   assert(Pair.LaneMask != 0);
-  auto I = find_if(RegUnits, [RegUnit](const RegisterMaskPair Other) {
-    return Other.RegUnit == RegUnit;
-  });
+  auto I = std::find_if(RegUnits.begin(), RegUnits.end(),
+                        [RegUnit](const RegisterMaskPair Other) {
+                          return Other.RegUnit == RegUnit;
+                        });
   if (I == RegUnits.end()) {
     RegUnits.push_back(Pair);
   } else {
@@ -352,9 +354,10 @@ static void addRegLanes(SmallVectorImpl<RegisterMaskPair> &RegUnits,
 
 static void setRegZero(SmallVectorImpl<RegisterMaskPair> &RegUnits,
                        unsigned RegUnit) {
-  auto I = find_if(RegUnits, [RegUnit](const RegisterMaskPair Other) {
-    return Other.RegUnit == RegUnit;
-  });
+  auto I = std::find_if(RegUnits.begin(), RegUnits.end(),
+                        [RegUnit](const RegisterMaskPair Other) {
+                          return Other.RegUnit == RegUnit;
+                        });
   if (I == RegUnits.end()) {
     RegUnits.push_back(RegisterMaskPair(RegUnit, 0));
   } else {
@@ -366,9 +369,10 @@ static void removeRegLanes(SmallVectorImpl<RegisterMaskPair> &RegUnits,
                            RegisterMaskPair Pair) {
   unsigned RegUnit = Pair.RegUnit;
   assert(Pair.LaneMask != 0);
-  auto I = find_if(RegUnits, [RegUnit](const RegisterMaskPair Other) {
-    return Other.RegUnit == RegUnit;
-  });
+  auto I = std::find_if(RegUnits.begin(), RegUnits.end(),
+                        [RegUnit](const RegisterMaskPair Other) {
+                          return Other.RegUnit == RegUnit;
+                        });
   if (I != RegUnits.end()) {
     I->LaneMask &= ~Pair.LaneMask;
     if (I->LaneMask == 0)
@@ -672,9 +676,10 @@ void RegPressureTracker::discoverLiveInOrOut(RegisterMaskPair Pair,
   assert(Pair.LaneMask != 0);
 
   unsigned RegUnit = Pair.RegUnit;
-  auto I = find_if(LiveInOrOut, [RegUnit](const RegisterMaskPair &Other) {
-    return Other.RegUnit == RegUnit;
-  });
+  auto I = std::find_if(LiveInOrOut.begin(), LiveInOrOut.end(),
+                        [RegUnit](const RegisterMaskPair &Other) {
+                          return Other.RegUnit == RegUnit;
+                        });
   LaneBitmask PrevMask;
   LaneBitmask NewMask;
   if (I == LiveInOrOut.end()) {
@@ -769,9 +774,10 @@ void RegPressureTracker::recede(const RegisterOperands &RegOpers,
         if (!TrackLaneMasks) {
           addRegLanes(*LiveUses, RegisterMaskPair(Reg, NewMask));
         } else {
-          auto I = find_if(*LiveUses, [Reg](const RegisterMaskPair Other) {
-            return Other.RegUnit == Reg;
-          });
+          auto I = std::find_if(LiveUses->begin(), LiveUses->end(),
+                                [Reg](const RegisterMaskPair Other) {
+                                return Other.RegUnit == Reg;
+                                });
           bool IsRedef = I != LiveUses->end();
           if (IsRedef) {
             // ignore re-defs here...

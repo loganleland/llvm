@@ -70,7 +70,7 @@ public:
   const MCInstrDesc &getBrCond(AVRCC::CondCodes CC) const;
   AVRCC::CondCodes getCondFromBranchOpc(unsigned Opc) const;
   AVRCC::CondCodes getOppositeCondition(AVRCC::CondCodes CC) const;
-  unsigned getInstSizeInBytes(const MachineInstr &MI) const override;
+  unsigned GetInstSizeInBytes(const MachineInstr *MI) const;
 
   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
                    const DebugLoc &DL, unsigned DestReg, unsigned SrcReg,
@@ -94,14 +94,12 @@ public:
                      MachineBasicBlock *&FBB,
                      SmallVectorImpl<MachineOperand> &Cond,
                      bool AllowModify = false) const override;
-  unsigned insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
+  unsigned InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                         MachineBasicBlock *FBB, ArrayRef<MachineOperand> Cond,
-                        const DebugLoc &DL,
-                        int *BytesAdded = nullptr) const override;
-  unsigned removeBranch(MachineBasicBlock &MBB,
-                        int *BytesRemoved = nullptr) const override;
+                        const DebugLoc &DL) const override;
+  unsigned RemoveBranch(MachineBasicBlock &MBB) const override;
   bool
-  reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
+  ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
 
 private:
   const AVRRegisterInfo RI;

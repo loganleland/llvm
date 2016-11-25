@@ -23,10 +23,8 @@ void RecordStreamer::markDefined(const MCSymbol &Symbol) {
   case Used:
     S = Defined;
     break;
-  case DefinedWeak:
+  case GlobalWeak:
     break;
-  case UndefinedWeak:
-    S = DefinedWeak;
   }
 }
 
@@ -36,16 +34,15 @@ void RecordStreamer::markGlobal(const MCSymbol &Symbol,
   switch (S) {
   case DefinedGlobal:
   case Defined:
-    S = (Attribute == MCSA_Weak) ? DefinedWeak : DefinedGlobal;
+    S = (Attribute == MCSA_Weak) ? GlobalWeak : DefinedGlobal;
     break;
 
   case NeverSeen:
   case Global:
   case Used:
-    S = (Attribute == MCSA_Weak) ? UndefinedWeak : Global;
+    S = (Attribute == MCSA_Weak) ? GlobalWeak : Global;
     break;
-  case UndefinedWeak:
-  case DefinedWeak:
+  case GlobalWeak:
     break;
   }
 }
@@ -56,8 +53,7 @@ void RecordStreamer::markUsed(const MCSymbol &Symbol) {
   case DefinedGlobal:
   case Defined:
   case Global:
-  case DefinedWeak:
-  case UndefinedWeak:
+  case GlobalWeak:
     break;
 
   case NeverSeen:
@@ -96,8 +92,6 @@ bool RecordStreamer::EmitSymbolAttribute(MCSymbol *Symbol,
                                          MCSymbolAttr Attribute) {
   if (Attribute == MCSA_Global || Attribute == MCSA_Weak)
     markGlobal(*Symbol, Attribute);
-  if (Attribute == MCSA_LazyReference)
-    markUsed(*Symbol);
   return true;
 }
 

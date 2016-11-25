@@ -76,4 +76,6 @@ void MCSymbol::print(raw_ostream &OS, const MCAsmInfo *MAI) const {
   OS << '"';
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void MCSymbol::dump() const { dbgs() << *this; }
+#endif

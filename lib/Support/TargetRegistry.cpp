@@ -30,7 +30,8 @@ const Target *TargetRegistry::lookupTarget(const std::string &ArchName,
   // name, because it might be a backend that has no mapping to a target triple.
   const Target *TheTarget = nullptr;
   if (!ArchName.empty()) {
-    auto I = find_if(targets(),
+    auto I =
+        std::find_if(targets().begin(), targets().end(),
                      [&](const Target &T) { return ArchName == T.getName(); });
 
     if (I == targets().end()) {
@@ -69,7 +70,7 @@ const Target *TargetRegistry::lookupTarget(const std::string &TT,
   }
   Triple::ArchType Arch = Triple(TT).getArch();
   auto ArchMatch = [&](const Target &T) { return T.ArchMatchFn(Arch); };
-  auto I = find_if(targets(), ArchMatch);
+  auto I = std::find_if(targets().begin(), targets().end(), ArchMatch);
 
   if (I == targets().end()) {
     Error = "No available targets are compatible with this triple.";

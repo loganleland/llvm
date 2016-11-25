@@ -54,7 +54,7 @@ STATISTIC(NumLCSSA, "Number of live out of a loop variables");
 /// Return true if the specified block is in the list.
 static bool isExitBlock(BasicBlock *BB,
                         const SmallVectorImpl<BasicBlock *> &ExitBlocks) {
-  return is_contained(ExitBlocks, BB);
+  return find(ExitBlocks, BB) != ExitBlocks.end();
 }
 
 /// For every instruction from the worklist, check to see if it has any uses
@@ -63,25 +63,19 @@ static bool isExitBlock(BasicBlock *BB,
 bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
                                     DominatorTree &DT, LoopInfo &LI) {
   SmallVector<Use *, 16> UsesToRewrite;
+  SmallVector<BasicBlock *, 8> ExitBlocks;
   SmallSetVector<PHINode *, 16> PHIsToRemove;
   PredIteratorCache PredCache;
   bool Changed = false;
 
-  // Cache the Loop ExitBlocks across this loop.  We expect to get a lot of
-  // instructions within the same loops, computing the exit blocks is
-  // expensive, and we're not mutating the loop structure.
-  SmallDenseMap<Loop*, SmallVector<BasicBlock *,1>> LoopExitBlocks;
-
   while (!Worklist.empty()) {
     UsesToRewrite.clear();
+    ExitBlocks.clear();
 
     Instruction *I = Worklist.pop_back_val();
     BasicBlock *InstBB = I->getParent();
     Loop *L = LI.getLoopFor(InstBB);
-    if (!LoopExitBlocks.count(L))   
-      L->getExitBlocks(LoopExitBlocks[L]);
-    assert(LoopExitBlocks.count(L));
-    const SmallVectorImpl<BasicBlock *> &ExitBlocks = LoopExitBlocks[L];
+    L->getExitBlocks(ExitBlocks);
 
     if (ExitBlocks.empty())
       continue;
@@ -192,14 +186,14 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
 
       // Otherwise, do full PHI insertion.
       SSAUpdate.RewriteUse(*UseToRewrite);
-    }
 
-    // SSAUpdater might have inserted phi-nodes inside other loops. We'll need
-    // to post-process them to keep LCSSA form.
-    for (PHINode *InsertedPN : InsertedPHIs) {
-      if (auto *OtherLoop = LI.getLoopFor(InsertedPN->getParent()))
-        if (!L->contains(OtherLoop))
-          PostProcessPHIs.push_back(InsertedPN);
+      // SSAUpdater might have inserted phi-nodes inside other loops. We'll need
+      // to post-process them to keep LCSSA form.
+      for (PHINode *InsertedPN : InsertedPHIs) {
+        if (auto *OtherLoop = LI.getLoopFor(InsertedPN->getParent()))
+          if (!L->contains(OtherLoop))
+            PostProcessPHIs.push_back(InsertedPN);
+      }
     }
 
     // Post process PHI instructions that were inserted into another disjoint
@@ -235,7 +229,7 @@ blockDominatesAnExit(BasicBlock *BB,
                      DominatorTree &DT,
                      const SmallVectorImpl<BasicBlock *> &ExitBlocks) {
   DomTreeNode *DomNode = DT.getNode(BB);
-  return any_of(ExitBlocks, [&](BasicBlock *EB) {
+  return llvm::any_of(ExitBlocks, [&](BasicBlock * EB) {
     return DT.dominates(DomNode, DT.getNode(EB));
   });
 }
@@ -321,11 +315,6 @@ struct LCSSAWrapperPass : public FunctionPass {
   ScalarEvolution *SE;
 
   bool runOnFunction(Function &F) override;
-  void verifyAnalysis() const override {
-    assert(
-        all_of(*LI, [&](Loop *L) { return L->isRecursivelyLCSSAForm(*DT); }) &&
-        "LCSSA form is broken!");
-  };
 
   /// This transformation requires natural loop information & requires that
   /// loop preheaders be inserted into the CFG.  It maintains both of these,
@@ -366,7 +355,7 @@ bool LCSSAWrapperPass::runOnFunction(Function &F) {
   return formLCSSAOnAllLoops(LI, *DT, SE);
 }
 
-PreservedAnalyses LCSSAPass::run(Function &F, FunctionAnalysisManager &AM) {
+PreservedAnalyses LCSSAPass::run(Function &F, AnalysisManager<Function> &AM) {
   auto &LI = AM.getResult<LoopAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto *SE = AM.getCachedResult<ScalarEvolutionAnalysis>(F);

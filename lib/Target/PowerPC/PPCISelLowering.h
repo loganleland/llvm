@@ -474,7 +474,7 @@ namespace llvm {
     /// then the VPERM for the shuffle. All in all a very slow sequence.
     TargetLoweringBase::LegalizeTypeAction getPreferredVectorAction(EVT VT)
       const override {
-      if (VT.getScalarSizeInBits() % 8 == 0)
+      if (VT.getVectorElementType().getSizeInBits() % 8 == 0)
         return TypeWidenVector;
       return TargetLoweringBase::getPreferredVectorAction(VT);
     }
@@ -489,14 +489,6 @@ namespace llvm {
     }
 
     bool isCheapToSpeculateCtlz() const override {
-      return true;
-    }
-
-    bool isCtlzFast() const override {
-      return true;
-    }
-
-    bool hasAndNotCompare(SDValue) const override {
       return true;
     }
 
@@ -593,15 +585,11 @@ namespace llvm {
     MachineBasicBlock *EmitAtomicBinary(MachineInstr &MI,
                                         MachineBasicBlock *MBB,
                                         unsigned AtomicSize,
-                                        unsigned BinOpcode,
-                                        unsigned CmpOpcode = 0,
-                                        unsigned CmpPred = 0) const;
+                                        unsigned BinOpcode) const;
     MachineBasicBlock *EmitPartwordAtomicBinary(MachineInstr &MI,
                                                 MachineBasicBlock *MBB,
                                                 bool is8bit,
-                                                unsigned Opcode,
-                                                unsigned CmpOpcode = 0,
-                                                unsigned CmpPred = 0) const;
+                                                unsigned Opcode) const;
 
     MachineBasicBlock *emitEHSjLjSetJmp(MachineInstr &MI,
                                         MachineBasicBlock *MBB) const;
@@ -761,24 +749,12 @@ namespace llvm {
       SDValue Chain;
       SDValue ResChain;
       MachinePointerInfo MPI;
-      bool IsDereferenceable;
       bool IsInvariant;
       unsigned Alignment;
       AAMDNodes AAInfo;
       const MDNode *Ranges;
 
-      ReuseLoadInfo()
-          : IsDereferenceable(false), IsInvariant(false), Alignment(0),
-            Ranges(nullptr) {}
-
-      MachineMemOperand::Flags MMOFlags() const {
-        MachineMemOperand::Flags F = MachineMemOperand::MONone;
-        if (IsDereferenceable)
-          F |= MachineMemOperand::MODereferenceable;
-        if (IsInvariant)
-          F |= MachineMemOperand::MOInvariant;
-        return F;
-      }
+      ReuseLoadInfo() : IsInvariant(false), Alignment(0), Ranges(nullptr) {}
     };
 
     bool canReuseLoadAddress(SDValue Op, EVT MemVT, ReuseLoadInfo &RLI,
@@ -835,7 +811,6 @@ namespace llvm {
     SDValue LowerSTACKRESTORE(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerGET_DYNAMIC_AREA_OFFSET(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerDYNAMIC_STACKALLOC(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerEH_DWARF_CFA(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerLOAD(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSTORE(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const;
@@ -849,7 +824,6 @@ namespace llvm {
     SDValue LowerSRA_PARTS(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerVECTOR_SHUFFLE(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerINSERT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerEXTRACT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerINTRINSIC_WO_CHAIN(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSCALAR_TO_VECTOR(SDValue Op, SelectionDAG &DAG) const;
@@ -978,13 +952,6 @@ namespace llvm {
                                          CCValAssign::LocInfo &LocInfo,
                                          ISD::ArgFlagsTy &ArgFlags,
                                          CCState &State);
-
-  bool 
-  CC_PPC32_SVR4_Custom_SkipLastArgRegsPPCF128(unsigned &ValNo, MVT &ValVT,
-                                                 MVT &LocVT,
-                                                 CCValAssign::LocInfo &LocInfo,
-                                                 ISD::ArgFlagsTy &ArgFlags,
-                                                 CCState &State);
 
   bool CC_PPC32_SVR4_Custom_AlignFPArgRegs(unsigned &ValNo, MVT &ValVT,
                                            MVT &LocVT,

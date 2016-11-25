@@ -14,13 +14,18 @@
 #define LLVM_LIB_TARGET_AMDGPU_R600MACHINEFUNCTIONINFO_H
 
 #include "AMDGPUMachineFunction.h"
+#include "llvm/CodeGen/SelectionDAG.h"
+#include <vector>
 
 namespace llvm {
 
 class R600MachineFunctionInfo final : public AMDGPUMachineFunction {
+  void anchor() override;
 public:
   R600MachineFunctionInfo(const MachineFunction &MF);
-  unsigned CFStackSize;
+  SmallVector<unsigned, 4> LiveOuts;
+  std::vector<unsigned> IndirectRegs;
+  unsigned StackSize;
 };
 
 } // End llvm namespace

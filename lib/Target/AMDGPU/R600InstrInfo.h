@@ -19,14 +19,6 @@
 #include "R600RegisterInfo.h"
 
 namespace llvm {
-
-namespace R600InstrFlags {
-enum : uint64_t {
- REGISTER_STORE = UINT64_C(1) << 62,
- REGISTER_LOAD = UINT64_C(1) << 63
-};
-}
-
 class AMDGPUTargetMachine;
 class DFAPacketizer;
 class MachineFunction;
@@ -159,7 +151,7 @@ public:
   DFAPacketizer *
   CreateTargetScheduleState(const TargetSubtargetInfo &) const override;
 
-  bool reverseBranchCondition(
+  bool ReverseBranchCondition(
     SmallVectorImpl<MachineOperand> &Cond) const override;
 
   bool analyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
@@ -167,13 +159,11 @@ public:
                      SmallVectorImpl<MachineOperand> &Cond,
                      bool AllowModify) const override;
 
-  unsigned insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
+  unsigned InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                         MachineBasicBlock *FBB, ArrayRef<MachineOperand> Cond,
-                        const DebugLoc &DL,
-                        int *BytesAdded = nullptr) const override;
+                        const DebugLoc &DL) const override;
 
-  unsigned removeBranch(MachineBasicBlock &MBB,
-                        int *BytesRemvoed = nullptr) const override;
+  unsigned RemoveBranch(MachineBasicBlock &MBB) const override;
 
   bool isPredicated(const MachineInstr &MI) const override;
 
@@ -311,13 +301,8 @@ public:
   void clearFlag(MachineInstr &MI, unsigned Operand, unsigned Flag) const;
 
   // Helper functions that check the opcode for status information
-  bool isRegisterStore(const MachineInstr &MI) const {
-    return get(MI.getOpcode()).TSFlags & R600InstrFlags::REGISTER_STORE;
-  }
-
-  bool isRegisterLoad(const MachineInstr &MI) const {
-    return get(MI.getOpcode()).TSFlags & R600InstrFlags::REGISTER_LOAD;
-  }
+  bool isRegisterStore(const MachineInstr &MI) const;
+  bool isRegisterLoad(const MachineInstr &MI) const;
 };
 
 namespace AMDGPU {

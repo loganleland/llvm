@@ -758,23 +758,23 @@ template <> struct MDNodeKeyImpl<DIGlobalVariable> {
   Metadata *Type;
   bool IsLocalToUnit;
   bool IsDefinition;
-  Metadata *Expr;
+  Metadata *Variable;
   Metadata *StaticDataMemberDeclaration;
 
   MDNodeKeyImpl(Metadata *Scope, MDString *Name, MDString *LinkageName,
                 Metadata *File, unsigned Line, Metadata *Type,
-                bool IsLocalToUnit, bool IsDefinition, Metadata *Expr,
+                bool IsLocalToUnit, bool IsDefinition, Metadata *Variable,
                 Metadata *StaticDataMemberDeclaration)
       : Scope(Scope), Name(Name), LinkageName(LinkageName), File(File),
         Line(Line), Type(Type), IsLocalToUnit(IsLocalToUnit),
-        IsDefinition(IsDefinition), Expr(Expr),
+        IsDefinition(IsDefinition), Variable(Variable),
         StaticDataMemberDeclaration(StaticDataMemberDeclaration) {}
   MDNodeKeyImpl(const DIGlobalVariable *N)
       : Scope(N->getRawScope()), Name(N->getRawName()),
         LinkageName(N->getRawLinkageName()), File(N->getRawFile()),
         Line(N->getLine()), Type(N->getRawType()),
         IsLocalToUnit(N->isLocalToUnit()), IsDefinition(N->isDefinition()),
-        Expr(N->getRawExpr()),
+        Variable(N->getRawVariable()),
         StaticDataMemberDeclaration(N->getRawStaticDataMemberDeclaration()) {}
 
   bool isKeyOf(const DIGlobalVariable *RHS) const {
@@ -783,13 +783,13 @@ template <> struct MDNodeKeyImpl<DIGlobalVariable> {
            File == RHS->getRawFile() && Line == RHS->getLine() &&
            Type == RHS->getRawType() && IsLocalToUnit == RHS->isLocalToUnit() &&
            IsDefinition == RHS->isDefinition() &&
-           Expr == RHS->getRawExpr() &&
+           Variable == RHS->getRawVariable() &&
            StaticDataMemberDeclaration ==
                RHS->getRawStaticDataMemberDeclaration();
   }
   unsigned getHashValue() const {
     return hash_combine(Scope, Name, LinkageName, File, Line, Type,
-                        IsLocalToUnit, IsDefinition, Expr,
+                        IsLocalToUnit, IsDefinition, Variable,
                         StaticDataMemberDeclaration);
   }
 };
@@ -928,7 +928,7 @@ template <> struct MDNodeKeyImpl<DIMacroFile> {
 
   bool isKeyOf(const DIMacroFile *RHS) const {
     return MIType == RHS->getMacinfoType() && Line == RHS->getLine() &&
-           File == RHS->getRawFile() && Elements == RHS->getRawElements();
+           File == RHS->getRawFile() && File == RHS->getRawElements();
   }
   unsigned getHashValue() const {
     return hash_combine(MIType, Line, File, Elements);
@@ -998,8 +998,9 @@ public:
   ///
   /// Erases all attachments matching the \c shouldRemove predicate.
   template <class PredTy> void remove_if(PredTy shouldRemove) {
-    Attachments.erase(llvm::remove_if(Attachments, shouldRemove),
-                      Attachments.end());
+    Attachments.erase(
+        std::remove_if(Attachments.begin(), Attachments.end(), shouldRemove),
+        Attachments.end());
   }
 };
 

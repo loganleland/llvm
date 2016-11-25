@@ -98,7 +98,6 @@ bool MipsAsmPrinter::lowerOperand(const MachineOperand &MO, MCOperand &MCOp) {
 void MipsAsmPrinter::emitPseudoIndirectBranch(MCStreamer &OutStreamer,
                                               const MachineInstr *MI) {
   bool HasLinkReg = false;
-  bool InMicroMipsMode = Subtarget->inMicroMipsMode();
   MCInst TmpInst0;
 
   if (Subtarget->hasMips64r6()) {
@@ -107,12 +106,8 @@ void MipsAsmPrinter::emitPseudoIndirectBranch(MCStreamer &OutStreamer,
     HasLinkReg = true;
   } else if (Subtarget->hasMips32r6()) {
     // MIPS32r6 should use (JALR ZERO, $rs)
-    if (InMicroMipsMode)
-      TmpInst0.setOpcode(Mips::JRC16_MMR6);
-    else {
-      TmpInst0.setOpcode(Mips::JALR);
-      HasLinkReg = true;
-    }
+    TmpInst0.setOpcode(Mips::JALR);
+    HasLinkReg = true;
   } else if (Subtarget->inMicroMipsMode())
     // microMIPS should use (JR_MM $rs)
     TmpInst0.setOpcode(Mips::JR_MM);
@@ -190,9 +185,7 @@ void MipsAsmPrinter::EmitInstruction(const MachineInstr *MI) {
     if (I->getOpcode() == Mips::PseudoReturn ||
         I->getOpcode() == Mips::PseudoReturn64 ||
         I->getOpcode() == Mips::PseudoIndirectBranch ||
-        I->getOpcode() == Mips::PseudoIndirectBranch64 ||
-        I->getOpcode() == Mips::TAILCALLREG ||
-        I->getOpcode() == Mips::TAILCALLREG64) {
+        I->getOpcode() == Mips::PseudoIndirectBranch64) {
       emitPseudoIndirectBranch(*OutStreamer, &*I);
       continue;
     }
@@ -257,9 +250,9 @@ void MipsAsmPrinter::printSavedRegsBitmask() {
   int CPUTopSavedRegOff, FPUTopSavedRegOff;
 
   // Set the CPU and FPU Bitmasks
-  const MachineFrameInfo &MFI = MF->getFrameInfo();
+  const MachineFrameInfo *MFI = MF->getFrameInfo();
   const TargetRegisterInfo *TRI = MF->getSubtarget().getRegisterInfo();
-  const std::vector<CalleeSavedInfo> &CSI = MFI.getCalleeSavedInfo();
+  const std::vector<CalleeSavedInfo> &CSI = MFI->getCalleeSavedInfo();
   // size of stack area to which FP callee-saved regs are saved.
   unsigned CPURegSize = Mips::GPR32RegClass.getSize();
   unsigned FGR32RegSize = Mips::FGR32RegClass.getSize();
@@ -309,7 +302,7 @@ void MipsAsmPrinter::emitFrameDirective() {
 
   unsigned stackReg  = RI.getFrameRegister(*MF);
   unsigned returnReg = RI.getRARegister();
-  unsigned stackSize = MF->getFrameInfo().getStackSize();
+  unsigned stackSize = MF->getFrameInfo()->getStackSize();
 
   getTargetStreamer().emitFrame(stackReg, stackSize, returnReg);
 }

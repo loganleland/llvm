@@ -305,9 +305,9 @@ MipsTargetLowering::MipsTargetLowering(const MipsTargetMachine &TM,
     setOperationAction(ISD::SRL_PARTS,          MVT::i32,   Custom);
   }
 
-  setOperationAction(ISD::EH_DWARF_CFA,         MVT::i32,   Custom);
+  setOperationAction(ISD::ADD,                MVT::i32,   Custom);
   if (Subtarget.isGP64bit())
-    setOperationAction(ISD::EH_DWARF_CFA,       MVT::i64,   Custom);
+    setOperationAction(ISD::ADD,                MVT::i64,   Custom);
 
   setOperationAction(ISD::SDIV, MVT::i32, Expand);
   setOperationAction(ISD::SREM, MVT::i32, Expand);
@@ -425,13 +425,6 @@ MipsTargetLowering::MipsTargetLowering(const MipsTargetMachine &TM,
   setTargetDAGCombine(ISD::OR);
   setTargetDAGCombine(ISD::ADD);
   setTargetDAGCombine(ISD::AssertZext);
-
-  if (ABI.IsO32()) {
-    // These libcalls are not available in 32-bit.
-    setLibcallName(RTLIB::SHL_I128, nullptr);
-    setLibcallName(RTLIB::SRL_I128, nullptr);
-    setLibcallName(RTLIB::SRA_I128, nullptr);
-  }
 
   setMinFunctionAlignment(Subtarget.isGP64bit() ? 3 : 2);
 
@@ -921,7 +914,7 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) const
   case ISD::SRL_PARTS:          return lowerShiftRightParts(Op, DAG, false);
   case ISD::LOAD:               return lowerLOAD(Op, DAG);
   case ISD::STORE:              return lowerSTORE(Op, DAG);
-  case ISD::EH_DWARF_CFA:       return lowerEH_DWARF_CFA(Op, DAG);
+  case ISD::ADD:                return lowerADD(Op, DAG);
   case ISD::FP_TO_SINT:         return lowerFP_TO_SINT(Op, DAG);
   }
   return SDValue();
@@ -2106,8 +2099,8 @@ lowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const {
   assert((cast<ConstantSDNode>(Op.getOperand(0))->getZExtValue() == 0) &&
          "Frame address can only be determined for current frame.");
 
-  MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
-  MFI.setFrameAddressIsTaken(true);
+  MachineFrameInfo *MFI = DAG.getMachineFunction().getFrameInfo();
+  MFI->setFrameAddressIsTaken(true);
   EVT VT = Op.getValueType();
   SDLoc DL(Op);
   SDValue FrameAddr = DAG.getCopyFromReg(
@@ -2125,10 +2118,10 @@ SDValue MipsTargetLowering::lowerRETURNADDR(SDValue Op,
          "Return address can be determined only for current frame.");
 
   MachineFunction &MF = DAG.getMachineFunction();
-  MachineFrameInfo &MFI = MF.getFrameInfo();
+  MachineFrameInfo *MFI = MF.getFrameInfo();
   MVT VT = Op.getSimpleValueType();
   unsigned RA = ABI.IsN64() ? Mips::RA_64 : Mips::RA;
-  MFI.setReturnAddressIsTaken(true);
+  MFI->setReturnAddressIsTaken(true);
 
   // Return RA, which contains the return address. Mark it an implicit live-in.
   unsigned Reg = MF.addLiveIn(RA, getRegClassFor(VT));
@@ -2400,15 +2393,26 @@ SDValue MipsTargetLowering::lowerSTORE(SDValue Op, SelectionDAG &DAG) const {
   return lowerFP_TO_SINT_STORE(SD, DAG);
 }
 
-SDValue MipsTargetLowering::lowerEH_DWARF_CFA(SDValue Op,
-                                              SelectionDAG &DAG) const {
+SDValue MipsTargetLowering::lowerADD(SDValue Op, SelectionDAG &DAG) const {
+  if (Op->getOperand(0).getOpcode() != ISD::FRAMEADDR
+      || cast<ConstantSDNode>
+        (Op->getOperand(0).getOperand(0))->getZExtValue() != 0
+      || Op->getOperand(1).getOpcode() != ISD::FRAME_TO_ARGS_OFFSET)
+    return SDValue();
 
-  // Return a fixed StackObject with offset 0 which points to the old stack
-  // pointer.
-  MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
+  // The pattern
+  //   (add (frameaddr 0), (frame_to_args_offset))
+  // results from lowering llvm.eh.dwarf.cfa intrinsic. Transform it to
+  //   (add FrameObject, 0)
+  // where FrameObject is a fixed StackObject with offset 0 which points to
+  // the old stack pointer.
+  MachineFrameInfo *MFI = DAG.getMachineFunction().getFrameInfo();
   EVT ValTy = Op->getValueType(0);
-  int FI = MFI.CreateFixedObject(Op.getValueSizeInBits() / 8, 0, false);
-  return DAG.getFrameIndex(FI, ValTy);
+  int FI = MFI->CreateFixedObject(Op.getValueSizeInBits() / 8, 0, false);
+  SDValue InArgsAddr = DAG.getFrameIndex(FI, ValTy);
+  SDLoc DL(Op);
+  return DAG.getNode(ISD::ADD, DL, ValTy, InArgsAddr,
+                     DAG.getConstant(0, DL, ValTy));
 }
 
 SDValue MipsTargetLowering::lowerFP_TO_SINT(SDValue Op,
@@ -2570,8 +2574,8 @@ SDValue MipsTargetLowering::passArgOnStack(SDValue StackPtr, unsigned Offset,
     return DAG.getStore(Chain, DL, Arg, PtrOff, MachinePointerInfo());
   }
 
-  MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
-  int FI = MFI.CreateFixedObject(Arg.getValueSizeInBits() / 8, Offset, false);
+  MachineFrameInfo *MFI = DAG.getMachineFunction().getFrameInfo();
+  int FI = MFI->CreateFixedObject(Arg.getValueSizeInBits() / 8, Offset, false);
   SDValue FIN = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
   return DAG.getStore(Chain, DL, Arg, FIN, MachinePointerInfo(),
                       /* Alignment = */ 0, MachineMemOperand::MOVolatile);
@@ -2654,7 +2658,7 @@ MipsTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   bool IsVarArg                         = CLI.IsVarArg;
 
   MachineFunction &MF = DAG.getMachineFunction();
-  MachineFrameInfo &MFI = MF.getFrameInfo();
+  MachineFrameInfo *MFI = MF.getFrameInfo();
   const TargetFrameLowering *TFL = Subtarget.getFrameLowering();
   MipsFunctionInfo *FuncInfo = MF.getInfo<MipsFunctionInfo>();
   bool IsPIC = isPositionIndependent();
@@ -2761,19 +2765,19 @@ MipsTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       break;
     case CCValAssign::SExtUpper:
       UseUpperBits = true;
-      LLVM_FALLTHROUGH;
+      // Fallthrough
     case CCValAssign::SExt:
       Arg = DAG.getNode(ISD::SIGN_EXTEND, DL, LocVT, Arg);
       break;
     case CCValAssign::ZExtUpper:
       UseUpperBits = true;
-      LLVM_FALLTHROUGH;
+      // Fallthrough
     case CCValAssign::ZExt:
       Arg = DAG.getNode(ISD::ZERO_EXTEND, DL, LocVT, Arg);
       break;
     case CCValAssign::AExtUpper:
       UseUpperBits = true;
-      LLVM_FALLTHROUGH;
+      // Fallthrough
     case CCValAssign::AExt:
       Arg = DAG.getNode(ISD::ANY_EXTEND, DL, LocVT, Arg);
       break;
@@ -2866,10 +2870,8 @@ MipsTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   getOpndList(Ops, RegsToPass, IsPICCall, GlobalOrExternal, InternalLinkage,
               IsCallReloc, CLI, Callee, Chain);
 
-  if (IsTailCall) {
-    MF.getFrameInfo().setHasTailCall();
+  if (IsTailCall)
     return DAG.getNode(MipsISD::TailCall, DL, MVT::Other, Ops);
-  }
 
   Chain = DAG.getNode(MipsISD::JmpLink, DL, NodeTys, Ops);
   SDValue InFlag = Chain.getValue(1);
@@ -3015,7 +3017,7 @@ SDValue MipsTargetLowering::LowerFormalArguments(
     const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &DL,
     SelectionDAG &DAG, SmallVectorImpl<SDValue> &InVals) const {
   MachineFunction &MF = DAG.getMachineFunction();
-  MachineFrameInfo &MFI = MF.getFrameInfo();
+  MachineFrameInfo *MFI = MF.getFrameInfo();
   MipsFunctionInfo *MipsFI = MF.getInfo<MipsFunctionInfo>();
 
   MipsFI->setVarArgsFrameIndex(0);
@@ -3114,8 +3116,8 @@ SDValue MipsTargetLowering::LowerFormalArguments(
       assert(VA.isMemLoc());
 
       // The stack pointer offset is relative to the caller stack frame.
-      int FI = MFI.CreateFixedObject(LocVT.getSizeInBits() / 8,
-                                     VA.getLocMemOffset(), true);
+      int FI = MFI->CreateFixedObject(LocVT.getSizeInBits() / 8,
+                                      VA.getLocMemOffset(), true);
 
       // Create load nodes to retrieve arguments from the stack
       SDValue FIN = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
@@ -3233,19 +3235,19 @@ MipsTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
       break;
     case CCValAssign::AExtUpper:
       UseUpperBits = true;
-      LLVM_FALLTHROUGH;
+      // Fallthrough
     case CCValAssign::AExt:
       Val = DAG.getNode(ISD::ANY_EXTEND, DL, VA.getLocVT(), Val);
       break;
     case CCValAssign::ZExtUpper:
       UseUpperBits = true;
-      LLVM_FALLTHROUGH;
+      // Fallthrough
     case CCValAssign::ZExt:
       Val = DAG.getNode(ISD::ZERO_EXTEND, DL, VA.getLocVT(), Val);
       break;
     case CCValAssign::SExtUpper:
       UseUpperBits = true;
-      LLVM_FALLTHROUGH;
+      // Fallthrough
     case CCValAssign::SExt:
       Val = DAG.getNode(ISD::SIGN_EXTEND, DL, VA.getLocVT(), Val);
       break;
@@ -3715,7 +3717,7 @@ void MipsTargetLowering::copyByValRegs(
     unsigned FirstReg, unsigned LastReg, const CCValAssign &VA,
     MipsCCState &State) const {
   MachineFunction &MF = DAG.getMachineFunction();
-  MachineFrameInfo &MFI = MF.getFrameInfo();
+  MachineFrameInfo *MFI = MF.getFrameInfo();
   unsigned GPRSizeInBytes = Subtarget.getGPRSizeInBytes();
   unsigned NumRegs = LastReg - FirstReg;
   unsigned RegAreaSize = NumRegs * GPRSizeInBytes;
@@ -3732,7 +3734,7 @@ void MipsTargetLowering::copyByValRegs(
 
   // Create frame object.
   EVT PtrTy = getPointerTy(DAG.getDataLayout());
-  int FI = MFI.CreateFixedObject(FrameObjSize, FrameObjOffset, true);
+  int FI = MFI->CreateFixedObject(FrameObjSize, FrameObjOffset, true);
   SDValue FIN = DAG.getFrameIndex(FI, PtrTy);
   InVals.push_back(FIN);
 
@@ -3760,7 +3762,7 @@ void MipsTargetLowering::passByValArg(
     SDValue Chain, const SDLoc &DL,
     std::deque<std::pair<unsigned, SDValue>> &RegsToPass,
     SmallVectorImpl<SDValue> &MemOpChains, SDValue StackPtr,
-    MachineFrameInfo &MFI, SelectionDAG &DAG, SDValue Arg, unsigned FirstReg,
+    MachineFrameInfo *MFI, SelectionDAG &DAG, SDValue Arg, unsigned FirstReg,
     unsigned LastReg, const ISD::ArgFlagsTy &Flags, bool isLittle,
     const CCValAssign &VA) const {
   unsigned ByValSizeInBytes = Flags.getByValSize();
@@ -3862,7 +3864,7 @@ void MipsTargetLowering::writeVarArgRegs(std::vector<SDValue> &OutChains,
   MVT RegTy = MVT::getIntegerVT(RegSizeInBytes * 8);
   const TargetRegisterClass *RC = getRegClassFor(RegTy);
   MachineFunction &MF = DAG.getMachineFunction();
-  MachineFrameInfo &MFI = MF.getFrameInfo();
+  MachineFrameInfo *MFI = MF.getFrameInfo();
   MipsFunctionInfo *MipsFI = MF.getInfo<MipsFunctionInfo>();
 
   // Offset of the first variable argument from stack pointer.
@@ -3878,7 +3880,7 @@ void MipsTargetLowering::writeVarArgRegs(std::vector<SDValue> &OutChains,
 
   // Record the frame index of the first variable argument
   // which is a value necessary to VASTART.
-  int FI = MFI.CreateFixedObject(RegSizeInBytes, VaArgOffset, true);
+  int FI = MFI->CreateFixedObject(RegSizeInBytes, VaArgOffset, true);
   MipsFI->setVarArgsFrameIndex(FI);
 
   // Copy the integer registers that have not been used for argument passing
@@ -3889,7 +3891,7 @@ void MipsTargetLowering::writeVarArgRegs(std::vector<SDValue> &OutChains,
        ++I, VaArgOffset += RegSizeInBytes) {
     unsigned Reg = addLiveIn(MF, ArgRegs[I], RC);
     SDValue ArgValue = DAG.getCopyFromReg(Chain, DL, Reg, RegTy);
-    FI = MFI.CreateFixedObject(RegSizeInBytes, VaArgOffset, true);
+    FI = MFI->CreateFixedObject(RegSizeInBytes, VaArgOffset, true);
     SDValue PtrOff = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
     SDValue Store =
         DAG.getStore(Chain, DL, ArgValue, PtrOff, MachinePointerInfo());

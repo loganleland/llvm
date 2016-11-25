@@ -59,7 +59,7 @@ public:
 
   TestSCCAnalysis(int &Runs) : Runs(Runs) {}
 
-  Result run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM, LazyCallGraph &) {
+  Result run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM) {
     ++Runs;
     return Result(C.size());
   }
@@ -126,41 +126,86 @@ private:
 
 char TestImmutableFunctionAnalysis::PassID;
 
-struct LambdaSCCPass : public PassInfoMixin<LambdaSCCPass> {
-  template <typename T> LambdaSCCPass(T &&Arg) : Func(std::forward<T>(Arg)) {}
-  // We have to explicitly define all the special member functions because MSVC
-  // refuses to generate them.
-  LambdaSCCPass(LambdaSCCPass &&Arg) : Func(std::move(Arg.Func)) {}
-  LambdaSCCPass &operator=(LambdaSCCPass &&RHS) {
-    Func = std::move(RHS.Func);
-    return *this;
+struct TestModulePass {
+  TestModulePass(int &RunCount) : RunCount(RunCount) {}
+
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM) {
+    ++RunCount;
+    (void)AM.getResult<TestModuleAnalysis>(M);
+    return PreservedAnalyses::all();
   }
 
-  PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
-                        LazyCallGraph &CG, CGSCCUpdateResult &UR) {
-    return Func(C, AM, CG, UR);
-  }
+  static StringRef name() { return "TestModulePass"; }
 
-  std::function<PreservedAnalyses(LazyCallGraph::SCC &, CGSCCAnalysisManager &,
-                                  LazyCallGraph &, CGSCCUpdateResult &)>
-      Func;
+  int &RunCount;
 };
 
-struct LambdaFunctionPass : public PassInfoMixin<LambdaFunctionPass> {
-  template <typename T> LambdaFunctionPass(T &&Arg) : Func(std::forward<T>(Arg)) {}
-  // We have to explicitly define all the special member functions because MSVC
-  // refuses to generate them.
-  LambdaFunctionPass(LambdaFunctionPass &&Arg) : Func(std::move(Arg.Func)) {}
-  LambdaFunctionPass &operator=(LambdaFunctionPass &&RHS) {
-    Func = std::move(RHS.Func);
-    return *this;
+struct TestSCCPass {
+  TestSCCPass(int &RunCount, int &AnalyzedInstrCount,
+              int &AnalyzedSCCFunctionCount, int &AnalyzedModuleFunctionCount,
+              bool OnlyUseCachedResults = false)
+      : RunCount(RunCount), AnalyzedInstrCount(AnalyzedInstrCount),
+        AnalyzedSCCFunctionCount(AnalyzedSCCFunctionCount),
+        AnalyzedModuleFunctionCount(AnalyzedModuleFunctionCount),
+        OnlyUseCachedResults(OnlyUseCachedResults) {}
+
+  PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM) {
+    ++RunCount;
+
+    const ModuleAnalysisManager &MAM =
+        AM.getResult<ModuleAnalysisManagerCGSCCProxy>(C).getManager();
+    FunctionAnalysisManager &FAM =
+        AM.getResult<FunctionAnalysisManagerCGSCCProxy>(C).getManager();
+    if (TestModuleAnalysis::Result *TMA =
+            MAM.getCachedResult<TestModuleAnalysis>(
+                *C.begin()->getFunction().getParent()))
+      AnalyzedModuleFunctionCount += TMA->FunctionCount;
+
+    if (OnlyUseCachedResults) {
+      // Hack to force the use of the cached interface.
+      if (TestSCCAnalysis::Result *AR = AM.getCachedResult<TestSCCAnalysis>(C))
+        AnalyzedSCCFunctionCount += AR->FunctionCount;
+      for (LazyCallGraph::Node &N : C)
+        if (TestFunctionAnalysis::Result *FAR =
+                FAM.getCachedResult<TestFunctionAnalysis>(N.getFunction()))
+          AnalyzedInstrCount += FAR->InstructionCount;
+    } else {
+      // Typical path just runs the analysis as needed.
+      TestSCCAnalysis::Result &AR = AM.getResult<TestSCCAnalysis>(C);
+      AnalyzedSCCFunctionCount += AR.FunctionCount;
+      for (LazyCallGraph::Node &N : C) {
+        TestFunctionAnalysis::Result &FAR =
+            FAM.getResult<TestFunctionAnalysis>(N.getFunction());
+        AnalyzedInstrCount += FAR.InstructionCount;
+
+        // Just ensure we get the immutable results.
+        (void)FAM.getResult<TestImmutableFunctionAnalysis>(N.getFunction());
+      }
+    }
+
+    return PreservedAnalyses::all();
   }
 
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
-    return Func(F, AM);
+  static StringRef name() { return "TestSCCPass"; }
+
+  int &RunCount;
+  int &AnalyzedInstrCount;
+  int &AnalyzedSCCFunctionCount;
+  int &AnalyzedModuleFunctionCount;
+  bool OnlyUseCachedResults;
+};
+
+struct TestFunctionPass {
+  TestFunctionPass(int &RunCount) : RunCount(RunCount) {}
+
+  PreservedAnalyses run(Function &F, AnalysisManager<Function> &) {
+    ++RunCount;
+    return PreservedAnalyses::none();
   }
 
-  std::function<PreservedAnalyses(Function &, FunctionAnalysisManager &)> Func;
+  static StringRef name() { return "TestFunctionPass"; }
+
+  int &RunCount;
 };
 
 std::unique_ptr<Module> parseIR(const char *IR) {
@@ -172,48 +217,39 @@ std::unique_ptr<Module> parseIR(const char *IR) {
   return parseAssemblyString(IR, Err, C);
 }
 
-class CGSCCPassManagerTest : public ::testing::Test {
-protected:
-  LLVMContext Context;
-  std::unique_ptr<Module> M;
-
-public:
-  CGSCCPassManagerTest()
-      : M(parseIR("define void @f() {\n"
-                  "entry:\n"
-                  "  call void @g()\n"
-                  "  call void @h1()\n"
-                  "  ret void\n"
-                  "}\n"
-                  "define void @g() {\n"
-                  "entry:\n"
-                  "  call void @g()\n"
-                  "  call void @x()\n"
-                  "  ret void\n"
-                  "}\n"
-                  "define void @h1() {\n"
-                  "entry:\n"
-                  "  call void @h2()\n"
-                  "  ret void\n"
-                  "}\n"
-                  "define void @h2() {\n"
-                  "entry:\n"
-                  "  call void @h3()\n"
-                  "  call void @x()\n"
-                  "  ret void\n"
-                  "}\n"
-                  "define void @h3() {\n"
-                  "entry:\n"
-                  "  call void @h1()\n"
-                  "  ret void\n"
-                  "}\n"
-                  "define void @x() {\n"
-                  "entry:\n"
-                  "  ret void\n"
-                  "}\n")) {}
-};
-
-TEST_F(CGSCCPassManagerTest, Basic) {
+TEST(CGSCCPassManagerTest, Basic) {
+  auto M = parseIR("define void @f() {\n"
+                   "entry:\n"
+                   "  call void @g()\n"
+                   "  call void @h1()\n"
+                   "  ret void\n"
+                   "}\n"
+                   "define void @g() {\n"
+                   "entry:\n"
+                   "  call void @g()\n"
+                   "  call void @x()\n"
+                   "  ret void\n"
+                   "}\n"
+                   "define void @h1() {\n"
+                   "entry:\n"
+                   "  call void @h2()\n"
+                   "  ret void\n"
+                   "}\n"
+                   "define void @h2() {\n"
+                   "entry:\n"
+                   "  call void @h3()\n"
+                   "  call void @x()\n"
+                   "  ret void\n"
+                   "}\n"
+                   "define void @h3() {\n"
+                   "entry:\n"
+                   "  call void @h1()\n"
+                   "  ret void\n"
+                   "}\n"
+                   "define void @x() {\n"
+                   "entry:\n"
+                   "  ret void\n"
+                   "}\n");
   FunctionAnalysisManager FAM(/*DebugLogging*/ true);
   int FunctionAnalysisRuns = 0;
   FAM.registerPass([&] { return TestFunctionAnalysis(FunctionAnalysisRuns); });
@@ -239,51 +275,27 @@ TEST_F(CGSCCPassManagerTest, Basic) {
   FAM.registerPass([&] { return ModuleAnalysisManagerFunctionProxy(MAM); });
 
   ModulePassManager MPM(/*DebugLogging*/ true);
-  MPM.addPass(RequireAnalysisPass<TestModuleAnalysis, Module>());
+  int ModulePassRunCount1 = 0;
+  MPM.addPass(TestModulePass(ModulePassRunCount1));
 
   CGSCCPassManager CGPM1(/*DebugLogging*/ true);
   int SCCPassRunCount1 = 0;
   int AnalyzedInstrCount1 = 0;
   int AnalyzedSCCFunctionCount1 = 0;
   int AnalyzedModuleFunctionCount1 = 0;
-  CGPM1.addPass(
-      LambdaSCCPass([&](LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
-                        LazyCallGraph &CG, CGSCCUpdateResult &UR) {
-        ++SCCPassRunCount1;
-
-        const ModuleAnalysisManager &MAM =
-            AM.getResult<ModuleAnalysisManagerCGSCCProxy>(C, CG).getManager();
-        FunctionAnalysisManager &FAM =
-            AM.getResult<FunctionAnalysisManagerCGSCCProxy>(C, CG).getManager();
-        if (TestModuleAnalysis::Result *TMA =
-                MAM.getCachedResult<TestModuleAnalysis>(
-                    *C.begin()->getFunction().getParent()))
-          AnalyzedModuleFunctionCount1 += TMA->FunctionCount;
-
-        TestSCCAnalysis::Result &AR = AM.getResult<TestSCCAnalysis>(C, CG);
-        AnalyzedSCCFunctionCount1 += AR.FunctionCount;
-        for (LazyCallGraph::Node &N : C) {
-          TestFunctionAnalysis::Result &FAR =
-              FAM.getResult<TestFunctionAnalysis>(N.getFunction());
-          AnalyzedInstrCount1 += FAR.InstructionCount;
-
-          // Just ensure we get the immutable results.
-          (void)FAM.getResult<TestImmutableFunctionAnalysis>(N.getFunction());
-        }
-
-        return PreservedAnalyses::all();
-      }));
+  CGPM1.addPass(TestSCCPass(SCCPassRunCount1, AnalyzedInstrCount1,
+                            AnalyzedSCCFunctionCount1,
+                            AnalyzedModuleFunctionCount1));
 
   FunctionPassManager FPM1(/*DebugLogging*/ true);
   int FunctionPassRunCount1 = 0;
-  FPM1.addPass(LambdaFunctionPass([&](Function &, FunctionAnalysisManager &) {
-    ++FunctionPassRunCount1;
-    return PreservedAnalyses::all();
-  }));
+  FPM1.addPass(TestFunctionPass(FunctionPassRunCount1));
   CGPM1.addPass(createCGSCCToFunctionPassAdaptor(std::move(FPM1)));
   MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPM1)));
 
   MPM.run(*M, MAM);
+
+  EXPECT_EQ(1, ModulePassRunCount1);
 
   EXPECT_EQ(1, ModuleAnalysisRuns);
   EXPECT_EQ(4, SCCAnalysisRuns);

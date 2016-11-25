@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=arm64-eabi | FileCheck %s
+; RUN: llc < %s -march=arm64 | FileCheck %s
 
 define i64 @foo(i32 %a, i32 %b) nounwind readnone ssp {
 entry:

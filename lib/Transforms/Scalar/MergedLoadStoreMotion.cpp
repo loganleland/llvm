@@ -260,7 +260,7 @@ void MergedLoadStoreMotion::hoistInstruction(BasicBlock *BB,
   assert(HoistCand->getParent() != BB);
 
   // Intersect optional metadata.
-  HoistCand->andIRFlags(ElseInst);
+  HoistCand->intersectOptionalDataWith(ElseInst);
   HoistCand->dropUnknownNonDebugMetadata();
 
   // Prepend point for instruction insert
@@ -434,7 +434,7 @@ bool MergedLoadStoreMotion::sinkStore(BasicBlock *BB, StoreInst *S0,
     // Hoist the instruction.
     BasicBlock::iterator InsertPt = BB->getFirstInsertionPt();
     // Intersect optional metadata.
-    S0->andIRFlags(S1);
+    S0->intersectOptionalDataWith(S1);
     S0->dropUnknownNonDebugMetadata();
 
     // Create the new store to be inserted at the join point.
@@ -563,6 +563,7 @@ public:
   }
 
 private:
+  // This transformation requires dominator postdominator info
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<AAResultsWrapperPass>();
@@ -589,7 +590,7 @@ INITIALIZE_PASS_END(MergedLoadStoreMotionLegacyPass, "mldst-motion",
                     "MergedLoadStoreMotion", false, false)
 
 PreservedAnalyses
-MergedLoadStoreMotionPass::run(Function &F, FunctionAnalysisManager &AM) {
+MergedLoadStoreMotionPass::run(Function &F, AnalysisManager<Function> &AM) {
   MergedLoadStoreMotion Impl;
   auto *MD = AM.getCachedResult<MemoryDependenceAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);

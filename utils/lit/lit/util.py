@@ -20,8 +20,6 @@ def to_string(bytes):
 def convert_string(bytes):
     try:
         return to_string(bytes.decode('utf-8'))
-    except AttributeError: # 'str' object has no attribute 'decode'.
-        return str(bytes)
     except UnicodeError:
         return str(bytes)
 
@@ -67,18 +65,11 @@ def mkdir_p(path):
 
 def capture(args, env=None):
     """capture(command) - Run the given command (or argv list) in a shell and
-    return the standard output. Raises a CalledProcessError if the command
-    exits with a non-zero status."""
+    return the standard output."""
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                          env=env)
-    out, err = p.communicate()
-    out = convert_string(out)
-    err = convert_string(err)
-    if p.returncode != 0:
-        raise subprocess.CalledProcessError(cmd=args,
-                                            returncode=p.returncode,
-                                            output="{}\n{}".format(out, err))
-    return out
+    out,_ = p.communicate()
+    return convert_string(out)
 
 def which(command, paths = None):
     """which(command, [paths]) - Look up the given command in the paths string

@@ -100,10 +100,6 @@ public:
   // Return whether the target has an explicit NOP encoding.
   bool hasNOP() const;
 
-  virtual void getNoopForElfTarget(MCInst &NopInst) const {
-    getNoopForMachoTarget(NopInst);
-  }
-
   // Return the non-pre/post incrementing version of 'Opc'. Return 0
   // if there is not such an opcode.
   virtual unsigned getUnindexedOpcode(unsigned Opc) const =0;
@@ -128,15 +124,13 @@ public:
                      MachineBasicBlock *&FBB,
                      SmallVectorImpl<MachineOperand> &Cond,
                      bool AllowModify = false) const override;
-  unsigned removeBranch(MachineBasicBlock &MBB,
-                        int *BytesRemoved = nullptr) const override;
-  unsigned insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
+  unsigned RemoveBranch(MachineBasicBlock &MBB) const override;
+  unsigned InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                         MachineBasicBlock *FBB, ArrayRef<MachineOperand> Cond,
-                        const DebugLoc &DL,
-                        int *BytesAdded = nullptr) const override;
+                        const DebugLoc &DL) const override;
 
   bool
-  reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
+  ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
 
   // Predication support.
   bool isPredicated(const MachineInstr &MI) const override;
@@ -160,7 +154,7 @@ public:
 
   /// GetInstSize - Returns the size of the specified MachineInstr.
   ///
-  unsigned getInstSizeInBytes(const MachineInstr &MI) const override;
+  virtual unsigned GetInstSizeInBytes(const MachineInstr &MI) const;
 
   unsigned isLoadFromStackSlot(const MachineInstr &MI,
                                int &FrameIndex) const override;

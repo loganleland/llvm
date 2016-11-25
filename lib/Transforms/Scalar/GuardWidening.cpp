@@ -653,7 +653,7 @@ bool GuardWideningImpl::combineRangeChecks(
 }
 
 PreservedAnalyses GuardWideningPass::run(Function &F,
-                                         FunctionAnalysisManager &AM) {
+                                         AnalysisManager<Function> &AM) {
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &LI = AM.getResult<LoopAnalysis>(F);
   auto &PDT = AM.getResult<PostDominatorTreeAnalysis>(F);

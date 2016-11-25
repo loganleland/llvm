@@ -23,6 +23,11 @@
 #define GET_INSTRINFO_OPERAND_ENUM
 #include "AMDGPUGenInstrInfo.inc"
 
+#define OPCODE_IS_ZERO_INT AMDGPU::PRED_SETE_INT
+#define OPCODE_IS_NOT_ZERO_INT AMDGPU::PRED_SETNE_INT
+#define OPCODE_IS_ZERO AMDGPU::PRED_SETE
+#define OPCODE_IS_NOT_ZERO AMDGPU::PRED_SETNE
+
 namespace llvm {
 
 class AMDGPUSubtarget;
@@ -61,5 +66,8 @@ namespace AMDGPU {
 }  // End namespace AMDGPU
 
 } // End llvm namespace
+
+#define AMDGPU_FLAG_REGISTER_LOAD  (UINT64_C(1) << 63)
+#define AMDGPU_FLAG_REGISTER_STORE (UINT64_C(1) << 62)
 
 #endif

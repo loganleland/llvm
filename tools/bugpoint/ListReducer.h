@@ -15,42 +15,44 @@
 #ifndef LLVM_TOOLS_BUGPOINT_LISTREDUCER_H
 #define LLVM_TOOLS_BUGPOINT_LISTREDUCER_H
 
-#include "llvm/Support/Error.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cstdlib>
 #include <vector>
 
 namespace llvm {
+  
+  extern bool BugpointIsInterrupted;
 
-extern bool BugpointIsInterrupted;
-
-template <typename ElTy> struct ListReducer {
+template<typename ElTy>
+struct ListReducer {
   enum TestResult {
-    NoFailure,  // No failure of the predicate was detected
-    KeepSuffix, // The suffix alone satisfies the predicate
-    KeepPrefix  // The prefix alone satisfies the predicate
+    NoFailure,         // No failure of the predicate was detected
+    KeepSuffix,        // The suffix alone satisfies the predicate
+    KeepPrefix,        // The prefix alone satisfies the predicate
+    InternalError      // Encountered an error trying to run the predicate
   };
 
   virtual ~ListReducer() {}
 
-  /// This virtual function should be overriden by subclasses to implement the
-  /// test desired.  The testcase is only required to test to see if the Kept
-  /// list still satisfies the property, but if it is going to check the prefix
-  /// anyway, it can.
-  virtual Expected<TestResult> doTest(std::vector<ElTy> &Prefix,
-                                      std::vector<ElTy> &Kept) = 0;
+  // doTest - This virtual function should be overriden by subclasses to
+  // implement the test desired.  The testcase is only required to test to see
+  // if the Kept list still satisfies the property, but if it is going to check
+  // the prefix anyway, it can.
+  //
+  virtual TestResult doTest(std::vector<ElTy> &Prefix,
+                            std::vector<ElTy> &Kept,
+                            std::string &Error) = 0;
 
-  /// This function attempts to reduce the length of the specified list while
-  /// still maintaining the "test" property.  This is the core of the "work"
-  /// that bugpoint does.
-  Expected<bool> reduceList(std::vector<ElTy> &TheList) {
+  // reduceList - This function attempts to reduce the length of the specified
+  // list while still maintaining the "test" property.  This is the core of the
+  // "work" that bugpoint does.
+  //
+  bool reduceList(std::vector<ElTy> &TheList, std::string &Error) {
     std::vector<ElTy> empty;
     std::srand(0x6e5ea738); // Seed the random number generator
-    Expected<TestResult> Result = doTest(TheList, empty);
-    if (Error E = Result.takeError())
-      return std::move(E);
-    switch (*Result) {
+    switch (doTest(TheList, empty, Error)) {
     case KeepPrefix:
       if (TheList.size() == 1) // we are done, it's the base case and it fails
         return true;
@@ -64,6 +66,10 @@ template <typename ElTy> struct ListReducer {
 
     case NoFailure:
       return false; // there is no failure with the full set of passes/funcs!
+
+    case InternalError:
+      assert(!Error.empty());
+      return true;
     }
 
     // Maximal number of allowed splitting iterations,
@@ -76,7 +82,7 @@ template <typename ElTy> struct ListReducer {
     const unsigned MaxTrimIterationsWithoutBackJump = 3;
     bool ShufflingEnabled = true;
 
-  Backjump:
+Backjump:
     unsigned MidTop = TheList.size();
     unsigned MaxIterations = MaxIterationsWithoutProgress;
     unsigned NumOfIterationsWithoutProgress = 0;
@@ -90,22 +96,17 @@ template <typename ElTy> struct ListReducer {
       // If the loop doesn't make satisfying progress, try shuffling.
       // The purpose of shuffling is to avoid the heavy tails of the
       // distribution (improving the speed of convergence).
-      if (ShufflingEnabled && NumOfIterationsWithoutProgress > MaxIterations) {
+      if (ShufflingEnabled && 
+          NumOfIterationsWithoutProgress > MaxIterations) {
         std::vector<ElTy> ShuffledList(TheList);
         std::random_shuffle(ShuffledList.begin(), ShuffledList.end());
         errs() << "\n\n*** Testing shuffled set...\n\n";
-        // Check that random shuffle doesn't lose the bug
-        Expected<TestResult> Result = doTest(ShuffledList, empty);
-        // TODO: Previously, this error was ignored and we treated it as if
-        // shuffling hid the bug. This should really either be consumeError if
-        // that behaviour was sensible, or we should propagate the error.
-        assert(!Result.takeError() && "Shuffling caused internal error?");
-
-        if (*Result == KeepPrefix) {
+        // Check that random shuffle doesn't loose the bug
+        if (doTest(ShuffledList, empty, Error) == KeepPrefix) {
           // If the bug is still here, use the shuffled list.
           TheList.swap(ShuffledList);
           MidTop = TheList.size();
-          // Must increase the shuffling treshold to avoid the small
+          // Must increase the shuffling treshold to avoid the small 
           // probability of inifinite looping without making progress.
           MaxIterations += 2;
           errs() << "\n\n*** Shuffling does not hide the bug...\n\n";
@@ -115,15 +116,12 @@ template <typename ElTy> struct ListReducer {
         }
         NumOfIterationsWithoutProgress = 0;
       }
-
+      
       unsigned Mid = MidTop / 2;
-      std::vector<ElTy> Prefix(TheList.begin(), TheList.begin() + Mid);
-      std::vector<ElTy> Suffix(TheList.begin() + Mid, TheList.end());
+      std::vector<ElTy> Prefix(TheList.begin(), TheList.begin()+Mid);
+      std::vector<ElTy> Suffix(TheList.begin()+Mid, TheList.end());
 
-      Expected<TestResult> Result = doTest(Prefix, Suffix);
-      if (Error E = Result.takeError())
-        return std::move(E);
-      switch (*Result) {
+      switch (doTest(Prefix, Suffix, Error)) {
       case KeepSuffix:
         // The property still holds.  We can just drop the prefix elements, and
         // shorten the list to the "kept" elements.
@@ -147,7 +145,10 @@ template <typename ElTy> struct ListReducer {
         MidTop = Mid;
         NumOfIterationsWithoutProgress++;
         break;
+      case InternalError:
+        return true;  // Error was set by doTest.
       }
+      assert(Error.empty() && "doTest did not return InternalError for error");
     }
 
     // Probability of backjumping from the trimming loop back to the binary
@@ -155,43 +156,41 @@ template <typename ElTy> struct ListReducer {
     const int BackjumpProbability = 10;
 
     // Okay, we trimmed as much off the top and the bottom of the list as we
-    // could.  If there is more than two elements in the list, try deleting
+    // could.  If there is more than two elements in the list, try deleting 
     // interior elements and testing that.
     //
     if (TheList.size() > 2) {
       bool Changed = true;
       std::vector<ElTy> EmptyList;
       unsigned TrimIterations = 0;
-      while (Changed) { // Trimming loop.
+      while (Changed) {  // Trimming loop.
         Changed = false;
-
+        
         // If the binary split reduction loop made an unfortunate sequence of
         // splits, the trimming loop might be left off with a huge number of
         // remaining elements (large search space). Backjumping out of that
-        // search space and attempting a different split can significantly
+        // search space and attempting a different split can significantly 
         // improve the convergence speed.
         if (std::rand() % 100 < BackjumpProbability)
           goto Backjump;
-
-        for (unsigned i = 1; i < TheList.size() - 1; ++i) {
-          // Check interior elts
+        
+        for (unsigned i = 1; i < TheList.size()-1; ++i) { // Check interior elts
           if (BugpointIsInterrupted) {
             errs() << "\n\n*** Reduction Interrupted, cleaning up...\n\n";
             return true;
           }
-
+          
           std::vector<ElTy> TestList(TheList);
-          TestList.erase(TestList.begin() + i);
+          TestList.erase(TestList.begin()+i);
 
-          Expected<TestResult> Result = doTest(EmptyList, TestList);
-          if (Error E = Result.takeError())
-            return std::move(E);
-          if (*Result == KeepSuffix) {
+          if (doTest(EmptyList, TestList, Error) == KeepSuffix) {
             // We can trim down the list!
             TheList.swap(TestList);
-            --i; // Don't skip an element of the list
+            --i;  // Don't skip an element of the list
             Changed = true;
           }
+          if (!Error.empty())
+            return true;
         }
         if (TrimIterations >= MaxTrimIterationsWithoutBackJump)
           break;

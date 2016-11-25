@@ -31,7 +31,6 @@ class AsmLexer : public MCAsmLexer {
   StringRef CurBuf;
   bool IsAtStartOfLine;
   bool IsAtStartOfStatement;
-  bool IsParsingMSInlineAsm;
 
   void operator=(const AsmLexer&) = delete;
   AsmLexer(const AsmLexer&) = delete;
@@ -45,7 +44,6 @@ public:
   ~AsmLexer() override;
 
   void setBuffer(StringRef Buf, const char *ptr = nullptr);
-  void setParsingMSInlineAsm(bool V) { IsParsingMSInlineAsm = V; }
 
   StringRef LexUntilEndOfStatement() override;
 

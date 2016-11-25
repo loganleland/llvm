@@ -19,28 +19,30 @@
 #include "llvm/Target/TargetMachine.h"
 
 namespace MSP430CC {
-  // MSP430 specific condition code.
-  enum CondCodes {
-    COND_E  = 0,  // aka COND_Z
-    COND_NE = 1,  // aka COND_NZ
-    COND_HS = 2,  // aka COND_C
-    COND_LO = 3,  // aka COND_NC
-    COND_GE = 4,
-    COND_L  = 5,
+    // MSP430 specific condition code.
+    enum CondCodes {
+        COND_E = 0,  // aka COND_Z
+        COND_NE = 1,  // aka COND_NZ
+        COND_HS = 2,  // aka COND_C
+        COND_LO = 3,  // aka COND_NC
+        COND_GE = 4,
+        COND_L = 5,
 
-    COND_INVALID = -1
-  };
+        COND_INVALID = -1
+    };
 }
 
 namespace llvm {
-  class MSP430TargetMachine;
-  class FunctionPass;
-  class formatted_raw_ostream;
+    class MSP430TargetMachine;
 
-  FunctionPass *createMSP430ISelDag(MSP430TargetMachine &TM,
-                                    CodeGenOpt::Level OptLevel);
+    class FunctionPass;
 
-  FunctionPass *createMSP430BranchSelectionPass();
+    class formatted_raw_ostream;
+
+    FunctionPass *createMSP430ISelDag(MSP430TargetMachine &TM,
+                                      CodeGenOpt::Level OptLevel);
+
+    FunctionPass *createMSP430BranchSelectionPass();
 
 } // end namespace llvm;
 

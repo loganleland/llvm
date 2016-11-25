@@ -47,6 +47,10 @@ using namespace llvm;
 #define DEBUG_TYPE "aarch64-type-promotion"
 
 static cl::opt<bool>
+EnableAddressTypePromotion("aarch64-type-promotion", cl::Hidden,
+                           cl::desc("Enable the type promotion pass"),
+                           cl::init(true));
+static cl::opt<bool>
 EnableMerge("aarch64-type-promotion-merge", cl::Hidden,
             cl::desc("Enable merging of redundant sexts when one is dominating"
                      " the other."),
@@ -57,6 +61,10 @@ EnableMerge("aarch64-type-promotion-merge", cl::Hidden,
 //===----------------------------------------------------------------------===//
 //                       AArch64AddressTypePromotion
 //===----------------------------------------------------------------------===//
+
+namespace llvm {
+void initializeAArch64AddressTypePromotionPass(PassRegistry &);
+}
 
 namespace {
 class AArch64AddressTypePromotion : public FunctionPass {
@@ -473,7 +481,7 @@ bool AArch64AddressTypePromotion::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
 
-  if (F.isDeclaration())
+  if (!EnableAddressTypePromotion || F.isDeclaration())
     return false;
   Func = &F;
   ConsideredSExtType = Type::getInt64Ty(Func->getContext());

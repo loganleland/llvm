@@ -91,8 +91,7 @@ private:
       const HexagonRegisterInfo &HRI, bool &PrologueStubs) const;
   bool insertCSRRestoresInBlock(MachineBasicBlock &MBB, const CSIVect &CSI,
       const HexagonRegisterInfo &HRI) const;
-  void updateEntryPaths(MachineFunction &MF, MachineBasicBlock &SaveB) const;
-  bool updateExitPaths(MachineBasicBlock &MBB, MachineBasicBlock &RestoreB,
+  bool updateExitPaths(MachineBasicBlock &MBB, MachineBasicBlock *RestoreB,
       BitVector &DoneT, BitVector &DoneF, BitVector &Path) const;
   void insertCFIInstructionsAt(MachineBasicBlock &MBB,
       MachineBasicBlock::iterator At) const;
@@ -141,10 +140,9 @@ private:
 
   void addCalleeSaveRegistersAsImpOperand(MachineInstr *MI, const CSIVect &CSI,
       bool IsDef, bool IsKill) const;
-  bool shouldInlineCSR(MachineFunction &MF, const CSIVect &CSI) const;
+  bool shouldInlineCSR(llvm::MachineFunction &MF, const CSIVect &CSI) const;
   bool useSpillFunction(MachineFunction &MF, const CSIVect &CSI) const;
   bool useRestoreFunction(MachineFunction &MF, const CSIVect &CSI) const;
-  bool mayOverflowFrameOffset(MachineFunction &MF) const;
 };
 
 } // End llvm namespace

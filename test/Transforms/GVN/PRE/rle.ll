@@ -624,7 +624,6 @@ if.end:
 
 ;;===----------------------------------------------------------------------===;;
 ;; Load Widening
-;; We explicitly choose NOT to widen. And are testing to make sure we don't.
 ;;===----------------------------------------------------------------------===;;
 
 %widening1 = type { i32, i8, i8, i8, i8 }
@@ -641,8 +640,7 @@ entry:
   ret i32 %add
 ; CHECK-LABEL: @test_widening1(
 ; CHECK-NOT: load
-; CHECK: load i8, i8*
-; CHECK: load i8, i8*
+; CHECK: load i16, i16*
 ; CHECK-NOT: load
 ; CHECK: ret i32
 }
@@ -666,10 +664,7 @@ entry:
   ret i32 %add3
 ; CHECK-LABEL: @test_widening2(
 ; CHECK-NOT: load
-; CHECK: load i8, i8*
-; CHECK: load i8, i8*
-; CHECK: load i8, i8*
-; CHECK: load i8, i8*
+; CHECK: load i32, i32*
 ; CHECK-NOT: load
 ; CHECK: ret i32
 }

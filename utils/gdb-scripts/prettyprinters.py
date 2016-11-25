@@ -46,8 +46,6 @@ class SmallVectorPrinter:
       self.cur = self.cur + 1
       return '[%d]' % count, cur.dereference()
 
-    __next__ = next
-
   def __init__(self, val):
     self.val = val
 
@@ -87,8 +85,6 @@ class ArrayRefPrinter:
       cur = self.cur
       self.cur = self.cur + 1
       return '[%d]' % count, cur.dereference()
-
-    __next__ = next
 
   def __init__(self, val):
     self.val = val

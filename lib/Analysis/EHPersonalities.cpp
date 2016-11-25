@@ -82,7 +82,7 @@ DenseMap<BasicBlock *, ColorVector> llvm::colorEHFunclets(Function &F) {
     }
     // Note that this is a member of the given color.
     ColorVector &Colors = BlockColors[Visiting];
-    if (!is_contained(Colors, Color))
+    if (std::find(Colors.begin(), Colors.end(), Color) == Colors.end())
       Colors.push_back(Color);
     else
       continue;

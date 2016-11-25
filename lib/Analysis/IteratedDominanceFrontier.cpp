@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Compute iterated dominance frontiers using a linear time algorithm.
+/// \brief Compute iterated dominance frontiers using a linear time algorithm.
 //
 //===----------------------------------------------------------------------===//
 

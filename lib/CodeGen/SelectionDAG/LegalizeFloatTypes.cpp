@@ -632,8 +632,7 @@ SDValue DAGTypeLegalizer::SoftenFloatRes_LOAD(SDNode *N, unsigned ResNo) {
   SDLoc dl(N);
 
   auto MMOFlags =
-      L->getMemOperand()->getFlags() &
-      ~(MachineMemOperand::MOInvariant | MachineMemOperand::MODereferenceable);
+      L->getMemOperand()->getFlags() & ~MachineMemOperand::MOInvariant;
   SDValue NewL;
   if (L->getExtensionType() == ISD::NON_EXTLOAD) {
     NewL = DAG.getLoad(L->getAddressingMode(), L->getExtensionType(), NVT, dl,
@@ -2086,8 +2085,7 @@ SDValue DAGTypeLegalizer::PromoteFloatRes_LOAD(SDNode *N) {
   // Load the value as an integer value with the same number of bits.
   EVT IVT = EVT::getIntegerVT(*DAG.getContext(), VT.getSizeInBits());
   auto MMOFlags =
-      L->getMemOperand()->getFlags() &
-      ~(MachineMemOperand::MOInvariant | MachineMemOperand::MODereferenceable);
+      L->getMemOperand()->getFlags() & ~MachineMemOperand::MOInvariant;
   SDValue newL = DAG.getLoad(L->getAddressingMode(), L->getExtensionType(), IVT,
                              SDLoc(N), L->getChain(), L->getBasePtr(),
                              L->getOffset(), L->getPointerInfo(), IVT,

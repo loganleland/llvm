@@ -13,7 +13,7 @@ using namespace llvm;
 using namespace codeview;
 
 TypeRecordBuilder::TypeRecordBuilder(TypeRecordKind Kind)
-    : Kind(Kind), Stream(Buffer), Writer(Stream) {
+    : Stream(Buffer), Writer(Stream) {
   writeTypeRecordKind(Kind);
 }
 

@@ -12,6 +12,7 @@
 ...
 ---
 name:            t
+isSSA:           true
 tracksRegLiveness: true
 registers:
   - { id: 0, class: gr32 }

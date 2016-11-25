@@ -23,7 +23,7 @@ namespace llvm {
 namespace orc {
 
 template <typename DylibLookupFtorT, typename ExternalLookupFtorT>
-class LambdaResolver : public JITSymbolResolver {
+class LambdaResolver : public RuntimeDyld::SymbolResolver {
 public:
 
   LambdaResolver(DylibLookupFtorT DylibLookupFtor,
@@ -31,11 +31,12 @@ public:
       : DylibLookupFtor(DylibLookupFtor),
         ExternalLookupFtor(ExternalLookupFtor) {}
 
-  JITSymbol findSymbolInLogicalDylib(const std::string &Name) final {
+  RuntimeDyld::SymbolInfo
+  findSymbolInLogicalDylib(const std::string &Name) final {
     return DylibLookupFtor(Name);
   }
 
-  JITSymbol findSymbol(const std::string &Name) final {
+  RuntimeDyld::SymbolInfo findSymbol(const std::string &Name) final {
     return ExternalLookupFtor(Name);
   }
 

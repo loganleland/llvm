@@ -794,7 +794,8 @@ void DAGTypeLegalizer::SetScalarizedVector(SDValue Op, SDValue Result) {
   // Note that in some cases vector operation operands may be greater than
   // the vector element type. For example BUILD_VECTOR of type <1 x i1> with
   // a constant i8 operand.
-  assert(Result.getValueSizeInBits() >= Op.getScalarValueSizeInBits() &&
+  assert(Result.getValueType().getSizeInBits() >=
+         Op.getValueType().getVectorElementType().getSizeInBits() &&
          "Invalid type for scalarized vector");
   AnalyzeNewValue(Result);
 
@@ -904,7 +905,7 @@ void DAGTypeLegalizer::SetWidenedVector(SDValue Op, SDValue Result) {
 
 /// Convert to an integer of the same size.
 SDValue DAGTypeLegalizer::BitConvertToInteger(SDValue Op) {
-  unsigned BitWidth = Op.getValueSizeInBits();
+  unsigned BitWidth = Op.getValueType().getSizeInBits();
   return DAG.getNode(ISD::BITCAST, SDLoc(Op),
                      EVT::getIntegerVT(*DAG.getContext(), BitWidth), Op);
 }
@@ -912,7 +913,7 @@ SDValue DAGTypeLegalizer::BitConvertToInteger(SDValue Op) {
 /// Convert to a vector of integers of the same size.
 SDValue DAGTypeLegalizer::BitConvertVectorToIntegerVector(SDValue Op) {
   assert(Op.getValueType().isVector() && "Only applies to vectors!");
-  unsigned EltWidth = Op.getScalarValueSizeInBits();
+  unsigned EltWidth = Op.getValueType().getVectorElementType().getSizeInBits();
   EVT EltNVT = EVT::getIntegerVT(*DAG.getContext(), EltWidth);
   unsigned NumElts = Op.getValueType().getVectorNumElements();
   return DAG.getNode(ISD::BITCAST, SDLoc(Op),
@@ -1144,7 +1145,7 @@ void DAGTypeLegalizer::SplitInteger(SDValue Op,
                                     SDValue &Lo, SDValue &Hi) {
   SDLoc dl(Op);
   assert(LoVT.getSizeInBits() + HiVT.getSizeInBits() ==
-         Op.getValueSizeInBits() && "Invalid integer splitting!");
+         Op.getValueType().getSizeInBits() && "Invalid integer splitting!");
   Lo = DAG.getNode(ISD::TRUNCATE, dl, LoVT, Op);
   Hi = DAG.getNode(ISD::SRL, dl, Op.getValueType(), Op,
                    DAG.getConstant(LoVT.getSizeInBits(), dl,
@@ -1156,8 +1157,8 @@ void DAGTypeLegalizer::SplitInteger(SDValue Op,
 /// size of Op's.
 void DAGTypeLegalizer::SplitInteger(SDValue Op,
                                     SDValue &Lo, SDValue &Hi) {
-  EVT HalfVT =
-      EVT::getIntegerVT(*DAG.getContext(), Op.getValueSizeInBits() / 2);
+  EVT HalfVT = EVT::getIntegerVT(*DAG.getContext(),
+                                 Op.getValueType().getSizeInBits()/2);
   SplitInteger(Op, HalfVT, HalfVT, Lo, Hi);
 }
 

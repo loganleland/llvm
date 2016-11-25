@@ -98,14 +98,6 @@ PrintMachineInstrs("print-machineinstrs", cl::ValueOptional,
                    cl::desc("Print machine instrs"),
                    cl::value_desc("pass-name"), cl::init("option-unspecified"));
 
-static cl::opt<int> EnableGlobalISelAbort(
-    "global-isel-abort", cl::Hidden,
-    cl::desc("Enable abort calls when \"global\" instruction selection "
-             "fails to lower/select an instruction: 0 disable the abort, "
-             "1 enable the abort, and "
-             "2 disable the abort but emit a diagnostic on failure"),
-    cl::init(1));
-
 // Temporary option to allow experimenting with MachineScheduler as a post-RA
 // scheduler. Targets can "properly" enable this with
 // substitutePass(&PostRASchedulerID, &PostMachineSchedulerID).
@@ -260,7 +252,8 @@ TargetPassConfig::~TargetPassConfig() {
 // Out of line constructor provides default values for pass options and
 // registers all common codegen passes.
 TargetPassConfig::TargetPassConfig(TargetMachine *tm, PassManagerBase &pm)
-    : ImmutablePass(ID), PM(&pm), Started(true), Stopped(false),
+    : ImmutablePass(ID), PM(&pm), StartBefore(nullptr), StartAfter(nullptr),
+      StopAfter(nullptr), Started(true), Stopped(false),
       AddingMachinePasses(false), TM(tm), Impl(nullptr), Initialized(false),
       DisableVerify(false), EnableTailMerge(true) {
 
@@ -354,8 +347,6 @@ void TargetPassConfig::addPass(Pass *P, bool verifyAfter, bool printAfter) {
 
   if (StartBefore == PassID)
     Started = true;
-  if (StopBefore == PassID)
-    Stopped = true;
   if (Started && !Stopped) {
     std::string Banner;
     // Construct banner message before PM->add() as that may delete the pass.
@@ -478,17 +469,12 @@ void TargetPassConfig::addIRPasses() {
 
   if (getOptLevel() != CodeGenOpt::None && !DisablePartialLibcallInlining)
     addPass(createPartiallyInlineLibCallsPass());
-
-  // Insert calls to mcount-like functions.
-  addPass(createCountingFunctionInserterPass());
 }
 
 /// Turn exception handling constructs into something the code generators can
 /// handle.
 void TargetPassConfig::addPassesToHandleExceptions() {
-  const MCAsmInfo *MCAI = TM->getMCAsmInfo();
-  assert(MCAI && "No MCAsmInfo");
-  switch (MCAI->getExceptionHandlingType()) {
+  switch (TM->getMCAsmInfo()->getExceptionHandlingType()) {
   case ExceptionHandling::SjLj:
     // SjLj piggy-backs on dwarf for this bit. The cleanups done apply to both
     // Dwarf EH prepare needs to be run after SjLj prepare. Otherwise,
@@ -497,7 +483,7 @@ void TargetPassConfig::addPassesToHandleExceptions() {
     // pad is shared by multiple invokes and is also a target of a normal
     // edge from elsewhere.
     addPass(createSjLjEHPreparePass());
-    LLVM_FALLTHROUGH;
+    // FALLTHROUGH
   case ExceptionHandling::DwarfCFI:
   case ExceptionHandling::ARM:
     addPass(createDwarfEHPass(TM));
@@ -899,15 +885,4 @@ void TargetPassConfig::addBlockPlacement() {
     if (EnableBlockPlacementStats)
       addPass(&MachineBlockPlacementStatsID);
   }
-}
-
-//===---------------------------------------------------------------------===//
-/// GlobalISel Configuration
-//===---------------------------------------------------------------------===//
-bool TargetPassConfig::isGlobalISelAbortEnabled() const {
-  return EnableGlobalISelAbort == 1;
-}
-
-bool TargetPassConfig::reportDiagnosticWhenGlobalISelFallback() const {
-  return EnableGlobalISelAbort == 2;
 }

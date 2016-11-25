@@ -12,6 +12,7 @@
 ...
 ---
 name:            test
+isSSA:           true
 tracksRegLiveness: true
 registers:
   # CHECK: [[@LINE+1]]:20: use of undefined register class or register bank 'gr3200'

@@ -1,3 +1,5 @@
+; REQUIRES: asserts
+; XFAIL: *
 ; RUN: llc -march=r600 -mcpu=cypress < %s | FileCheck %s
 
 ; CHECK-LABEL: {{^}}kernel_arg_i64:

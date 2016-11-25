@@ -27,45 +27,36 @@
 
 using namespace llvm;
 
-static void
-appendSpeculatableOperands(const Value *V,
-                           SmallPtrSetImpl<const Value *> &Visited,
-                           SmallVectorImpl<const Value *> &Worklist) {
-  const User *U = dyn_cast<User>(V);
-  if (!U)
-    return;
+static void completeEphemeralValues(SmallVector<const Value *, 16> &WorkSet,
+                                    SmallPtrSetImpl<const Value*> &EphValues) {
+  SmallPtrSet<const Value *, 32> Visited;
 
-  for (const Value *Operand : U->operands())
-    if (Visited.insert(Operand).second)
-      if (isSafeToSpeculativelyExecute(Operand))
-        Worklist.push_back(Operand);
-}
+  // Make sure that all of the items in WorkSet are in our EphValues set.
+  EphValues.insert(WorkSet.begin(), WorkSet.end());
 
-static void completeEphemeralValues(SmallPtrSetImpl<const Value *> &Visited,
-                                    SmallVectorImpl<const Value *> &Worklist,
-                                    SmallPtrSetImpl<const Value *> &EphValues) {
   // Note: We don't speculate PHIs here, so we'll miss instruction chains kept
   // alive only by ephemeral values.
 
-  // Walk the worklist using an index but without caching the size so we can
-  // append more entries as we process the worklist. This forms a queue without
-  // quadratic behavior by just leaving processed nodes at the head of the
-  // worklist forever.
-  for (int i = 0; i < (int)Worklist.size(); ++i) {
-    const Value *V = Worklist[i];
+  while (!WorkSet.empty()) {
+    const Value *V = WorkSet.front();
+    WorkSet.erase(WorkSet.begin());
 
-    assert(Visited.count(V) &&
-           "Failed to add a worklist entry to our visited set!");
+    if (!Visited.insert(V).second)
+      continue;
 
     // If all uses of this value are ephemeral, then so is this value.
-    if (!all_of(V->users(), [&](const User *U) { return EphValues.count(U); }))
+    if (!std::all_of(V->user_begin(), V->user_end(),
+                     [&](const User *U) { return EphValues.count(U); }))
       continue;
 
     EphValues.insert(V);
     DEBUG(dbgs() << "Ephemeral Value: " << *V << "\n");
 
-    // Append any more operands to consider.
-    appendSpeculatableOperands(V, Visited, Worklist);
+    if (const User *U = dyn_cast<User>(V))
+      for (const Value *J : U->operands()) {
+        if (isSafeToSpeculativelyExecute(J))
+          WorkSet.push_back(J);
+      }
   }
 }
 
@@ -73,32 +64,29 @@ static void completeEphemeralValues(SmallPtrSetImpl<const Value *> &Visited,
 void CodeMetrics::collectEphemeralValues(
     const Loop *L, AssumptionCache *AC,
     SmallPtrSetImpl<const Value *> &EphValues) {
-  SmallPtrSet<const Value *, 32> Visited;
-  SmallVector<const Value *, 16> Worklist;
+  SmallVector<const Value *, 16> WorkSet;
 
   for (auto &AssumeVH : AC->assumptions()) {
     if (!AssumeVH)
       continue;
     Instruction *I = cast<Instruction>(AssumeVH);
 
-    // Filter out call sites outside of the loop so we don't do a function's
+    // Filter out call sites outside of the loop so we don't to a function's
     // worth of work for each of its loops (and, in the common case, ephemeral
     // values in the loop are likely due to @llvm.assume calls in the loop).
     if (!L->contains(I->getParent()))
       continue;
 
-    if (EphValues.insert(I).second)
-      appendSpeculatableOperands(I, Visited, Worklist);
+    WorkSet.push_back(I);
   }
 
-  completeEphemeralValues(Visited, Worklist, EphValues);
+  completeEphemeralValues(WorkSet, EphValues);
 }
 
 void CodeMetrics::collectEphemeralValues(
     const Function *F, AssumptionCache *AC,
     SmallPtrSetImpl<const Value *> &EphValues) {
-  SmallPtrSet<const Value *, 32> Visited;
-  SmallVector<const Value *, 16> Worklist;
+  SmallVector<const Value *, 16> WorkSet;
 
   for (auto &AssumeVH : AC->assumptions()) {
     if (!AssumeVH)
@@ -106,19 +94,17 @@ void CodeMetrics::collectEphemeralValues(
     Instruction *I = cast<Instruction>(AssumeVH);
     assert(I->getParent()->getParent() == F &&
            "Found assumption for the wrong function!");
-
-    if (EphValues.insert(I).second)
-      appendSpeculatableOperands(I, Visited, Worklist);
+    WorkSet.push_back(I);
   }
 
-  completeEphemeralValues(Visited, Worklist, EphValues);
+  completeEphemeralValues(WorkSet, EphValues);
 }
 
 /// Fill in the current structure with information gleaned from the specified
 /// block.
 void CodeMetrics::analyzeBasicBlock(const BasicBlock *BB,
                                     const TargetTransformInfo &TTI,
-                                    const SmallPtrSetImpl<const Value*> &EphValues) {
+                                    SmallPtrSetImpl<const Value*> &EphValues) {
   ++NumBlocks;
   unsigned NumInstsBeforeThisBB = NumInsts;
   for (const Instruction &I : *BB) {

@@ -624,17 +624,12 @@ bool DWARFDebugLine::LineTable::lookupAddressRange(
   return true;
 }
 
-bool
-DWARFDebugLine::LineTable::hasFileAtIndex(uint64_t FileIndex) const {
-  return FileIndex != 0 && FileIndex <= Prologue.FileNames.size();
-}
-
-bool
-DWARFDebugLine::LineTable::getFileNameByIndex(uint64_t FileIndex,
-                                              const char *CompDir,
-                                              FileLineInfoKind Kind,
-                                              std::string &Result) const {
-  if (Kind == FileLineInfoKind::None || !hasFileAtIndex(FileIndex))
+bool DWARFDebugLine::LineTable::getFileNameByIndex(uint64_t FileIndex,
+                                                   const char *CompDir,
+                                                   FileLineInfoKind Kind,
+                                                   std::string &Result) const {
+  if (FileIndex == 0 || FileIndex > Prologue.FileNames.size() ||
+      Kind == FileLineInfoKind::None)
     return false;
   const FileNameEntry &Entry = Prologue.FileNames[FileIndex - 1];
   const char *FileName = Entry.Name;

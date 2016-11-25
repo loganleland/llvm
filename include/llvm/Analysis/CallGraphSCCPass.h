@@ -94,8 +94,8 @@ class CallGraphSCC {
 public:
   CallGraphSCC(CallGraph &cg, void *context) : CG(cg), Context(context) {}
 
-  void initialize(ArrayRef<CallGraphNode *> NewNodes) {
-    Nodes.assign(NewNodes.begin(), NewNodes.end());
+  void initialize(CallGraphNode *const *I, CallGraphNode *const *E) {
+    Nodes.assign(I, E);
   }
 
   bool isSingular() const { return Nodes.size() == 1; }

@@ -12,10 +12,9 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
 #include "llvm/DebugInfo/CodeView/FieldListRecordBuilder.h"
-#include "llvm/DebugInfo/CodeView/TypeDeserializer.h"
+#include "llvm/DebugInfo/CodeView/StreamRef.h"
 #include "llvm/DebugInfo/CodeView/TypeIndex.h"
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"
-#include "llvm/DebugInfo/CodeView/TypeVisitorCallbackPipeline.h"
 #include "llvm/DebugInfo/CodeView/TypeVisitorCallbacks.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ScopedPrinter.h"
@@ -60,51 +59,23 @@ public:
 
 /// TypeVisitorCallbacks overrides.
 #define TYPE_RECORD(EnumName, EnumVal, Name)                                   \
-  Error visitKnownRecord(CVType &CVR, Name##Record &Record) override;
+  Error visit##Name(Name##Record &Record) override;
 #define MEMBER_RECORD(EnumName, EnumVal, Name)                                 \
-  Error visitKnownMember(CVMemberRecord &CVR, Name##Record &Record) override;
+  TYPE_RECORD(EnumName, EnumVal, Name)
 #define TYPE_RECORD_ALIAS(EnumName, EnumVal, Name, AliasName)
 #define MEMBER_RECORD_ALIAS(EnumName, EnumVal, Name, AliasName)
 #include "llvm/DebugInfo/CodeView/TypeRecords.def"
 
-  Error visitUnknownType(CVType &Record) override;
+  Error visitUnknownType(const CVRecord<TypeLeafKind> &Record) override;
 
-  Error visitTypeBegin(CVType &Record) override;
-  Error visitTypeEnd(CVType &Record) override;
-  Error visitMemberEnd(CVMemberRecord &Record) override;
+  Error visitTypeBegin(const CVRecord<TypeLeafKind> &Record) override;
+  Error visitTypeEnd(const CVRecord<TypeLeafKind> &Record) override;
+
+  Error visitFieldListEnd(const CVRecord<TypeLeafKind> &Record) override;
 
   bool mergeStream(const CVTypeArray &Types);
 
 private:
-  template <typename RecordType>
-  Error visitKnownRecordImpl(RecordType &Record) {
-    FoundBadTypeIndex |= !Record.remapTypeIndices(IndexMap);
-    IndexMap.push_back(DestStream.writeKnownType(Record));
-    return Error::success();
-  }
-
-  Error visitKnownRecordImpl(FieldListRecord &Record) {
-    // Don't do anything, this will get written in the call to visitTypeEnd().
-    TypeVisitorCallbackPipeline Pipeline;
-    TypeDeserializer Deserializer;
-
-    Pipeline.addCallbackToPipeline(Deserializer);
-    Pipeline.addCallbackToPipeline(*this);
-
-    CVTypeVisitor Visitor(Pipeline);
-
-    if (auto EC = Visitor.visitFieldListMemberStream(Record.Data))
-      return EC;
-    return Error::success();
-  }
-
-  template <typename RecordType>
-  Error visitKnownMemberRecordImpl(RecordType &Record) {
-    FoundBadTypeIndex |= !Record.remapTypeIndices(IndexMap);
-    FieldBuilder.writeMemberType(Record);
-    return Error::success();
-  }
-
   bool hadError() { return FoundBadTypeIndex; }
 
   bool FoundBadTypeIndex = false;
@@ -113,7 +84,6 @@ private:
 
   TypeTableBuilder &DestStream;
 
-  bool IsInFieldList{false};
   size_t BeginIndexMapSize = 0;
 
   /// Map from source type index to destination type index. Indexed by source
@@ -123,44 +93,39 @@ private:
 
 } // end anonymous namespace
 
-Error TypeStreamMerger::visitTypeBegin(CVRecord<TypeLeafKind> &Rec) {
-  if (Rec.Type == TypeLeafKind::LF_FIELDLIST) {
-    assert(!IsInFieldList);
-    IsInFieldList = true;
-  } else
-    BeginIndexMapSize = IndexMap.size();
+Error TypeStreamMerger::visitTypeBegin(const CVRecord<TypeLeafKind> &Rec) {
+  BeginIndexMapSize = IndexMap.size();
   return Error::success();
 }
 
-Error TypeStreamMerger::visitTypeEnd(CVRecord<TypeLeafKind> &Rec) {
-  if (Rec.Type == TypeLeafKind::LF_FIELDLIST) {
-    IndexMap.push_back(DestStream.writeFieldList(FieldBuilder));
-    FieldBuilder.reset();
-    IsInFieldList = false;
-  }
-  return Error::success();
-}
-
-Error TypeStreamMerger::visitMemberEnd(CVMemberRecord &Rec) {
+Error TypeStreamMerger::visitTypeEnd(const CVRecord<TypeLeafKind> &Rec) {
   assert(IndexMap.size() == BeginIndexMapSize + 1);
   return Error::success();
 }
 
+Error TypeStreamMerger::visitFieldListEnd(const CVRecord<TypeLeafKind> &Rec) {
+  IndexMap.push_back(DestStream.writeFieldList(FieldBuilder));
+  FieldBuilder.reset();
+  return Error::success();
+}
+
 #define TYPE_RECORD(EnumName, EnumVal, Name)                                   \
-  Error TypeStreamMerger::visitKnownRecord(CVType &CVR,                        \
-                                           Name##Record &Record) {             \
-    return visitKnownRecordImpl(Record);                                       \
+  Error TypeStreamMerger::visit##Name(Name##Record &Record) {                  \
+    FoundBadTypeIndex |= !Record.remapTypeIndices(IndexMap);                   \
+    IndexMap.push_back(DestStream.write##Name(Record));                        \
+    return Error::success();                                                   \
   }
 #define TYPE_RECORD_ALIAS(EnumName, EnumVal, Name, AliasName)
 #define MEMBER_RECORD(EnumName, EnumVal, Name)                                 \
-  Error TypeStreamMerger::visitKnownMember(CVMemberRecord &CVR,                \
-                                           Name##Record &Record) {             \
-    return visitKnownMemberRecordImpl(Record);                                 \
+  Error TypeStreamMerger::visit##Name(Name##Record &Record) {                  \
+    FoundBadTypeIndex |= !Record.remapTypeIndices(IndexMap);                   \
+    FieldBuilder.write##Name(Record);                                          \
+    return Error::success();                                                   \
   }
 #define MEMBER_RECORD_ALIAS(EnumName, EnumVal, Name, AliasName)
 #include "llvm/DebugInfo/CodeView/TypeRecords.def"
 
-Error TypeStreamMerger::visitUnknownType(CVType &Rec) {
+Error TypeStreamMerger::visitUnknownType(const CVRecord<TypeLeafKind> &Rec) {
   // We failed to translate a type. Translate this index as "not translated".
   IndexMap.push_back(
       TypeIndex(SimpleTypeKind::NotTranslated, SimpleTypeMode::Direct));
@@ -169,14 +134,7 @@ Error TypeStreamMerger::visitUnknownType(CVType &Rec) {
 
 bool TypeStreamMerger::mergeStream(const CVTypeArray &Types) {
   assert(IndexMap.empty());
-  TypeVisitorCallbackPipeline Pipeline;
-
-  TypeDeserializer Deserializer;
-  Pipeline.addCallbackToPipeline(Deserializer);
-  Pipeline.addCallbackToPipeline(*this);
-
-  CVTypeVisitor Visitor(Pipeline);
-
+  CVTypeVisitor Visitor(*this);
   if (auto EC = Visitor.visitTypeStream(Types)) {
     consumeError(std::move(EC));
     return false;

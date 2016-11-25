@@ -11,16 +11,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -28,6 +26,7 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -306,7 +305,7 @@ bool RecurrenceDescriptor::AddReductionVar(PHINode *Phi, RecurrenceKind Kind,
         // The instruction used by an outside user must be the last instruction
         // before we feed back to the reduction phi. Otherwise, we loose VF-1
         // operations on the value.
-        if (!is_contained(Phi->operands(), Cur))
+        if (std::find(Phi->op_begin(), Phi->op_end(), Cur) == Phi->op_end())
           return false;
 
         ExitInstruction = Cur;
@@ -655,8 +654,8 @@ Value *RecurrenceDescriptor::createMinMaxOp(IRBuilder<> &Builder,
 }
 
 InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
-                                         const SCEV *Step, BinaryOperator *BOp)
-  : StartValue(Start), IK(K), Step(Step), InductionBinOp(BOp) {
+                                         const SCEV *Step)
+  : StartValue(Start), IK(K), Step(Step) {
   assert(IK != IK_NoInduction && "Not an induction");
 
   // Start value type should match the induction kind and the value
@@ -673,15 +672,7 @@ InductionDescriptor::InductionDescriptor(Value *Start, InductionKind K,
 
   assert((IK != IK_PtrInduction || getConstIntStepValue()) &&
          "Step value should be constant for pointer induction");
-  assert((IK == IK_FpInduction || Step->getType()->isIntegerTy()) &&
-         "StepValue is not an integer");
-
-  assert((IK != IK_FpInduction || Step->getType()->isFloatingPointTy()) &&
-         "StepValue is not FP for FpInduction");
-  assert((IK != IK_FpInduction || (InductionBinOp &&
-          (InductionBinOp->getOpcode() == Instruction::FAdd ||
-           InductionBinOp->getOpcode() == Instruction::FSub))) &&
-         "Binary opcode should be specified for FP induction");
+  assert(Step->getType()->isIntegerTy() && "StepValue is not an integer");
 }
 
 int InductionDescriptor::getConsecutiveDirection() const {
@@ -702,8 +693,6 @@ Value *InductionDescriptor::transform(IRBuilder<> &B, Value *Index,
                                       const DataLayout& DL) const {
 
   SCEVExpander Exp(*SE, DL, "induction");
-  assert(Index->getType() == Step->getType() &&
-         "Index type does not match StepValue type");
   switch (IK) {
   case IK_IntInduction: {
     assert(Index->getType() == StartValue->getType() &&
@@ -728,36 +717,13 @@ Value *InductionDescriptor::transform(IRBuilder<> &B, Value *Index,
     return Exp.expandCodeFor(S, StartValue->getType(), &*B.GetInsertPoint());
   }
   case IK_PtrInduction: {
+    assert(Index->getType() == Step->getType() &&
+           "Index type does not match StepValue type");
     assert(isa<SCEVConstant>(Step) &&
            "Expected constant step for pointer induction");
     const SCEV *S = SE->getMulExpr(SE->getSCEV(Index), Step);
     Index = Exp.expandCodeFor(S, Index->getType(), &*B.GetInsertPoint());
     return B.CreateGEP(nullptr, StartValue, Index);
-  }
-  case IK_FpInduction: {
-    assert(Step->getType()->isFloatingPointTy() && "Expected FP Step value");
-    assert(InductionBinOp &&
-           (InductionBinOp->getOpcode() == Instruction::FAdd ||
-            InductionBinOp->getOpcode() == Instruction::FSub) &&
-           "Original bin op should be defined for FP induction");
-
-    Value *StepValue = cast<SCEVUnknown>(Step)->getValue();
-
-    // Floating point operations had to be 'fast' to enable the induction.
-    FastMathFlags Flags;
-    Flags.setUnsafeAlgebra();
-
-    Value *MulExp = B.CreateFMul(StepValue, Index);
-    if (isa<Instruction>(MulExp))
-      // We have to check, the MulExp may be a constant.
-      cast<Instruction>(MulExp)->setFastMathFlags(Flags);
-
-    Value *BOp = B.CreateBinOp(InductionBinOp->getOpcode() , StartValue,
-                               MulExp, "induction");
-    if (isa<Instruction>(BOp))
-      cast<Instruction>(BOp)->setFastMathFlags(Flags);
-
-    return BOp;
   }
   case IK_NoInduction:
     return nullptr;
@@ -765,75 +731,14 @@ Value *InductionDescriptor::transform(IRBuilder<> &B, Value *Index,
   llvm_unreachable("invalid enum");
 }
 
-bool InductionDescriptor::isFPInductionPHI(PHINode *Phi, const Loop *TheLoop,
-                                           ScalarEvolution *SE,
-                                           InductionDescriptor &D) {
-
-  // Here we only handle FP induction variables.
-  assert(Phi->getType()->isFloatingPointTy() && "Unexpected Phi type");
-
-  if (TheLoop->getHeader() != Phi->getParent())
-    return false;
-
-  // The loop may have multiple entrances or multiple exits; we can analyze
-  // this phi if it has a unique entry value and a unique backedge value.
-  if (Phi->getNumIncomingValues() != 2)
-    return false;
-  Value *BEValue = nullptr, *StartValue = nullptr;
-  if (TheLoop->contains(Phi->getIncomingBlock(0))) {
-    BEValue = Phi->getIncomingValue(0);
-    StartValue = Phi->getIncomingValue(1);
-  } else {
-    assert(TheLoop->contains(Phi->getIncomingBlock(1)) &&
-           "Unexpected Phi node in the loop"); 
-    BEValue = Phi->getIncomingValue(1);
-    StartValue = Phi->getIncomingValue(0);
-  }
-
-  BinaryOperator *BOp = dyn_cast<BinaryOperator>(BEValue);
-  if (!BOp)
-    return false;
-
-  Value *Addend = nullptr;
-  if (BOp->getOpcode() == Instruction::FAdd) {
-    if (BOp->getOperand(0) == Phi)
-      Addend = BOp->getOperand(1);
-    else if (BOp->getOperand(1) == Phi)
-      Addend = BOp->getOperand(0);
-  } else if (BOp->getOpcode() == Instruction::FSub)
-    if (BOp->getOperand(0) == Phi)
-      Addend = BOp->getOperand(1);
-
-  if (!Addend)
-    return false;
-
-  // The addend should be loop invariant
-  if (auto *I = dyn_cast<Instruction>(Addend))
-    if (TheLoop->contains(I))
-      return false;
-
-  // FP Step has unknown SCEV
-  const SCEV *Step = SE->getUnknown(Addend);
-  D = InductionDescriptor(StartValue, IK_FpInduction, Step, BOp);
-  return true;
-}
-
-bool InductionDescriptor::isInductionPHI(PHINode *Phi, const Loop *TheLoop,
+bool InductionDescriptor::isInductionPHI(PHINode *Phi,
                                          PredicatedScalarEvolution &PSE,
                                          InductionDescriptor &D,
                                          bool Assume) {
   Type *PhiTy = Phi->getType();
-
-  // Handle integer and pointer inductions variables.
-  // Now we handle also FP induction but not trying to make a
-  // recurrent expression from the PHI node in-place.
-
-  if (!PhiTy->isIntegerTy() && !PhiTy->isPointerTy() &&
-      !PhiTy->isFloatTy() && !PhiTy->isDoubleTy() && !PhiTy->isHalfTy())
+  // We only handle integer and pointer inductions variables.
+  if (!PhiTy->isIntegerTy() && !PhiTy->isPointerTy())
     return false;
-
-  if (PhiTy->isFloatingPointTy())
-    return isFPInductionPHI(Phi, TheLoop, PSE.getSE(), D);
 
   const SCEV *PhiScev = PSE.getSCEV(Phi);
   const auto *AR = dyn_cast<SCEVAddRecExpr>(PhiScev);
@@ -847,10 +752,10 @@ bool InductionDescriptor::isInductionPHI(PHINode *Phi, const Loop *TheLoop,
     return false;
   }
 
-  return isInductionPHI(Phi, TheLoop, PSE.getSE(), D, AR);
+  return isInductionPHI(Phi, PSE.getSE(), D, AR);
 }
 
-bool InductionDescriptor::isInductionPHI(PHINode *Phi, const Loop *TheLoop,
+bool InductionDescriptor::isInductionPHI(PHINode *Phi,
                                          ScalarEvolution *SE,
                                          InductionDescriptor &D,
                                          const SCEV *Expr) {
@@ -868,7 +773,7 @@ bool InductionDescriptor::isInductionPHI(PHINode *Phi, const Loop *TheLoop,
     return false;
   }
 
-  assert(TheLoop->getHeader() == Phi->getParent() &&
+  assert(AR->getLoop()->getHeader() == Phi->getParent() &&
          "PHI is an AddRec for a different loop?!");
   Value *StartValue =
     Phi->getIncomingValueForBlock(AR->getLoop()->getLoopPreheader());
@@ -876,7 +781,7 @@ bool InductionDescriptor::isInductionPHI(PHINode *Phi, const Loop *TheLoop,
   // Calculate the pointer stride and check if it is consecutive.
   // The stride may be a constant or a loop invariant integer value.
   const SCEVConstant *ConstStep = dyn_cast<SCEVConstant>(Step);
-  if (!ConstStep && !SE->isLoopInvariant(Step, TheLoop))
+  if (!ConstStep && !SE->isLoopInvariant(Step, AR->getLoop()))
     return false;
 
   if (PhiTy->isIntegerTy()) {
@@ -919,7 +824,7 @@ SmallVector<Instruction *, 8> llvm::findDefsUsedOutsideOfLoop(Loop *L) {
     // be adapted into a pointer.
     for (auto &Inst : *Block) {
       auto Users = Inst.users();
-      if (any_of(Users, [&](User *U) {
+      if (std::any_of(Users.begin(), Users.end(), [&](User *U) {
             auto *Use = cast<Instruction>(U);
             return !L->contains(Use->getParent());
           }))

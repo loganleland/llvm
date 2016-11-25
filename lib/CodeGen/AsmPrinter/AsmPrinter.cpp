@@ -184,6 +184,8 @@ bool AsmPrinter::doInitialization(Module &M) {
 
   OutStreamer->InitSections(false);
 
+  Mang = new Mangler();
+
   // Emit the version-min deplyment target directive if needed.
   //
   // FIXME: If we end up with a collection of these sorts of Darwin-specific
@@ -338,11 +340,11 @@ void AsmPrinter::EmitLinkage(const GlobalValue *GV, MCSymbol *GVSym) const {
 
 void AsmPrinter::getNameWithPrefix(SmallVectorImpl<char> &Name,
                                    const GlobalValue *GV) const {
-  TM.getNameWithPrefix(Name, GV, getObjFileLowering().getMangler());
+  TM.getNameWithPrefix(Name, GV, *Mang);
 }
 
 MCSymbol *AsmPrinter::getSymbol(const GlobalValue *GV) const {
-  return TM.getSymbol(GV, getObjFileLowering().getMangler());
+  return TM.getSymbol(GV, *Mang);
 }
 
 /// EmitGlobalVariable - Emit the specified global variable to the .s file.
@@ -422,7 +424,8 @@ void AsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
   }
 
   // Determine to which section this global should be emitted.
-  MCSection *TheSection = getObjFileLowering().SectionForGlobal(GV, GVKind, TM);
+  MCSection *TheSection =
+      getObjFileLowering().SectionForGlobal(GV, GVKind, *Mang, TM);
 
   // If we have a bss global going to a section that supports the
   // zerofill directive, do so here.
@@ -480,7 +483,7 @@ void AsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
   if (GVKind.isThreadLocal() && MAI->hasMachoTBSSDirective()) {
     // Emit the .tbss symbol
     MCSymbol *MangSym =
-        OutContext.getOrCreateSymbol(GVSym->getName() + Twine("$tlv$init"));
+      OutContext.getOrCreateSymbol(GVSym->getName() + Twine("$tlv$init"));
 
     if (GVKind.isThreadBSS()) {
       TheSection = getObjFileLowering().getTLSBSSSection();
@@ -547,7 +550,8 @@ void AsmPrinter::EmitFunctionHeader() {
   // Print the 'header' of function.
   const Function *F = MF->getFunction();
 
-  OutStreamer->SwitchSection(getObjFileLowering().SectionForGlobal(F, TM));
+  OutStreamer->SwitchSection(
+      getObjFileLowering().SectionForGlobal(F, *Mang, TM));
   EmitVisibility(CurrentFnSym, F->getVisibility());
 
   EmitLinkage(F, CurrentFnSym);
@@ -628,26 +632,26 @@ static void emitComments(const MachineInstr &MI, raw_ostream &CommentOS) {
   // Check for spills and reloads
   int FI;
 
-  const MachineFrameInfo &MFI = MF->getFrameInfo();
+  const MachineFrameInfo *FrameInfo = MF->getFrameInfo();
 
   // We assume a single instruction only has a spill or reload, not
   // both.
   const MachineMemOperand *MMO;
   if (TII->isLoadFromStackSlotPostFE(MI, FI)) {
-    if (MFI.isSpillSlotObjectIndex(FI)) {
+    if (FrameInfo->isSpillSlotObjectIndex(FI)) {
       MMO = *MI.memoperands_begin();
       CommentOS << MMO->getSize() << "-byte Reload\n";
     }
   } else if (TII->hasLoadFromStackSlot(MI, MMO, FI)) {
-    if (MFI.isSpillSlotObjectIndex(FI))
+    if (FrameInfo->isSpillSlotObjectIndex(FI))
       CommentOS << MMO->getSize() << "-byte Folded Reload\n";
   } else if (TII->isStoreToStackSlotPostFE(MI, FI)) {
-    if (MFI.isSpillSlotObjectIndex(FI)) {
+    if (FrameInfo->isSpillSlotObjectIndex(FI)) {
       MMO = *MI.memoperands_begin();
       CommentOS << MMO->getSize() << "-byte Spill\n";
     }
   } else if (TII->hasStoreToStackSlot(MI, MMO, FI)) {
-    if (MFI.isSpillSlotObjectIndex(FI))
+    if (FrameInfo->isSpillSlotObjectIndex(FI))
       CommentOS << MMO->getSize() << "-byte Folded Spill\n";
   }
 
@@ -1139,7 +1143,7 @@ bool AsmPrinter::doFinalization(Module &M) {
   SmallVector<Module::ModuleFlagEntry, 8> ModuleFlags;
   M.getModuleFlagsMetadata(ModuleFlags);
   if (!ModuleFlags.empty())
-    TLOF.emitModuleFlags(*OutStreamer, ModuleFlags, TM);
+    TLOF.emitModuleFlags(*OutStreamer, ModuleFlags, *Mang, TM);
 
   if (TM.getTargetTriple().isOSBinFormatELF()) {
     MachineModuleInfoELF &MMIELF = MMI->getObjFileInfo<MachineModuleInfoELF>();
@@ -1242,6 +1246,7 @@ bool AsmPrinter::doFinalization(Module &M) {
   // after everything else has gone out.
   EmitEndOfAsmFile(M);
 
+  delete Mang; Mang = nullptr;
   MMI = nullptr;
 
   OutStreamer->Finish();
@@ -1387,7 +1392,7 @@ void AsmPrinter::EmitJumpTableInfo() {
       *F);
   if (JTInDiffSection) {
     // Drop it in the readonly section.
-    MCSection *ReadOnlySection = TLOF.getSectionForJumpTable(*F, TM);
+    MCSection *ReadOnlySection = TLOF.getSectionForJumpTable(*F, *Mang, TM);
     OutStreamer->SwitchSection(ReadOnlySection);
   }
 
@@ -1531,6 +1536,12 @@ bool AsmPrinter::EmitSpecialLLVMGlobal(const GlobalVariable *GV) {
     EmitXXStructorList(GV->getParent()->getDataLayout(), GV->getInitializer(),
                        /* isCtor */ true);
 
+    if (TM.getRelocationModel() == Reloc::Static &&
+        MAI->hasStaticCtorDtorReferenceInStaticMode()) {
+      StringRef Sym(".constructors_used");
+      OutStreamer->EmitSymbolAttribute(OutContext.getOrCreateSymbol(Sym),
+                                       MCSA_Reference);
+    }
     return true;
   }
 
@@ -1538,6 +1549,12 @@ bool AsmPrinter::EmitSpecialLLVMGlobal(const GlobalVariable *GV) {
     EmitXXStructorList(GV->getParent()->getDataLayout(), GV->getInitializer(),
                        /* isCtor */ false);
 
+    if (TM.getRelocationModel() == Reloc::Static &&
+        MAI->hasStaticCtorDtorReferenceInStaticMode()) {
+      StringRef Sym(".destructors_used");
+      OutStreamer->EmitSymbolAttribute(OutContext.getOrCreateSymbol(Sym),
+                                       MCSA_Reference);
+    }
     return true;
   }
 
@@ -1747,7 +1764,7 @@ const MCExpr *AsmPrinter::lowerConstant(const Constant *CV) {
     // If the code isn't optimized, there may be outstanding folding
     // opportunities. Attempt to fold the expression using DataLayout as a
     // last resort before giving up.
-    if (Constant *C = ConstantFoldConstant(CE, getDataLayout()))
+    if (Constant *C = ConstantFoldConstantExpression(CE, getDataLayout()))
       if (C != CE)
         return lowerConstant(C);
 
@@ -1779,7 +1796,7 @@ const MCExpr *AsmPrinter::lowerConstant(const Constant *CV) {
     // expression properly.  This is important for differences between
     // blockaddress labels.  Since the two labels are in the same function, it
     // is reasonable to treat their delta as a 32-bit value.
-    LLVM_FALLTHROUGH;
+    // FALL THROUGH.
   case Instruction::BitCast:
     return lowerConstant(CE->getOperand(0));
 
@@ -1826,8 +1843,8 @@ const MCExpr *AsmPrinter::lowerConstant(const Constant *CV) {
       APInt RHSOffset;
       if (IsConstantOffsetFromGlobal(CE->getOperand(1), RHSGV, RHSOffset,
                                      getDataLayout())) {
-        const MCExpr *RelocExpr =
-            getObjFileLowering().lowerRelativeReference(LHSGV, RHSGV, TM);
+        const MCExpr *RelocExpr = getObjFileLowering().lowerRelativeReference(
+            LHSGV, RHSGV, *Mang, TM);
         if (!RelocExpr)
           RelocExpr = MCBinaryExpr::createSub(
               MCSymbolRefExpr::create(getSymbol(LHSGV), Ctx),
@@ -2282,7 +2299,7 @@ static void emitGlobalConstantImpl(const DataLayout &DL, const Constant *CV,
       // If the constant expression's size is greater than 64-bits, then we have
       // to emit the value in chunks. Try to constant fold the value and emit it
       // that way.
-      Constant *New = ConstantFoldConstant(CE, DL);
+      Constant *New = ConstantFoldConstantExpression(CE, DL);
       if (New && New != CE)
         return emitGlobalConstantImpl(DL, New, AP);
     }
@@ -2368,7 +2385,8 @@ MCSymbol *AsmPrinter::GetJTSetSymbol(unsigned UID, unsigned MBBID) const {
 
 MCSymbol *AsmPrinter::getSymbolWithGlobalValueBase(const GlobalValue *GV,
                                                    StringRef Suffix) const {
-  return getObjFileLowering().getSymbolWithGlobalValueBase(GV, Suffix, TM);
+  return getObjFileLowering().getSymbolWithGlobalValueBase(GV, Suffix, *Mang,
+                                                           TM);
 }
 
 /// Return the MCSymbol for the specified ExternalSymbol.
@@ -2600,13 +2618,3 @@ GCMetadataPrinter *AsmPrinter::GetOrCreateGCPrinter(GCStrategy &S) {
 AsmPrinterHandler::~AsmPrinterHandler() {}
 
 void AsmPrinterHandler::markFunctionEnd() {}
-
-void AsmPrinter::recordSled(MCSymbol *Sled, const MachineInstr &MI,
-  SledKind Kind) {
-  auto Fn = MI.getParent()->getParent()->getFunction();
-  auto Attr = Fn->getFnAttribute("function-instrument");
-  bool AlwaysInstrument =
-    Attr.isStringAttribute() && Attr.getValueAsString() == "xray-always";
-  Sleds.emplace_back(
-    XRayFunctionEntry{ Sled, CurrentFnSym, Kind, AlwaysInstrument, Fn });
-}

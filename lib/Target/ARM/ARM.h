@@ -16,7 +16,6 @@
 #define LLVM_LIB_TARGET_ARM_ARM_H
 
 #include "llvm/Support/CodeGen.h"
-#include "ARMBasicBlockInfo.h"
 #include <functional>
 
 namespace llvm {
@@ -46,10 +45,6 @@ FunctionPass *createThumb2SizeReductionPass(
 
 void LowerARMMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI,
                                   ARMAsmPrinter &AP);
-
-void computeBlockSize(MachineFunction *MF, MachineBasicBlock *MBB,
-                      BasicBlockInfo &BBI);
-std::vector<BasicBlockInfo> computeAllBlockSizes(MachineFunction *MF);
 
 void initializeARMLoadStoreOptPass(PassRegistry &);
 void initializeARMPreAllocLoadStoreOptPass(PassRegistry &);

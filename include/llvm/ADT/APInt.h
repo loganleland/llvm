@@ -40,10 +40,6 @@ const unsigned int host_char_bit = 8;
 const unsigned int integerPartWidth =
     host_char_bit * static_cast<unsigned int>(sizeof(integerPart));
 
-class APInt;
-
-inline APInt operator-(APInt);
-
 //===----------------------------------------------------------------------===//
 //                              APInt Class
 //===----------------------------------------------------------------------===//
@@ -624,6 +620,18 @@ public:
     return Result;
   }
 
+  /// \brief Unary negation operator
+  ///
+  /// Negates *this using two's complement logic.
+  ///
+  /// \returns An APInt value representing the negation of *this.
+  APInt operator-() const {
+    APInt Result(*this);
+    Result.flipAllBits();
+    ++Result;
+    return Result;
+  }
+
   /// \brief Logical negation operator.
   ///
   /// Performs logical negation operation on this APInt.
@@ -742,7 +750,6 @@ public:
   ///
   /// \returns *this
   APInt &operator+=(const APInt &RHS);
-  APInt &operator+=(uint64_t RHS);
 
   /// \brief Subtraction assignment operator.
   ///
@@ -750,7 +757,6 @@ public:
   ///
   /// \returns *this
   APInt &operator-=(const APInt &RHS);
-  APInt &operator-=(uint64_t RHS);
 
   /// \brief Left-shift assignment function.
   ///
@@ -829,6 +835,18 @@ public:
   ///
   /// Multiplies this APInt by RHS and returns the result.
   APInt operator*(const APInt &RHS) const;
+
+  /// \brief Addition operator.
+  ///
+  /// Adds RHS to this APInt and returns the result.
+  APInt operator+(const APInt &RHS) const;
+  APInt operator+(uint64_t RHS) const;
+
+  /// \brief Subtraction operator.
+  ///
+  /// Subtracts RHS from this APInt and returns the result.
+  APInt operator-(const APInt &RHS) const;
+  APInt operator-(uint64_t RHS) const;
 
   /// \brief Left logical shift operator.
   ///
@@ -1514,9 +1532,7 @@ public:
 
   /// \returns the ceil log base 2 of this APInt.
   unsigned ceilLogBase2() const {
-    APInt temp(*this);
-    --temp;
-    return BitWidth - temp.countLeadingZeros();
+    return BitWidth - (*this - 1).countLeadingZeros();
   }
 
   /// \returns the nearest log base 2 of this APInt. Ties round up.
@@ -1733,55 +1749,6 @@ inline raw_ostream &operator<<(raw_ostream &OS, const APInt &I) {
   I.print(OS, true);
   return OS;
 }
-
-inline APInt operator-(APInt v) {
-  v.flipAllBits();
-  ++v;
-  return v;
-}
-
-inline APInt operator+(APInt a, const APInt &b) {
-  a += b;
-  return a;
-}
-
-inline APInt operator+(const APInt &a, APInt &&b) {
-  b += a;
-  return std::move(b);
-}
-
-inline APInt operator+(APInt a, uint64_t RHS) {
-  a += RHS;
-  return a;
-}
-
-inline APInt operator+(uint64_t LHS, APInt b) {
-  b += LHS;
-  return b;
-}
-
-inline APInt operator-(APInt a, const APInt &b) {
-  a -= b;
-  return a;
-}
-
-inline APInt operator-(const APInt &a, APInt &&b) {
-  b = -std::move(b);
-  b += a;
-  return std::move(b);
-}
-
-inline APInt operator-(APInt a, uint64_t RHS) {
-  a -= RHS;
-  return a;
-}
-
-inline APInt operator-(uint64_t LHS, APInt b) {
-  b = -std::move(b);
-  b += LHS;
-  return b;
-}
-
 
 namespace APIntOps {
 

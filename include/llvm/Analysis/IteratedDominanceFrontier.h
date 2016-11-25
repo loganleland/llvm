@@ -89,6 +89,7 @@ private:
   DenseMap<DomTreeNode *, unsigned> DomLevels;
   const SmallPtrSetImpl<BasicBlock *> *LiveInBlocks;
   const SmallPtrSetImpl<BasicBlock *> *DefBlocks;
+  SmallVector<BasicBlock *, 32> PHIBlocks;
 };
 typedef IDFCalculator<BasicBlock *> ForwardIDFCalculator;
 typedef IDFCalculator<Inverse<BasicBlock *>> ReverseIDFCalculator;

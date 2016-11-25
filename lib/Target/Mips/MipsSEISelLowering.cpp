@@ -27,8 +27,8 @@ using namespace llvm;
 #define DEBUG_TYPE "mips-isel"
 
 static cl::opt<bool>
-UseMipsTailCalls("mips-tail-calls", cl::Hidden,
-                    cl::desc("MIPS: permit tail calls."), cl::init(true));
+EnableMipsTailCalls("enable-mips-tail-calls", cl::Hidden,
+                    cl::desc("MIPS: Enable tail calls."), cl::init(false));
 
 static cl::opt<bool> NoDPLoadStore("mno-ldc1-sdc1", cl::init(false),
                                    cl::desc("Expand double precision loads and "
@@ -852,7 +852,7 @@ static SDValue performDSPShiftCombine(unsigned Opc, SDNode *N, EVT Ty,
   APInt SplatValue, SplatUndef;
   unsigned SplatBitSize;
   bool HasAnyUndefs;
-  unsigned EltSize = Ty.getScalarSizeInBits();
+  unsigned EltSize = Ty.getVectorElementType().getSizeInBits();
   BuildVectorSDNode *BV = dyn_cast<BuildVectorSDNode>(N->getOperand(1));
 
   if (!Subtarget.hasDSP())
@@ -1178,7 +1178,7 @@ MipsSETargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
 bool MipsSETargetLowering::isEligibleForTailCallOptimization(
     const CCState &CCInfo, unsigned NextStackOffset,
     const MipsFunctionInfo &FI) const {
-  if (!UseMipsTailCalls)
+  if (!EnableMipsTailCalls)
     return false;
 
   // Exception has to be cleared with eret.
@@ -1504,7 +1504,7 @@ static SDValue lowerMSABitClear(SDValue Op, SelectionDAG &DAG) {
 static SDValue lowerMSABitClearImm(SDValue Op, SelectionDAG &DAG) {
   SDLoc DL(Op);
   EVT ResTy = Op->getValueType(0);
-  APInt BitImm = APInt(ResTy.getScalarSizeInBits(), 1)
+  APInt BitImm = APInt(ResTy.getVectorElementType().getSizeInBits(), 1)
                  << cast<ConstantSDNode>(Op->getOperand(2))->getAPIntValue();
   SDValue BitMask = DAG.getConstant(~BitImm, DL, ResTy);
 

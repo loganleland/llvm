@@ -429,21 +429,29 @@ template <> struct isa_impl<PointerType, Type> {
 // graph of sub types.
 
 template <> struct GraphTraits<Type *> {
-  typedef Type *NodeRef;
+  typedef Type NodeType;
   typedef Type::subtype_iterator ChildIteratorType;
 
-  static NodeRef getEntryNode(Type *T) { return T; }
-  static ChildIteratorType child_begin(NodeRef N) { return N->subtype_begin(); }
-  static ChildIteratorType child_end(NodeRef N) { return N->subtype_end(); }
+  static inline NodeType *getEntryNode(Type *T) { return T; }
+  static inline ChildIteratorType child_begin(NodeType *N) {
+    return N->subtype_begin();
+  }
+  static inline ChildIteratorType child_end(NodeType *N) {
+    return N->subtype_end();
+  }
 };
 
 template <> struct GraphTraits<const Type*> {
-  typedef const Type *NodeRef;
+  typedef const Type NodeType;
   typedef Type::subtype_iterator ChildIteratorType;
 
-  static NodeRef getEntryNode(NodeRef T) { return T; }
-  static ChildIteratorType child_begin(NodeRef N) { return N->subtype_begin(); }
-  static ChildIteratorType child_end(NodeRef N) { return N->subtype_end(); }
+  static inline NodeType *getEntryNode(NodeType *T) { return T; }
+  static inline ChildIteratorType child_begin(NodeType *N) {
+    return N->subtype_begin();
+  }
+  static inline ChildIteratorType child_end(NodeType *N) {
+    return N->subtype_end();
+  }
 };
 
 // Create wrappers for C Binding types (see CBindingWrapping.h).

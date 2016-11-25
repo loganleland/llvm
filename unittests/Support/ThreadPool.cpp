@@ -31,14 +31,16 @@ protected:
   bool isUnsupportedOSOrEnvironment() {
     Triple Host(Triple::normalize(sys::getProcessTriple()));
 
-    if (find(UnsupportedEnvironments, Host.getEnvironment()) !=
-        UnsupportedEnvironments.end())
+    if (std::find(UnsupportedEnvironments.begin(), UnsupportedEnvironments.end(),
+                  Host.getEnvironment()) != UnsupportedEnvironments.end())
       return true;
 
-    if (is_contained(UnsupportedOSs, Host.getOS()))
+    if (std::find(UnsupportedOSs.begin(), UnsupportedOSs.end(), Host.getOS())
+        != UnsupportedOSs.end())
       return true;
 
-    if (is_contained(UnsupportedArchs, Host.getArch()))
+    if (std::find(UnsupportedArchs.begin(), UnsupportedArchs.end(), Host.getArch())
+        != UnsupportedArchs.end())
       return true;
 
     return false;

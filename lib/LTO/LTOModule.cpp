@@ -19,6 +19,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Mangler.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCExpr.h"
@@ -647,10 +648,12 @@ void LTOModule::parseMetadata() {
   }
 
   // Globals
+  Mangler Mang;
   for (const NameAndAttributes &Sym : _symbols) {
     if (!Sym.symbol)
       continue;
-    _target->getObjFileLowering()->emitLinkerFlagsForGlobal(OS, Sym.symbol);
+    _target->getObjFileLowering()->emitLinkerFlagsForGlobal(OS, Sym.symbol,
+                                                            Mang);
   }
 
   // Add other interesting metadata here.

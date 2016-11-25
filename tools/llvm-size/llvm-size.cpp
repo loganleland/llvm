@@ -52,10 +52,6 @@ static cl::opt<OutputFormatTy> OutputFormatShort(
 
 static bool BerkeleyHeaderPrinted = false;
 static bool MoreThanOneFile = false;
-static uint64_t TotalObjectText = 0;
-static uint64_t TotalObjectData = 0;
-static uint64_t TotalObjectBss = 0;
-static uint64_t TotalObjectTotal = 0;
 
 cl::opt<bool>
 DarwinLongFormat("l", cl::desc("When format is darwin, use long format "
@@ -85,14 +81,6 @@ RadixShort(cl::desc("Print size in radix:"),
                       clEnumValEnd),
            cl::init(decimal));
 
-static cl::opt<bool>
-    TotalSizes("totals",
-               cl::desc("Print totals of all objects - Berkeley format only"),
-               cl::init(false));
-
-static cl::alias TotalSizesShort("t", cl::desc("Short for --totals"),
-                                 cl::aliasopt(TotalSizes));
-
 static cl::list<std::string>
 InputFilenames(cl::Positional, cl::desc("<input files>"), cl::ZeroOrMore);
 
@@ -120,20 +108,19 @@ static bool error(Twine Message) {
 
 // This version of error() prints the archive name and member name, for example:
 // "libx.a(foo.o)" after the ToolName before the error message.  It sets
-// HadError but returns allowing the code to move on to other archive members.
+// HadError but returns allowing the code to move on to other archive members. 
 static void error(llvm::Error E, StringRef FileName, const Archive::Child &C,
                   StringRef ArchitectureName = StringRef()) {
   HadError = true;
   errs() << ToolName << ": " << FileName;
 
-  Expected<StringRef> NameOrErr = C.getName();
+  ErrorOr<StringRef> NameOrErr = C.getName();
   // TODO: if we have a error getting the name then it would be nice to print
   // the index of which archive member this is and or its offset in the
   // archive instead of "???" as the name.
-  if (!NameOrErr) {
-    consumeError(NameOrErr.takeError());
+  if (NameOrErr.getError())
     errs() << "(" << "???" << ")";
-  } else
+  else
     errs() << "(" << NameOrErr.get() << ")";
 
   if (!ArchitectureName.empty())
@@ -148,7 +135,7 @@ static void error(llvm::Error E, StringRef FileName, const Archive::Child &C,
 
 // This version of error() prints the file name and which architecture slice it // is from, for example: "foo.o (for architecture i386)" after the ToolName
 // before the error message.  It sets HadError but returns allowing the code to
-// move on to other architecture slices.
+// move on to other architecture slices.        
 static void error(llvm::Error E, StringRef FileName,
                   StringRef ArchitectureName = StringRef()) {
   HadError = true;
@@ -474,13 +461,6 @@ static void printObjectSectionSizes(ObjectFile *Obj) {
 
     total = total_text + total_data + total_bss;
 
-    if (TotalSizes) {
-      TotalObjectText += total_text;
-      TotalObjectData += total_data;
-      TotalObjectBss += total_bss;
-      TotalObjectTotal += total;
-    }
-
     if (!BerkeleyHeaderPrinted) {
       outs() << "   text    data     bss     "
              << (Radix == octal ? "oct" : "dec") << "     hex filename\n";
@@ -540,7 +520,7 @@ static void printFileSectionSizes(StringRef file) {
   // Attempt to open the binary.
   Expected<OwningBinary<Binary>> BinaryOrErr = createBinary(file);
   if (!BinaryOrErr) {
-    error(BinaryOrErr.takeError(), file);
+    error(errorToErrorCode(BinaryOrErr.takeError()));
     return;
   }
   Binary &Bin = *BinaryOrErr.get().getBinary();
@@ -840,22 +820,6 @@ static void printFileSectionSizes(StringRef file) {
     outs() << "\n";
 }
 
-static void printBerkelyTotals() {
-  std::string fmtbuf;
-  raw_string_ostream fmt(fmtbuf);
-  const char *radix_fmt = getRadixFmt();
-  fmt << "%#7" << radix_fmt << " "
-      << "%#7" << radix_fmt << " "
-      << "%#7" << radix_fmt << " ";
-  outs() << format(fmt.str().c_str(), TotalObjectText, TotalObjectData,
-                   TotalObjectBss);
-  fmtbuf.clear();
-  fmt << "%7" << (Radix == octal ? PRIo64 : PRIu64) << " "
-      << "%7" PRIx64 " ";
-  outs() << format(fmt.str().c_str(), TotalObjectTotal, TotalObjectTotal)
-         << "(TOTALS)\n";
-}
-
 int main(int argc, char **argv) {
   // Print a stack trace if we signal out.
   sys::PrintStackTraceOnErrorSignal(argv[0]);
@@ -888,8 +852,6 @@ int main(int argc, char **argv) {
   MoreThanOneFile = InputFilenames.size() > 1;
   std::for_each(InputFilenames.begin(), InputFilenames.end(),
                 printFileSectionSizes);
-  if (OutputFormat == berkeley && TotalSizes)
-    printBerkelyTotals();
 
   if (HadError)
     return 1;

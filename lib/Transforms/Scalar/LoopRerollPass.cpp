@@ -739,11 +739,11 @@ void LoopReroll::DAGRootTracker::collectInLoopUserSet(
     collectInLoopUserSet(Root, Exclude, Final, Users);
 }
 
-static bool isUnorderedLoadStore(Instruction *I) {
+static bool isSimpleLoadStore(Instruction *I) {
   if (LoadInst *LI = dyn_cast<LoadInst>(I))
-    return LI->isUnordered();
+    return LI->isSimple();
   if (StoreInst *SI = dyn_cast<StoreInst>(I))
-    return SI->isUnordered();
+    return SI->isSimple();
   if (MemIntrinsic *MI = dyn_cast<MemIntrinsic>(I))
     return !MI->isVolatile();
   return false;
@@ -878,7 +878,7 @@ findRootsRecursive(Instruction *I, SmallInstructionSet SubsumedInsts) {
 
   for (User *V : I->users()) {
     Instruction *I = dyn_cast<Instruction>(V);
-    if (is_contained(LoopIncs, I))
+    if (std::find(LoopIncs.begin(), LoopIncs.end(), I) != LoopIncs.end())
       continue;
 
     if (!I || !isSimpleArithmeticOp(I) ||
@@ -1088,7 +1088,7 @@ bool LoopReroll::DAGRootTracker::isBaseInst(Instruction *I) {
 
 bool LoopReroll::DAGRootTracker::isRootInst(Instruction *I) {
   for (auto &DRS : RootSets) {
-    if (is_contained(DRS.Roots, I))
+    if (std::find(DRS.Roots.begin(), DRS.Roots.end(), I) != DRS.Roots.end())
       return true;
   }
   return false;
@@ -1283,7 +1283,7 @@ bool LoopReroll::DAGRootTracker::validate(ReductionTracker &Reductions) {
         // which while a valid (somewhat arbitrary) micro-optimization, is
         // needed because otherwise isSafeToSpeculativelyExecute returns
         // false on PHI nodes.
-        if (!isa<PHINode>(I) && !isUnorderedLoadStore(I) &&
+        if (!isa<PHINode>(I) && !isSimpleLoadStore(I) &&
             !isSafeToSpeculativelyExecute(I))
           // Intervening instructions cause side effects.
           FutureSideEffects = true;
@@ -1313,10 +1313,10 @@ bool LoopReroll::DAGRootTracker::validate(ReductionTracker &Reductions) {
       // If we've past an instruction from a future iteration that may have
       // side effects, and this instruction might also, then we can't reorder
       // them, and this matching fails. As an exception, we allow the alias
-      // set tracker to handle regular (unordered) load/store dependencies.
-      if (FutureSideEffects && ((!isUnorderedLoadStore(BaseInst) &&
+      // set tracker to handle regular (simple) load/store dependencies.
+      if (FutureSideEffects && ((!isSimpleLoadStore(BaseInst) &&
                                  !isSafeToSpeculativelyExecute(BaseInst)) ||
-                                (!isUnorderedLoadStore(RootInst) &&
+                                (!isSimpleLoadStore(RootInst) &&
                                  !isSafeToSpeculativelyExecute(RootInst)))) {
         DEBUG(dbgs() << "LRR: iteration root match failed at " << *BaseInst <<
                         " vs. " << *RootInst <<
@@ -1412,12 +1412,13 @@ bool LoopReroll::DAGRootTracker::validate(ReductionTracker &Reductions) {
 void LoopReroll::DAGRootTracker::replace(const SCEV *IterCount) {
   BasicBlock *Header = L->getHeader();
   // Remove instructions associated with non-base iterations.
-  for (BasicBlock::reverse_iterator J = Header->rbegin(), JE = Header->rend();
-       J != JE;) {
+  for (BasicBlock::reverse_iterator J = Header->rbegin();
+       J != Header->rend();) {
     unsigned I = Uses[&*J].find_first();
     if (I > 0 && I < IL_All) {
-      DEBUG(dbgs() << "LRR: removing: " << *J << "\n");
-      J++->eraseFromParent();
+      Instruction *D = &*J;
+      DEBUG(dbgs() << "LRR: removing: " << *D << "\n");
+      D->eraseFromParent();
       continue;
     }
 

@@ -184,7 +184,7 @@ static bool addDiscriminators(Function &F) {
   // discriminator for this instruction.
   for (BasicBlock &B : F) {
     for (auto &I : B.getInstList()) {
-      if (isa<IntrinsicInst>(&I))
+      if (isa<DbgInfoIntrinsic>(&I))
         continue;
       const DILocation *DIL = I.getDebugLoc();
       if (!DIL)
@@ -222,7 +222,7 @@ static bool addDiscriminators(Function &F) {
     LocationSet CallLocations;
     for (auto &I : B.getInstList()) {
       CallInst *Current = dyn_cast<CallInst>(&I);
-      if (!Current || isa<IntrinsicInst>(&I))
+      if (!Current || isa<DbgInfoIntrinsic>(&I))
         continue;
 
       DILocation *CurrentDIL = Current->getDebugLoc();
@@ -249,7 +249,7 @@ bool AddDiscriminatorsLegacyPass::runOnFunction(Function &F) {
   return addDiscriminators(F);
 }
 PreservedAnalyses AddDiscriminatorsPass::run(Function &F,
-                                             FunctionAnalysisManager &AM) {
+                                             AnalysisManager<Function> &AM) {
   if (!addDiscriminators(F))
     return PreservedAnalyses::all();
 

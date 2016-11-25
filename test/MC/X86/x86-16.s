@@ -256,22 +256,10 @@ cmovnae	%bx,%bx
 // CHECK:  encoding: [0x67,0x8c,0x08]
         movw %cs, (%eax)
 
-// CHECK: movw	%ax, %cs
-// CHECK:  encoding: [0x8e,0xc8]
+// CHECK: movl	%eax, %cs
+// CHECK:  encoding: [0x66,0x8e,0xc8]
         movl %eax, %cs
 
-// CHECK: movw	%ax, %cs
-// CHECK:  encoding: [0x8e,0xc8]
-        mov %eax, %cs	
-
-// CHECK: movw	%ax, %cs
-// CHECK:  encoding: [0x8e,0xc8]
-        movw %ax, %cs
-
-// CHECK: movw	%ax, %cs
-// CHECK:  encoding: [0x8e,0xc8]
-        mov %ax, %cs		
-	
 // CHECK: movl	(%eax), %cs
 // CHECK:  encoding: [0x67,0x66,0x8e,0x08]
         movl (%eax), %cs

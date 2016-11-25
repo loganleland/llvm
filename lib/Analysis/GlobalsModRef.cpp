@@ -521,7 +521,7 @@ void GlobalsAAResult::AnalyzeCallGraph(CallGraph &CG, Module &M) {
             // Can't say anything about it.  However, if it is inside our SCC,
             // then nothing needs to be done.
             CallGraphNode *CalleeNode = CG[Callee];
-            if (!is_contained(SCC, CalleeNode))
+            if (std::find(SCC.begin(), SCC.end(), CalleeNode) == SCC.end())
               KnowNothing = true;
           }
         } else {
@@ -857,22 +857,22 @@ ModRefInfo GlobalsAAResult::getModRefInfoForArgument(ImmutableCallSite CS,
   if (CS.doesNotAccessMemory())
     return MRI_NoModRef;
   ModRefInfo ConservativeResult = CS.onlyReadsMemory() ? MRI_Ref : MRI_ModRef;
-
+  
   // Iterate through all the arguments to the called function. If any argument
   // is based on GV, return the conservative result.
   for (auto &A : CS.args()) {
     SmallVector<Value*, 4> Objects;
     GetUnderlyingObjects(A, Objects, DL);
-
+    
     // All objects must be identified.
-    if (!all_of(Objects, isIdentifiedObject) &&
+    if (!std::all_of(Objects.begin(), Objects.end(), isIdentifiedObject) &&
         // Try ::alias to see if all objects are known not to alias GV.
-        !all_of(Objects, [&](Value *V) {
+        !std::all_of(Objects.begin(), Objects.end(), [&](Value *V) {
           return this->alias(MemoryLocation(V), MemoryLocation(GV)) == NoAlias;
-        }))
+          }))
       return ConservativeResult;
 
-    if (is_contained(Objects, GV))
+    if (std::find(Objects.begin(), Objects.end(), GV) != Objects.end())
       return ConservativeResult;
   }
 
@@ -939,7 +939,7 @@ GlobalsAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
 
 char GlobalsAA::PassID;
 
-GlobalsAAResult GlobalsAA::run(Module &M, ModuleAnalysisManager &AM) {
+GlobalsAAResult GlobalsAA::run(Module &M, AnalysisManager<Module> &AM) {
   return GlobalsAAResult::analyzeModule(M,
                                         AM.getResult<TargetLibraryAnalysis>(M),
                                         AM.getResult<CallGraphAnalysis>(M));

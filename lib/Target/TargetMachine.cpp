@@ -77,16 +77,6 @@ void TargetMachine::resetTargetOptions(const Function &F) const {
   RESET_OPTION(UnsafeFPMath, "unsafe-fp-math");
   RESET_OPTION(NoInfsFPMath, "no-infs-fp-math");
   RESET_OPTION(NoNaNsFPMath, "no-nans-fp-math");
-  RESET_OPTION(NoTrappingFPMath, "no-trapping-math");
-
-  StringRef Denormal =
-    F.getFnAttribute("denormal-fp-math").getValueAsString();
-  if (Denormal == "ieee")
-    Options.FPDenormalType = FPDenormal::IEEE;
-  else if (Denormal == "preserve-sign")
-    Options.FPDenormalType = FPDenormal::PreserveSign;
-  else if (Denormal == "positive-zero")
-    Options.FPDenormalType = FPDenormal::PositiveZero;
 }
 
 /// Returns the code generation relocation model. The choices are static, PIC,
@@ -208,7 +198,7 @@ void TargetMachine::getNameWithPrefix(SmallVectorImpl<char> &Name,
     return;
   }
   const TargetLoweringObjectFile *TLOF = getObjFileLowering();
-  TLOF->getNameWithPrefix(Name, GV, *this);
+  TLOF->getNameWithPrefix(Name, GV, Mang, *this);
 }
 
 MCSymbol *TargetMachine::getSymbol(const GlobalValue *GV, Mangler &Mang) const {

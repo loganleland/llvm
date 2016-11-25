@@ -44,6 +44,12 @@ static cl::opt<bool>
 STATISTIC(NumSubstLEAs, "Number of LEA instruction substitutions");
 STATISTIC(NumRedundantLEAs, "Number of redundant LEA instructions removed");
 
+class MemOpKey;
+
+/// \brief Returns a hash table key based on memory operands of \p MI. The
+/// number of the first memory operand of \p MI is specified through \p N.
+static inline MemOpKey getMemOpKey(const MachineInstr &MI, unsigned N);
+
 /// \brief Returns true if two machine operands are identical and they are not
 /// physical registers.
 static inline bool isIdenticalOp(const MachineOperand &MO1,
@@ -57,7 +63,6 @@ static bool isSimilarDispOp(const MachineOperand &MO1,
 /// \brief Returns true if the instruction is LEA.
 static inline bool isLEA(const MachineInstr &MI);
 
-namespace {
 /// A key based on instruction's memory operands.
 class MemOpKey {
 public:
@@ -90,7 +95,6 @@ public:
   // Address' displacement operand.
   const MachineOperand *Disp;
 };
-} // end anonymous namespace
 
 /// Provide DenseMapInfo for MemOpKey.
 namespace llvm {
@@ -164,8 +168,6 @@ template <> struct DenseMapInfo<MemOpKey> {
 };
 }
 
-/// \brief Returns a hash table key based on memory operands of \p MI. The
-/// number of the first memory operand of \p MI is specified through \p N.
 static inline MemOpKey getMemOpKey(const MachineInstr &MI, unsigned N) {
   assert((isLEA(MI) || MI.mayLoadOrStore()) &&
          "The instruction must be a LEA, a load or a store");

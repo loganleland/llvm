@@ -27,7 +27,6 @@ class MCObjectWriter;
 class MCRegisterInfo;
 class MCSubtargetInfo;
 class MCRelocationInfo;
-class MCTargetOptions;
 class Target;
 class Triple;
 class StringRef;
@@ -70,11 +69,9 @@ MCCodeEmitter *createX86MCCodeEmitter(const MCInstrInfo &MCII,
                                       MCContext &Ctx);
 
 MCAsmBackend *createX86_32AsmBackend(const Target &T, const MCRegisterInfo &MRI,
-                                     const Triple &TT, StringRef CPU,
-                                     const MCTargetOptions &Options);
+                                     const Triple &TT, StringRef CPU);
 MCAsmBackend *createX86_64AsmBackend(const Target &T, const MCRegisterInfo &MRI,
-                                     const Triple &TT, StringRef CPU,
-                                     const MCTargetOptions &Options);
+                                     const Triple &TT, StringRef CPU);
 
 /// Construct an X86 Windows COFF machine code streamer which will generate
 /// PE/COFF format object files.

@@ -262,7 +262,3 @@ void llvm::emitLoopInterleaveWarning(LLVMContext &Ctx, const Function &Fn,
   Ctx.diagnose(DiagnosticInfoOptimizationFailure(
       Fn, DLoc, Twine("loop not interleaved: " + Msg)));
 }
-
-void DiagnosticInfoISelFallback::print(DiagnosticPrinter &DP) const {
-  DP << "Instruction selection used fallback path for " << getFunction();
-}

@@ -482,5 +482,5 @@ bool
 LoadAndStorePromoter::isInstInList(Instruction *I,
                                    const SmallVectorImpl<Instruction*> &Insts)
                                    const {
-  return is_contained(Insts, I);
+  return std::find(Insts.begin(), Insts.end(), I) != Insts.end();
 }

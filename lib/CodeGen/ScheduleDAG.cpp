@@ -139,7 +139,8 @@ void SUnit::removePred(const SDep &D) {
       SDep P = D;
       P.setSUnit(this);
       SUnit *N = D.getSUnit();
-      SmallVectorImpl<SDep>::iterator Succ = find(N->Succs, P);
+      SmallVectorImpl<SDep>::iterator Succ = std::find(N->Succs.begin(),
+                                                       N->Succs.end(), P);
       assert(Succ != N->Succs.end() && "Mismatching preds / succs lists!");
       N->Succs.erase(Succ);
       Preds.erase(I);
@@ -337,10 +338,10 @@ void SUnit::dumpAll(const ScheduleDAG *G) const {
          I != E; ++I) {
       dbgs() << "   ";
       switch (I->getKind()) {
-      case SDep::Data:   dbgs() << "data "; break;
-      case SDep::Anti:   dbgs() << "anti "; break;
-      case SDep::Output: dbgs() << "out  "; break;
-      case SDep::Order:  dbgs() << "ord  "; break;
+      case SDep::Data:        dbgs() << "val "; break;
+      case SDep::Anti:        dbgs() << "anti"; break;
+      case SDep::Output:      dbgs() << "out "; break;
+      case SDep::Order:       dbgs() << "ch  "; break;
       }
       dbgs() << "SU(" << I->getSUnit()->NodeNum << ")";
       if (I->isArtificial())
@@ -357,10 +358,10 @@ void SUnit::dumpAll(const ScheduleDAG *G) const {
          I != E; ++I) {
       dbgs() << "   ";
       switch (I->getKind()) {
-      case SDep::Data:   dbgs() << "data "; break;
-      case SDep::Anti:   dbgs() << "anti "; break;
-      case SDep::Output: dbgs() << "out  "; break;
-      case SDep::Order:  dbgs() << "ord  "; break;
+      case SDep::Data:        dbgs() << "val "; break;
+      case SDep::Anti:        dbgs() << "anti"; break;
+      case SDep::Output:      dbgs() << "out "; break;
+      case SDep::Order:       dbgs() << "ch  "; break;
       }
       dbgs() << "SU(" << I->getSUnit()->NodeNum << ")";
       if (I->isArtificial())

@@ -13,8 +13,9 @@
 # CHECK-LABEL: name: copyprop1
 # CHECK: bb.0:
 # CHECK-NOT: %w20 = COPY
-name: copyprop1
-body: |
+name:            copyprop1
+allVRegsAllocated: true
+body:             |
   bb.0:
     liveins: %w0,  %w1
     %w20 = COPY %w1
@@ -27,8 +28,9 @@ body: |
 # CHECK-LABEL: name: copyprop2
 # CHECK: bb.0:
 # CHECK: %w20 = COPY
-name: copyprop2
-body: |
+name:            copyprop2
+allVRegsAllocated: true
+body:             |
   bb.0:
     liveins: %w0,  %w1
     %w20 = COPY %w1
@@ -41,8 +43,9 @@ body: |
 # CHECK-LABEL: name: copyprop3
 # CHECK: bb.0:
 # CHECK-NOT: COPY
-name: copyprop3
-body: |
+name:            copyprop3
+allVRegsAllocated: true
+body:             |
   bb.0:
     liveins: %w0,  %w1
     %w20 = COPY %w1
@@ -55,8 +58,9 @@ body: |
 # CHECK-LABEL: name: copyprop4
 # CHECK: bb.0:
 # CHECK-NOT: COPY
-name: copyprop4
-body: |
+name:            copyprop4
+allVRegsAllocated: true
+body:             |
   bb.0:
     liveins: %w0,  %w1
     %w20 = COPY %w0

@@ -63,20 +63,18 @@ public:
   ScopedPrinter *getPrinter() { return W; }
 
   /// Action to take on unknown types. By default, they are ignored.
-  Error visitUnknownType(CVType &Record) override;
-  Error visitUnknownMember(CVMemberRecord &Record) override;
+  Error visitUnknownType(const CVRecord<TypeLeafKind> &Record) override;
+  Error visitUnknownMember(const CVRecord<TypeLeafKind> &Record) override;
 
   /// Paired begin/end actions for all types. Receives all record data,
   /// including the fixed-length record prefix.
-  Error visitTypeBegin(CVType &Record) override;
-  Error visitTypeEnd(CVType &Record) override;
-  Error visitMemberBegin(CVMemberRecord &Record) override;
-  Error visitMemberEnd(CVMemberRecord &Record) override;
+  Error visitTypeBegin(const CVRecord<TypeLeafKind> &Record) override;
+  Error visitTypeEnd(const CVRecord<TypeLeafKind> &Record) override;
 
 #define TYPE_RECORD(EnumName, EnumVal, Name)                                   \
-  Error visitKnownRecord(CVType &CVR, Name##Record &Record) override;
+  Error visit##Name(Name##Record &Record) override;
 #define MEMBER_RECORD(EnumName, EnumVal, Name)                                 \
-  Error visitKnownMember(CVMemberRecord &CVR, Name##Record &Record) override;
+  TYPE_RECORD(EnumName, EnumVal, Name)
 #define TYPE_RECORD_ALIAS(EnumName, EnumVal, Name, AliasName)
 #define MEMBER_RECORD_ALIAS(EnumName, EnumVal, Name, AliasName)
 #include "TypeRecords.def"
@@ -88,7 +86,6 @@ private:
 
   ScopedPrinter *W;
 
-  bool IsInFieldList = false;
   bool PrintRecordBytes = false;
 
   /// Name of the current type. Only valid before visitTypeEnd.

@@ -18,7 +18,7 @@ using namespace llvm;
 
 namespace {
 
-  enum class DumpKind { NoDump, DumpFuncsToStdOut, DumpModsToStdOut,
+  enum class DumpKind { NoDump, DumpFuncsToStdOut, DumpModsToStdErr,
                         DumpModsToDisk };
 
   cl::opt<DumpKind> OrcDumpKind("orc-lazy-debug",
@@ -30,9 +30,9 @@ namespace {
                                   clEnumValN(DumpKind::DumpFuncsToStdOut,
                                              "funcs-to-stdout",
                                              "Dump function names to stdout."),
-                                  clEnumValN(DumpKind::DumpModsToStdOut,
-                                             "mods-to-stdout",
-                                             "Dump modules to stdout."),
+                                  clEnumValN(DumpKind::DumpModsToStdErr,
+                                             "mods-to-stderr",
+                                             "Dump modules to stderr."),
                                   clEnumValN(DumpKind::DumpModsToDisk,
                                              "mods-to-disk",
                                              "Dump modules to the current "
@@ -71,9 +71,9 @@ OrcLazyJIT::TransformFtor OrcLazyJIT::createDebugDumper() {
       return M;
     };
 
-  case DumpKind::DumpModsToStdOut:
+  case DumpKind::DumpModsToStdErr:
     return [](std::unique_ptr<Module> M) {
-             outs() << "----- Module Start -----\n" << *M
+             dbgs() << "----- Module Start -----\n" << *M
                     << "----- Module End -----\n";
 
              return M;
@@ -101,12 +101,11 @@ CodeGenOpt::Level getOptLevel();
 
 
 template <typename PtrTy>
-static PtrTy fromTargetAddress(JITTargetAddress Addr) {
+static PtrTy fromTargetAddress(orc::TargetAddress Addr) {
   return reinterpret_cast<PtrTy>(static_cast<uintptr_t>(Addr));
 }
 
-int llvm::runOrcLazyJIT(std::vector<std::unique_ptr<Module>> Ms, int ArgC,
-                        char* ArgV[]) {
+int llvm::runOrcLazyJIT(std::unique_ptr<Module> M, int ArgC, char* ArgV[]) {
   // Add the program's symbols into the JIT's search space.
   if (sys::DynamicLibrary::LoadLibraryPermanently(nullptr)) {
     errs() << "Error loading program symbols.\n";
@@ -144,8 +143,8 @@ int llvm::runOrcLazyJIT(std::vector<std::unique_ptr<Module>> Ms, int ArgC,
                OrcInlineStubs);
 
   // Add the module, look up main and run it.
-  J.addModuleSet(std::move(Ms));
-  auto MainSym = J.findSymbol("main");
+  auto MainHandle = J.addModule(std::move(M));
+  auto MainSym = J.findSymbolIn(MainHandle, "main");
 
   if (!MainSym) {
     errs() << "Could not find main function.\n";

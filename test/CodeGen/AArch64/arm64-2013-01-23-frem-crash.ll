@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=arm64-eabi
+; RUN: llc < %s -march=arm64
 ; Make sure we are not crashing on this test.
 
 define void @autogen_SD13158() {

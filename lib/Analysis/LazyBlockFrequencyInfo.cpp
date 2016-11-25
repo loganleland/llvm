@@ -15,7 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/LazyBlockFrequencyInfo.h"
-#include "llvm/Analysis/LazyBranchProbabilityInfo.h"
+#include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
 
 using namespace llvm;
@@ -24,7 +24,7 @@ using namespace llvm;
 
 INITIALIZE_PASS_BEGIN(LazyBlockFrequencyInfoPass, DEBUG_TYPE,
                       "Lazy Block Frequency Analysis", true, true)
-INITIALIZE_PASS_DEPENDENCY(LazyBPIPass)
+INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_END(LazyBlockFrequencyInfoPass, DEBUG_TYPE,
                     "Lazy Block Frequency Analysis", true, true)
@@ -40,7 +40,7 @@ void LazyBlockFrequencyInfoPass::print(raw_ostream &OS, const Module *) const {
 }
 
 void LazyBlockFrequencyInfoPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  LazyBranchProbabilityInfoPass::getLazyBPIAnalysisUsage(AU);
+  AU.addRequired<BranchProbabilityInfoWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.setPreservesAll();
 }
@@ -48,20 +48,21 @@ void LazyBlockFrequencyInfoPass::getAnalysisUsage(AnalysisUsage &AU) const {
 void LazyBlockFrequencyInfoPass::releaseMemory() { LBFI.releaseMemory(); }
 
 bool LazyBlockFrequencyInfoPass::runOnFunction(Function &F) {
-  auto &BPIPass = getAnalysis<LazyBranchProbabilityInfoPass>();
+  BranchProbabilityInfo &BPI =
+      getAnalysis<BranchProbabilityInfoWrapperPass>().getBPI();
   LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  LBFI.setAnalysis(&F, &BPIPass, &LI);
+  LBFI.setAnalysis(&F, &BPI, &LI);
   return false;
 }
 
 void LazyBlockFrequencyInfoPass::getLazyBFIAnalysisUsage(AnalysisUsage &AU) {
-  LazyBranchProbabilityInfoPass::getLazyBPIAnalysisUsage(AU);
+  AU.addRequired<BranchProbabilityInfoWrapperPass>();
   AU.addRequired<LazyBlockFrequencyInfoPass>();
   AU.addRequired<LoopInfoWrapperPass>();
 }
 
 void llvm::initializeLazyBFIPassPass(PassRegistry &Registry) {
-  initializeLazyBPIPassPass(Registry);
+  INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfoWrapperPass);
   INITIALIZE_PASS_DEPENDENCY(LazyBlockFrequencyInfoPass);
   INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass);
 }

@@ -58,7 +58,7 @@ protected:
       bool Changed = false;
 
       MachineBasicBlock::iterator I = ReturnMBB.begin();
-      I = ReturnMBB.SkipPHIsLabelsAndDebug(I);
+      I = ReturnMBB.SkipPHIsAndLabels(I);
 
       // The block must be essentially empty except for the blr.
       if (I == ReturnMBB.end() ||
@@ -196,7 +196,7 @@ public:
 
     MachineFunctionProperties getRequiredProperties() const override {
       return MachineFunctionProperties().set(
-          MachineFunctionProperties::Property::NoVRegs);
+          MachineFunctionProperties::Property::AllVRegsAllocated);
     }
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {

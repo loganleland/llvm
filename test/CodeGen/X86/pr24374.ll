@@ -31,6 +31,7 @@ define void @g() {
   unreachable
 }
 ; CHECK-LABEL: g:
-; CHECK: ud2
+; CHECK:       .seh_proc g
+; CHECK:       .seh_endproc
 
 attributes #0 = { nounwind }

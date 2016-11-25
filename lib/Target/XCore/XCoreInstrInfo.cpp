@@ -184,7 +184,7 @@ static inline XCore::CondCode GetOppositeBranchCondition(XCore::CondCode CC)
 ///    operands can be passed to other TargetInstrInfo methods to create new
 ///    branches.
 ///
-/// Note that removeBranch and insertBranch must be implemented to support
+/// Note that RemoveBranch and InsertBranch must be implemented to support
 /// cases where this method returns success.
 ///
 bool XCoreInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
@@ -201,8 +201,8 @@ bool XCoreInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
     return false;
 
   // Get the last instruction in the block.
-  MachineInstr *LastInst = &*I;
-
+  MachineInstr *LastInst = I;
+  
   // If there is only one terminator instruction, process it.
   if (I == MBB.begin() || !isUnpredicatedTerminator(*--I)) {
     if (IsBRU(LastInst->getOpcode())) {
@@ -224,7 +224,7 @@ bool XCoreInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
   }
   
   // Get the instruction before it if it's a terminator.
-  MachineInstr *SecondLastInst = &*I;
+  MachineInstr *SecondLastInst = I;
 
   // If there are three terminators, we don't know what sort of block this is.
   if (SecondLastInst && I != MBB.begin() && isUnpredicatedTerminator(*--I))
@@ -269,18 +269,16 @@ bool XCoreInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
   return true;
 }
 
-unsigned XCoreInstrInfo::insertBranch(MachineBasicBlock &MBB,
+unsigned XCoreInstrInfo::InsertBranch(MachineBasicBlock &MBB,
                                       MachineBasicBlock *TBB,
                                       MachineBasicBlock *FBB,
                                       ArrayRef<MachineOperand> Cond,
-                                      const DebugLoc &DL,
-                                      int *BytesAdded) const {
+                                      const DebugLoc &DL) const {
   // Shouldn't be a fall through.
-  assert(TBB && "insertBranch must not be told to insert a fallthrough");
+  assert(TBB && "InsertBranch must not be told to insert a fallthrough");
   assert((Cond.size() == 2 || Cond.size() == 0) &&
          "Unexpected number of components!");
-  assert(!BytesAdded && "code size not handled");
-
+  
   if (!FBB) { // One way branch.
     if (Cond.empty()) {
       // Unconditional branch
@@ -304,9 +302,7 @@ unsigned XCoreInstrInfo::insertBranch(MachineBasicBlock &MBB,
 }
 
 unsigned
-XCoreInstrInfo::removeBranch(MachineBasicBlock &MBB, int *BytesRemoved) const {
-  assert(!BytesRemoved && "code size not handled");
-
+XCoreInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
   MachineBasicBlock::iterator I = MBB.getLastNonDebugInstr();
   if (I == MBB.end())
     return 0;
@@ -367,7 +363,7 @@ void XCoreInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
   if (I != MBB.end() && !I->isDebugValue())
     DL = I->getDebugLoc();
   MachineFunction *MF = MBB.getParent();
-  const MachineFrameInfo &MFI = MF->getFrameInfo();
+  const MachineFrameInfo &MFI = *MF->getFrameInfo();
   MachineMemOperand *MMO = MF->getMachineMemOperand(
       MachinePointerInfo::getFixedStack(*MF, FrameIndex),
       MachineMemOperand::MOStore, MFI.getObjectSize(FrameIndex),
@@ -389,7 +385,7 @@ void XCoreInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   if (I != MBB.end() && !I->isDebugValue())
     DL = I->getDebugLoc();
   MachineFunction *MF = MBB.getParent();
-  const MachineFrameInfo &MFI = MF->getFrameInfo();
+  const MachineFrameInfo &MFI = *MF->getFrameInfo();
   MachineMemOperand *MMO = MF->getMachineMemOperand(
       MachinePointerInfo::getFixedStack(*MF, FrameIndex),
       MachineMemOperand::MOLoad, MFI.getObjectSize(FrameIndex),
@@ -400,9 +396,11 @@ void XCoreInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
     .addMemOperand(MMO);
 }
 
+/// ReverseBranchCondition - Return the inverse opcode of the 
+/// specified Branch instruction.
 bool XCoreInstrInfo::
-reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
-  assert((Cond.size() == 2) &&
+ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
+  assert((Cond.size() == 2) && 
           "Invalid XCore branch condition!");
   Cond[0].setImm(GetOppositeBranchCondition((XCore::CondCode)Cond[0].getImm()));
   return false;

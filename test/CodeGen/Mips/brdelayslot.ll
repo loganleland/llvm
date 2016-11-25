@@ -22,7 +22,7 @@ entry:
 ; None: nop
 ; None: .end
 
-  call void @foo2(i32 3) nounwind
+  tail call void @foo2(i32 3) nounwind
   ret void
 }
 
@@ -37,7 +37,7 @@ entry:
 ; Default:     cvt.d.w
 
   %conv = sitofp i32 %a to double
-  call void @foo4(double %conv) nounwind
+  tail call void @foo4(double %conv) nounwind
   ret void
 }
 
@@ -83,7 +83,7 @@ if.end:
 
 define void @foo6(float %a0, double %a1) nounwind {
 entry:
-  call void @foo7(double %a1, float %a0) nounwind
+  tail call void @foo7(double %a1, float %a0) nounwind
   ret void
 }
 
@@ -101,7 +101,7 @@ define i32 @foo8(i32 %a) nounwind {
 entry:
   store i32 %a, i32* @g1, align 4
   %0 = load void ()*, void ()** @foo9, align 4
-  call void %0() nounwind
+  tail call void %0() nounwind
   %1 = load i32, i32* @g1, align 4
   %add = add nsw i32 %1, %a
   ret i32 %add

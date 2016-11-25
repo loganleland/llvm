@@ -182,18 +182,18 @@ getX86ConditionCode(CmpInst::Predicate Predicate) {
   default: break;
   // Floating-point Predicates
   case CmpInst::FCMP_UEQ: CC = X86::COND_E;       break;
-  case CmpInst::FCMP_OLT: NeedSwap = true;        LLVM_FALLTHROUGH;
+  case CmpInst::FCMP_OLT: NeedSwap = true; // fall-through
   case CmpInst::FCMP_OGT: CC = X86::COND_A;       break;
-  case CmpInst::FCMP_OLE: NeedSwap = true;        LLVM_FALLTHROUGH;
+  case CmpInst::FCMP_OLE: NeedSwap = true; // fall-through
   case CmpInst::FCMP_OGE: CC = X86::COND_AE;      break;
-  case CmpInst::FCMP_UGT: NeedSwap = true;        LLVM_FALLTHROUGH;
+  case CmpInst::FCMP_UGT: NeedSwap = true; // fall-through
   case CmpInst::FCMP_ULT: CC = X86::COND_B;       break;
-  case CmpInst::FCMP_UGE: NeedSwap = true;        LLVM_FALLTHROUGH;
+  case CmpInst::FCMP_UGE: NeedSwap = true; // fall-through
   case CmpInst::FCMP_ULE: CC = X86::COND_BE;      break;
   case CmpInst::FCMP_ONE: CC = X86::COND_NE;      break;
   case CmpInst::FCMP_UNO: CC = X86::COND_P;       break;
   case CmpInst::FCMP_ORD: CC = X86::COND_NP;      break;
-  case CmpInst::FCMP_OEQ:                         LLVM_FALLTHROUGH;
+  case CmpInst::FCMP_OEQ: // fall-through
   case CmpInst::FCMP_UNE: CC = X86::COND_INVALID; break;
 
   // Integer Predicates
@@ -229,15 +229,15 @@ getX86SSEConditionCode(CmpInst::Predicate Predicate) {
   switch (Predicate) {
   default: llvm_unreachable("Unexpected predicate");
   case CmpInst::FCMP_OEQ: CC = 0;          break;
-  case CmpInst::FCMP_OGT: NeedSwap = true; LLVM_FALLTHROUGH;
+  case CmpInst::FCMP_OGT: NeedSwap = true; // fall-through
   case CmpInst::FCMP_OLT: CC = 1;          break;
-  case CmpInst::FCMP_OGE: NeedSwap = true; LLVM_FALLTHROUGH;
+  case CmpInst::FCMP_OGE: NeedSwap = true; // fall-through
   case CmpInst::FCMP_OLE: CC = 2;          break;
   case CmpInst::FCMP_UNO: CC = 3;          break;
   case CmpInst::FCMP_UNE: CC = 4;          break;
-  case CmpInst::FCMP_ULE: NeedSwap = true; LLVM_FALLTHROUGH;
+  case CmpInst::FCMP_ULE: NeedSwap = true; // fall-through
   case CmpInst::FCMP_UGE: CC = 5;          break;
-  case CmpInst::FCMP_ULT: NeedSwap = true; LLVM_FALLTHROUGH;
+  case CmpInst::FCMP_ULT: NeedSwap = true; // fall-through
   case CmpInst::FCMP_UGT: CC = 6;          break;
   case CmpInst::FCMP_ORD: CC = 7;          break;
   case CmpInst::FCMP_UEQ:
@@ -351,8 +351,6 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
   bool HasSSE41 = Subtarget->hasSSE41();
   bool HasAVX = Subtarget->hasAVX();
   bool HasAVX2 = Subtarget->hasAVX2();
-  bool HasAVX512 = Subtarget->hasAVX512();
-  bool HasVLX = Subtarget->hasVLX();
   bool IsNonTemporal = MMO && MMO->isNonTemporal();
 
   // Get opcode and regclass of the output for the given load instruction.
@@ -380,7 +378,7 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
     break;
   case MVT::f32:
     if (X86ScalarSSEf32) {
-      Opc = HasAVX512 ? X86::VMOVSSZrm : HasAVX ? X86::VMOVSSrm : X86::MOVSSrm;
+      Opc = HasAVX ? X86::VMOVSSrm : X86::MOVSSrm;
       RC  = &X86::FR32RegClass;
     } else {
       Opc = X86::LD_Fp32m;
@@ -389,7 +387,7 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
     break;
   case MVT::f64:
     if (X86ScalarSSEf64) {
-      Opc = HasAVX512 ? X86::VMOVSDZrm : HasAVX ? X86::VMOVSDrm : X86::MOVSDrm;
+      Opc = HasAVX ? X86::VMOVSDrm : X86::MOVSDrm;
       RC  = &X86::FR64RegClass;
     } else {
       Opc = X86::LD_Fp64m;
@@ -401,26 +399,20 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
     return false;
   case MVT::v4f32:
     if (IsNonTemporal && Alignment >= 16 && HasSSE41)
-      Opc = HasVLX ? X86::VMOVNTDQAZ128rm :
-            HasAVX ? X86::VMOVNTDQArm : X86::MOVNTDQArm;
+      Opc = HasAVX ? X86::VMOVNTDQArm : X86::MOVNTDQArm;
     else if (Alignment >= 16)
-      Opc = HasVLX ? X86::VMOVAPSZ128rm :
-            HasAVX ? X86::VMOVAPSrm : X86::MOVAPSrm;
+      Opc = HasAVX ? X86::VMOVAPSrm : X86::MOVAPSrm;
     else
-      Opc = HasVLX ? X86::VMOVUPSZ128rm :
-            HasAVX ? X86::VMOVUPSrm : X86::MOVUPSrm;
+      Opc = HasAVX ? X86::VMOVUPSrm : X86::MOVUPSrm;
     RC  = &X86::VR128RegClass;
     break;
   case MVT::v2f64:
     if (IsNonTemporal && Alignment >= 16 && HasSSE41)
-      Opc = HasVLX ? X86::VMOVNTDQAZ128rm :
-            HasAVX ? X86::VMOVNTDQArm : X86::MOVNTDQArm;
+      Opc = HasAVX ? X86::VMOVNTDQArm : X86::MOVNTDQArm;
     else if (Alignment >= 16)
-      Opc = HasVLX ? X86::VMOVAPDZ128rm :
-            HasAVX ? X86::VMOVAPDrm : X86::MOVAPDrm;
+      Opc = HasAVX ? X86::VMOVAPDrm : X86::MOVAPDrm;
     else
-      Opc = HasVLX ? X86::VMOVUPDZ128rm :
-            HasAVX ? X86::VMOVUPDrm : X86::MOVUPDrm;
+      Opc = HasAVX ? X86::VMOVUPDrm : X86::MOVUPDrm;
     RC  = &X86::VR128RegClass;
     break;
   case MVT::v4i32:
@@ -428,34 +420,27 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
   case MVT::v8i16:
   case MVT::v16i8:
     if (IsNonTemporal && Alignment >= 16)
-      Opc = HasVLX ? X86::VMOVNTDQAZ128rm :
-            HasAVX ? X86::VMOVNTDQArm : X86::MOVNTDQArm;
+      Opc = HasAVX ? X86::VMOVNTDQArm : X86::MOVNTDQArm;
     else if (Alignment >= 16)
-      Opc = HasVLX ? X86::VMOVDQA64Z128rm :
-            HasAVX ? X86::VMOVDQArm : X86::MOVDQArm;
+      Opc = HasAVX ? X86::VMOVDQArm : X86::MOVDQArm;
     else
-      Opc = HasVLX ? X86::VMOVDQU64Z128rm :
-            HasAVX ? X86::VMOVDQUrm : X86::MOVDQUrm;
+      Opc = HasAVX ? X86::VMOVDQUrm : X86::MOVDQUrm;
     RC  = &X86::VR128RegClass;
     break;
   case MVT::v8f32:
     assert(HasAVX);
     if (IsNonTemporal && Alignment >= 32 && HasAVX2)
-      Opc = HasVLX ? X86::VMOVNTDQAZ256rm : X86::VMOVNTDQAYrm;
-    else if (Alignment >= 32)
-      Opc = HasVLX ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
+      Opc = X86::VMOVNTDQAYrm;
     else
-      Opc = HasVLX ? X86::VMOVUPSZ256rm : X86::VMOVUPSYrm;
+      Opc = (Alignment >= 32) ? X86::VMOVAPSYrm : X86::VMOVUPSYrm;
     RC  = &X86::VR256RegClass;
     break;
   case MVT::v4f64:
     assert(HasAVX);
     if (IsNonTemporal && Alignment >= 32 && HasAVX2)
       Opc = X86::VMOVNTDQAYrm;
-    else if (Alignment >= 32)
-      Opc = HasVLX ? X86::VMOVAPDZ256rm : X86::VMOVAPDYrm;
     else
-      Opc = HasVLX ? X86::VMOVUPDZ256rm : X86::VMOVUPDYrm;
+      Opc = (Alignment >= 32) ? X86::VMOVAPDYrm : X86::VMOVUPDYrm;
     RC  = &X86::VR256RegClass;
     break;
   case MVT::v8i32:
@@ -465,14 +450,12 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
     assert(HasAVX);
     if (IsNonTemporal && Alignment >= 32 && HasAVX2)
       Opc = X86::VMOVNTDQAYrm;
-    else if (Alignment >= 32)
-      Opc = HasVLX ? X86::VMOVDQA64Z256rm : X86::VMOVDQAYrm;
     else
-      Opc = HasVLX ? X86::VMOVDQU64Z256rm : X86::VMOVDQUYrm;
+      Opc = (Alignment >= 32) ? X86::VMOVDQAYrm : X86::VMOVDQUYrm;
     RC  = &X86::VR256RegClass;
     break;
   case MVT::v16f32:
-    assert(HasAVX512);
+    assert(Subtarget->hasAVX512());
     if (IsNonTemporal && Alignment >= 64)
       Opc = X86::VMOVNTDQAZrm;
     else
@@ -480,7 +463,7 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
     RC  = &X86::VR512RegClass;
     break;
   case MVT::v8f64:
-    assert(HasAVX512);
+    assert(Subtarget->hasAVX512());
     if (IsNonTemporal && Alignment >= 64)
       Opc = X86::VMOVNTDQAZrm;
     else
@@ -491,7 +474,7 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
   case MVT::v16i32:
   case MVT::v32i16:
   case MVT::v64i8:
-    assert(HasAVX512);
+    assert(Subtarget->hasAVX512());
     // Note: There are a lot more choices based on type with AVX-512, but
     // there's really no advantage when the load isn't masked.
     if (IsNonTemporal && Alignment >= 64)
@@ -521,8 +504,6 @@ bool X86FastISel::X86FastEmitStore(EVT VT, unsigned ValReg, bool ValIsKill,
   bool HasSSE2 = Subtarget->hasSSE2();
   bool HasSSE4A = Subtarget->hasSSE4A();
   bool HasAVX = Subtarget->hasAVX();
-  bool HasAVX512 = Subtarget->hasAVX512();
-  bool HasVLX = Subtarget->hasVLX();
   bool IsNonTemporal = MMO && MMO->isNonTemporal();
 
   // Get opcode and regclass of the output for the given store instruction.
@@ -537,8 +518,8 @@ bool X86FastISel::X86FastEmitStore(EVT VT, unsigned ValReg, bool ValIsKill,
             TII.get(X86::AND8ri), AndResult)
       .addReg(ValReg, getKillRegState(ValIsKill)).addImm(1);
     ValReg = AndResult;
-    LLVM_FALLTHROUGH; // handle i1 as i8.
   }
+  // FALLTHROUGH, handling i1 as i8.
   case MVT::i8:  Opc = X86::MOV8mr;  break;
   case MVT::i16: Opc = X86::MOV16mr; break;
   case MVT::i32:
@@ -553,8 +534,7 @@ bool X86FastISel::X86FastEmitStore(EVT VT, unsigned ValReg, bool ValIsKill,
       if (IsNonTemporal && HasSSE4A)
         Opc = X86::MOVNTSS;
       else
-        Opc = HasAVX512 ? X86::VMOVSSZmr :
-              HasAVX ? X86::VMOVSSmr : X86::MOVSSmr;
+        Opc = HasAVX ? X86::VMOVSSmr : X86::MOVSSmr;
     } else
       Opc = X86::ST_Fp32m;
     break;
@@ -563,34 +543,27 @@ bool X86FastISel::X86FastEmitStore(EVT VT, unsigned ValReg, bool ValIsKill,
       if (IsNonTemporal && HasSSE4A)
         Opc = X86::MOVNTSD;
       else
-        Opc = HasAVX512 ? X86::VMOVSDZmr :
-              HasAVX ? X86::VMOVSDmr : X86::MOVSDmr;
+        Opc = HasAVX ? X86::VMOVSDmr : X86::MOVSDmr;
     } else
       Opc = X86::ST_Fp64m;
     break;
   case MVT::v4f32:
     if (Aligned) {
       if (IsNonTemporal)
-        Opc = HasVLX ? X86::VMOVNTPSZ128mr :
-              HasAVX ? X86::VMOVNTPSmr : X86::MOVNTPSmr;
+        Opc = HasAVX ? X86::VMOVNTPSmr : X86::MOVNTPSmr;
       else
-        Opc = HasVLX ? X86::VMOVAPSZ128mr :
-              HasAVX ? X86::VMOVAPSmr : X86::MOVAPSmr;
+        Opc = HasAVX ? X86::VMOVAPSmr : X86::MOVAPSmr;
     } else
-      Opc = HasVLX ? X86::VMOVUPSZ128mr :
-            HasAVX ? X86::VMOVUPSmr : X86::MOVUPSmr;
+      Opc = HasAVX ? X86::VMOVUPSmr : X86::MOVUPSmr;
     break;
   case MVT::v2f64:
     if (Aligned) {
       if (IsNonTemporal)
-        Opc = HasVLX ? X86::VMOVNTPDZ128mr :
-              HasAVX ? X86::VMOVNTPDmr : X86::MOVNTPDmr;
+        Opc = HasAVX ? X86::VMOVNTPDmr : X86::MOVNTPDmr;
       else
-        Opc = HasVLX ? X86::VMOVAPDZ128mr :
-              HasAVX ? X86::VMOVAPDmr : X86::MOVAPDmr;
+        Opc = HasAVX ? X86::VMOVAPDmr : X86::MOVAPDmr;
     } else
-      Opc = HasVLX ? X86::VMOVUPDZ128mr :
-            HasAVX ? X86::VMOVUPDmr : X86::MOVUPDmr;
+      Opc = HasAVX ? X86::VMOVUPDmr : X86::MOVUPDmr;
     break;
   case MVT::v4i32:
   case MVT::v2i64:
@@ -598,57 +571,45 @@ bool X86FastISel::X86FastEmitStore(EVT VT, unsigned ValReg, bool ValIsKill,
   case MVT::v16i8:
     if (Aligned) {
       if (IsNonTemporal)
-        Opc = HasVLX ? X86::VMOVNTDQZ128mr :
-              HasAVX ? X86::VMOVNTDQmr : X86::MOVNTDQmr;
+        Opc = HasAVX ? X86::VMOVNTDQmr : X86::MOVNTDQmr;
       else
-        Opc = HasVLX ? X86::VMOVDQA64Z128mr :
-              HasAVX ? X86::VMOVDQAmr : X86::MOVDQAmr;
+        Opc = HasAVX ? X86::VMOVDQAmr : X86::MOVDQAmr;
     } else
-      Opc = HasVLX ? X86::VMOVDQU64Z128mr :
-            HasAVX ? X86::VMOVDQUmr : X86::MOVDQUmr;
+      Opc = HasAVX ? X86::VMOVDQUmr : X86::MOVDQUmr;
     break;
   case MVT::v8f32:
     assert(HasAVX);
-    if (Aligned) {
-      if (IsNonTemporal)
-        Opc = HasVLX ? X86::VMOVNTPSZ256mr : X86::VMOVNTPSYmr;
-      else
-        Opc = HasVLX ? X86::VMOVAPSZ256mr : X86::VMOVAPSYmr;
-    } else
-      Opc = HasVLX ? X86::VMOVUPSZ256mr : X86::VMOVUPSYmr;
+    if (Aligned)
+      Opc = IsNonTemporal ? X86::VMOVNTPSYmr : X86::VMOVAPSYmr;
+    else
+      Opc = X86::VMOVUPSYmr;
     break;
   case MVT::v4f64:
     assert(HasAVX);
     if (Aligned) {
-      if (IsNonTemporal)
-        Opc = HasVLX ? X86::VMOVNTPDZ256mr : X86::VMOVNTPDYmr;
-      else
-        Opc = HasVLX ? X86::VMOVAPDZ256mr : X86::VMOVAPDYmr;
+      Opc = IsNonTemporal ? X86::VMOVNTPDYmr : X86::VMOVAPDYmr;
     } else
-      Opc = HasVLX ? X86::VMOVUPDZ256mr : X86::VMOVUPDYmr;
+      Opc = X86::VMOVUPDYmr;
     break;
   case MVT::v8i32:
   case MVT::v4i64:
   case MVT::v16i16:
   case MVT::v32i8:
     assert(HasAVX);
-    if (Aligned) {
-      if (IsNonTemporal)
-        Opc = HasVLX ? X86::VMOVNTDQZ256mr : X86::VMOVNTDQYmr;
-      else
-        Opc = HasVLX ? X86::VMOVDQA64Z256mr : X86::VMOVDQAYmr;
-    } else
-      Opc = HasVLX ? X86::VMOVDQU64Z256mr : X86::VMOVDQUYmr;
+    if (Aligned)
+      Opc = IsNonTemporal ? X86::VMOVNTDQYmr : X86::VMOVDQAYmr;
+    else
+      Opc = X86::VMOVDQUYmr;
     break;
   case MVT::v16f32:
-    assert(HasAVX512);
+    assert(Subtarget->hasAVX512());
     if (Aligned)
       Opc = IsNonTemporal ? X86::VMOVNTPSZmr : X86::VMOVAPSZmr;
     else
       Opc = X86::VMOVUPSZmr;
     break;
   case MVT::v8f64:
-    assert(HasAVX512);
+    assert(Subtarget->hasAVX512());
     if (Aligned) {
       Opc = IsNonTemporal ? X86::VMOVNTPDZmr : X86::VMOVAPDZmr;
     } else
@@ -658,7 +619,7 @@ bool X86FastISel::X86FastEmitStore(EVT VT, unsigned ValReg, bool ValIsKill,
   case MVT::v16i32:
   case MVT::v32i16:
   case MVT::v64i8:
-    assert(HasAVX512);
+    assert(Subtarget->hasAVX512());
     // Note: There are a lot more choices based on type with AVX-512, but
     // there's really no advantage when the store isn't masked.
     if (Aligned)
@@ -698,9 +659,7 @@ bool X86FastISel::X86FastEmitStore(EVT VT, const Value *Val,
     bool Signed = true;
     switch (VT.getSimpleVT().SimpleTy) {
     default: break;
-    case MVT::i1:
-      Signed = false;
-      LLVM_FALLTHROUGH; // Handle as i8.
+    case MVT::i1:  Signed = false;     // FALLTHROUGH to handle as i8.
     case MVT::i8:  Opc = X86::MOV8mi;  break;
     case MVT::i16: Opc = X86::MOV16mi; break;
     case MVT::i32: Opc = X86::MOV32mi; break;
@@ -1495,11 +1454,11 @@ bool X86FastISel::X86SelectCmp(const Instruction *I) {
   }
 
   // FCMP_OEQ and FCMP_UNE cannot be checked with a single instruction.
-  static const uint16_t SETFOpcTable[2][3] = {
+  static unsigned SETFOpcTable[2][3] = {
     { X86::SETEr,  X86::SETNPr, X86::AND8rr },
     { X86::SETNEr, X86::SETPr,  X86::OR8rr  }
   };
-  const uint16_t *SETFOpc = nullptr;
+  unsigned *SETFOpc = nullptr;
   switch (Predicate) {
   default: break;
   case CmpInst::FCMP_OEQ: SETFOpc = &SETFOpcTable[0][0]; break;
@@ -1642,8 +1601,7 @@ bool X86FastISel::X86SelectBranch(const Instruction *I) {
       switch (Predicate) {
       default: break;
       case CmpInst::FCMP_OEQ:
-        std::swap(TrueMBB, FalseMBB);
-        LLVM_FALLTHROUGH;
+        std::swap(TrueMBB, FalseMBB); // fall-through
       case CmpInst::FCMP_UNE:
         NeedExtraBranch = true;
         Predicate = CmpInst::FCMP_ONE;
@@ -1693,7 +1651,6 @@ bool X86FastISel::X86SelectBranch(const Instruction *I) {
       if (TestOpc) {
         unsigned OpReg = getRegForValue(TI->getOperand(0));
         if (OpReg == 0) return false;
-
         BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(TestOpc))
           .addReg(OpReg).addImm(1);
 
@@ -1731,15 +1688,8 @@ bool X86FastISel::X86SelectBranch(const Instruction *I) {
   unsigned OpReg = getRegForValue(BI->getCondition());
   if (OpReg == 0) return false;
 
-  // In case OpReg is a K register, kortest against itself.
-  if (MRI.getRegClass(OpReg) == &X86::VK1RegClass)
-    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::KORTESTWrr))
-        .addReg(OpReg)
-        .addReg(OpReg);
-  else
-    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::TEST8ri))
-        .addReg(OpReg)
-        .addImm(1);
+  BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::TEST8ri))
+    .addReg(OpReg).addImm(1);
   BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::JNE_1))
     .addMBB(TrueMBB);
   finishCondBranch(BI->getParent(), TrueMBB, FalseMBB);
@@ -2003,11 +1953,11 @@ bool X86FastISel::X86FastEmitCMoveSelect(MVT RetVT, const Instruction *I) {
     CmpInst::Predicate Predicate = optimizeCmpPredicate(CI);
 
     // FCMP_OEQ and FCMP_UNE cannot be checked with a single instruction.
-    static const uint16_t SETFOpcTable[2][3] = {
+    static unsigned SETFOpcTable[2][3] = {
       { X86::SETNPr, X86::SETEr , X86::TEST8rr },
       { X86::SETPr,  X86::SETNEr, X86::OR8rr   }
     };
-    const uint16_t *SETFOpc = nullptr;
+    unsigned *SETFOpc = nullptr;
     switch (Predicate) {
     default: break;
     case CmpInst::FCMP_OEQ:
@@ -2073,16 +2023,8 @@ bool X86FastISel::X86FastEmitCMoveSelect(MVT RetVT, const Instruction *I) {
       return false;
     bool CondIsKill = hasTrivialKill(Cond);
 
-    // In case OpReg is a K register, kortest against itself.
-    if (MRI.getRegClass(CondReg) == &X86::VK1RegClass)
-      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
-              TII.get(X86::KORTESTWrr))
-          .addReg(CondReg, getKillRegState(CondIsKill))
-          .addReg(CondReg);
-    else
-      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::TEST8ri))
-          .addReg(CondReg, getKillRegState(CondIsKill))
-          .addImm(1);
+    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::TEST8ri))
+      .addReg(CondReg, getKillRegState(CondIsKill)).addImm(1);
   }
 
   const Value *LHS = I->getOperand(1);
@@ -2145,12 +2087,12 @@ bool X86FastISel::X86FastEmitSSESelect(MVT RetVT, const Instruction *I) {
     std::swap(CmpLHS, CmpRHS);
 
   // Choose the SSE instruction sequence based on data type (float or double).
-  static const uint16_t OpcTable[2][4] = {
+  static unsigned OpcTable[2][4] = {
     { X86::CMPSSrr,  X86::FsANDPSrr,  X86::FsANDNPSrr,  X86::FsORPSrr  },
     { X86::CMPSDrr,  X86::FsANDPDrr,  X86::FsANDNPDrr,  X86::FsORPDrr  }
   };
 
-  const uint16_t *Opc = nullptr;
+  unsigned *Opc = nullptr;
   switch (RetVT.SimpleTy) {
   default: return false;
   case MVT::f32: Opc = &OpcTable[0][0]; break;
@@ -2253,17 +2195,8 @@ bool X86FastISel::X86FastEmitPseudoSelect(MVT RetVT, const Instruction *I) {
     if (CondReg == 0)
       return false;
     bool CondIsKill = hasTrivialKill(Cond);
-
-    // In case OpReg is a K register, kortest against itself.
-    if (MRI.getRegClass(CondReg) == &X86::VK1RegClass)
-      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
-              TII.get(X86::KORTESTWrr))
-          .addReg(CondReg, getKillRegState(CondIsKill))
-          .addReg(CondReg);
-    else
-      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::TEST8ri))
-          .addReg(CondReg, getKillRegState(CondIsKill))
-          .addImm(1);
+    BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(X86::TEST8ri))
+      .addReg(CondReg, getKillRegState(CondIsKill)).addImm(1);
   }
 
   const Value *LHS = I->getOperand(1);
@@ -2589,8 +2522,8 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
 
     // This needs to be set before we call getPtrSizedFrameRegister, otherwise
     // we get the wrong frame register.
-    MachineFrameInfo &MFI = MF->getFrameInfo();
-    MFI.setFrameAddressIsTaken(true);
+    MachineFrameInfo *MFI = MF->getFrameInfo();
+    MFI->setFrameAddressIsTaken(true);
 
     const X86RegisterInfo *RegInfo = Subtarget->getRegisterInfo();
     unsigned FrameReg = RegInfo->getPtrSizedFrameRegister(*MF);
@@ -3033,7 +2966,7 @@ bool X86FastISel::fastLowerArguments() {
     default: llvm_unreachable("Unexpected value type.");
     case MVT::i32: SrcReg = GPR32ArgRegs[GPRIdx++]; break;
     case MVT::i64: SrcReg = GPR64ArgRegs[GPRIdx++]; break;
-    case MVT::f32: LLVM_FALLTHROUGH;
+    case MVT::f32: // fall-through
     case MVT::f64: SrcReg = XMMArgRegs[FPRIdx++]; break;
     }
     unsigned DstReg = FuncInfo.MF->addLiveIn(SrcReg, RC);
@@ -3572,7 +3505,7 @@ unsigned X86FastISel::X86MaterializeInt(const ConstantInt *CI, MVT VT) {
   unsigned Opc = 0;
   switch (VT.SimpleTy) {
   default: llvm_unreachable("Unexpected value type");
-  case MVT::i1:  VT = MVT::i8;       LLVM_FALLTHROUGH;
+  case MVT::i1:  VT = MVT::i8; // fall-through
   case MVT::i8:  Opc = X86::MOV8ri;  break;
   case MVT::i16: Opc = X86::MOV16ri; break;
   case MVT::i32: Opc = X86::MOV32ri; break;

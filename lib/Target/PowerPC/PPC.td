@@ -136,8 +136,6 @@ def FeatureInvariantFunctionDescriptors :
   SubtargetFeature<"invariant-function-descriptors",
                    "HasInvariantFunctionDescriptors", "true",
                    "Assume function descriptors are invariant">;
-def FeatureLongCall : SubtargetFeature<"longcall", "UseLongCalls", "true",
-                                       "Always use indirect calls">;
 def FeatureHTM : SubtargetFeature<"htm", "HasHTM", "true",
                                   "Enable Hardware Transactional Memory instructions">;
 def FeatureMFTB   : SubtargetFeature<"", "FeatureMFTB", "true",
@@ -203,7 +201,7 @@ def ProcessorFeatures {
   list<SubtargetFeature> Power8FeatureList =
       !listconcat(Power7FeatureList, Power8SpecificFeatures);
   list<SubtargetFeature> Power9SpecificFeatures =
-      [DirectivePwr9, FeatureP9Altivec, FeatureP9Vector, FeatureISA3_0];
+      [FeatureP9Altivec, FeatureP9Vector, FeatureISA3_0];
   list<SubtargetFeature> Power9FeatureList =
       !listconcat(Power8FeatureList, Power9SpecificFeatures);
 }

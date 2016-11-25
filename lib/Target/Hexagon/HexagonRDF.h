@@ -18,10 +18,8 @@ namespace rdf {
   struct HexagonRegisterAliasInfo : public RegisterAliasInfo {
     HexagonRegisterAliasInfo(const TargetRegisterInfo &TRI)
       : RegisterAliasInfo(TRI) {}
-    bool covers(RegisterRef RA, RegisterRef RR,
-          const DataFlowGraph &DFG) const override;
-    bool covers(const RegisterSet &RRs, RegisterRef RR,
-          const DataFlowGraph &DFG) const override;
+    bool covers(RegisterRef RA, RegisterRef RR) const override;
+    bool covers(const RegisterSet &RRs, RegisterRef RR) const override;
   };
 } // namespace rdf
 } // namespace llvm

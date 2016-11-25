@@ -244,6 +244,22 @@ struct CounterMappingRegion {
   inline std::pair<unsigned, unsigned> endLoc() const {
     return std::pair<unsigned, unsigned>(LineEnd, ColumnEnd);
   }
+
+  bool operator<(const CounterMappingRegion &Other) const {
+    if (FileID != Other.FileID)
+      return FileID < Other.FileID;
+    return startLoc() < Other.startLoc();
+  }
+
+  bool contains(const CounterMappingRegion &Other) const {
+    if (FileID != Other.FileID)
+      return false;
+    if (startLoc() > Other.startLoc())
+      return false;
+    if (endLoc() < Other.endLoc())
+      return false;
+    return true;
+  }
 };
 
 /// \brief Associates a source range with an execution count.
@@ -402,16 +418,12 @@ public:
   /// \brief Get the name of the file this data covers.
   StringRef getFilename() const { return Filename; }
 
-  std::vector<CoverageSegment>::const_iterator begin() const {
-    return Segments.begin();
-  }
-  std::vector<CoverageSegment>::const_iterator end() const {
-    return Segments.end();
-  }
-  bool empty() const { return Segments.empty(); }
+  std::vector<CoverageSegment>::iterator begin() { return Segments.begin(); }
+  std::vector<CoverageSegment>::iterator end() { return Segments.end(); }
+  bool empty() { return Segments.empty(); }
 
   /// \brief Expansions that can be further processed.
-  ArrayRef<ExpansionRecord> getExpansions() const { return Expansions; }
+  ArrayRef<ExpansionRecord> getExpansions() { return Expansions; }
 };
 
 /// \brief The mapping of profile information to coverage data.
@@ -441,8 +453,7 @@ public:
   /// can't be associated with any coverage information.
   unsigned getMismatchedCount() { return MismatchedFunctionCount; }
 
-  /// \brief Returns a lexicographically sorted, unique list of files that are
-  /// covered.
+  /// \brief Returns the list of files that are covered.
   std::vector<StringRef> getUniqueSourceFiles() const;
 
   /// \brief Get the coverage for a particular file.

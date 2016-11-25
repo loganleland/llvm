@@ -57,10 +57,7 @@
 ; Symbol subsection for x
 ; X86-NEXT: .long   241
 ; X86-NEXT: .long [[F1_END:.*]]-[[F1_START:.*]] #
-; Compiler information record
 ; X86-NEXT: [[F1_START]]:
-; X86-NEXT: .short [[C1_END:.*]]-[[C1_START:.*]] #
-; X86:      [[C1_END]]:
 ; X86-NEXT: .short [[PROC_SEGMENT_END:.*]]-[[PROC_SEGMENT_START:.*]] #
 ; X86-NEXT: [[PROC_SEGMENT_START]]:
 ; X86-NEXT: .short  4422
@@ -85,10 +82,7 @@
 ; Symbol subsection for y
 ; X86-NEXT: .long   241
 ; X86-NEXT: .long [[F1_END:.*]]-[[F1_START:.*]] #
-; Compiler information record
 ; X86-NEXT: [[F1_START]]:
-; X86-NEXT: .short [[C1_END:.*]]-[[C1_START:.*]] #
-; X86:      [[C1_END]]:
 ; X86-NEXT: .short [[PROC_SEGMENT_END:.*]]-[[PROC_SEGMENT_START:.*]] #
 ; X86-NEXT: [[PROC_SEGMENT_START]]:
 ; X86-NEXT: .short  4423
@@ -113,10 +107,7 @@
 ; Symbol subsection for f
 ; X86-NEXT: .long   241
 ; X86-NEXT: .long [[F1_END:.*]]-[[F1_START:.*]] #
-; Compiler information record
 ; X86-NEXT: [[F1_START]]:
-; X86-NEXT: .short [[C1_END:.*]]-[[C1_START:.*]] #
-; X86:      [[C1_END]]:
 ; X86-NEXT: .short [[PROC_SEGMENT_END:.*]]-[[PROC_SEGMENT_START:.*]] #
 ; X86-NEXT: [[PROC_SEGMENT_START]]:
 ; X86-NEXT: .short  4423
@@ -146,21 +137,22 @@
 ; OBJ32:      Characteristics [ (0x42300040)
 ; OBJ32:      ]
 ; OBJ32:      Relocations [
-; OBJ32-NEXT:   0x59 IMAGE_REL_I386_SECREL _x
-; OBJ32-NEXT:   0x5D IMAGE_REL_I386_SECTION _x
-; OBJ32-NEXT:   0x70 IMAGE_REL_I386_SECREL _x
-; OBJ32-NEXT:   0x74 IMAGE_REL_I386_SECTION _x
-; OBJ32-NEXT:   0xF5 IMAGE_REL_I386_SECREL _y
-; OBJ32-NEXT:   0xF9 IMAGE_REL_I386_SECTION _y
-; OBJ32-NEXT:   0x10C IMAGE_REL_I386_SECREL _y
-; OBJ32-NEXT:   0x110 IMAGE_REL_I386_SECTION _y
-; OBJ32-NEXT:   0x191 IMAGE_REL_I386_SECREL _f
-; OBJ32-NEXT:   0x195 IMAGE_REL_I386_SECTION _f
-; OBJ32-NEXT:   0x1A8 IMAGE_REL_I386_SECREL _f
-; OBJ32-NEXT:   0x1AC IMAGE_REL_I386_SECTION _f
+; OBJ32-NEXT:   0x2C IMAGE_REL_I386_SECREL _x
+; OBJ32-NEXT:   0x30 IMAGE_REL_I386_SECTION _x
+; OBJ32-NEXT:   0x44 IMAGE_REL_I386_SECREL _x
+; OBJ32-NEXT:   0x48 IMAGE_REL_I386_SECTION _x
+; OBJ32-NEXT:   0x9C IMAGE_REL_I386_SECREL _y
+; OBJ32-NEXT:   0xA0 IMAGE_REL_I386_SECTION _y
+; OBJ32-NEXT:   0xB4 IMAGE_REL_I386_SECREL _y
+; OBJ32-NEXT:   0xB8 IMAGE_REL_I386_SECTION _y
+; OBJ32-NEXT:   0x10C IMAGE_REL_I386_SECREL _f
+; OBJ32-NEXT:   0x110 IMAGE_REL_I386_SECTION _f
+; OBJ32-NEXT:   0x124 IMAGE_REL_I386_SECREL _f
+; OBJ32-NEXT:   0x128 IMAGE_REL_I386_SECTION _f
 ; OBJ32-NEXT: ]
 ; OBJ32:      Subsection [
 ; OBJ32-NEXT:   SubSectionType: Symbols (0xF1)
+; OBJ32-NOT:    ]
 ; OBJ32:        ProcStart {
 ; OBJ32:          Kind: S_LPROC32_ID (0x1146)
 ; OBJ32:          CodeSize: 0x6
@@ -175,6 +167,7 @@
 ; OBJ32:      ]
 ; OBJ32:      Subsection [
 ; OBJ32-NEXT:   SubSectionType: Symbols (0xF1)
+; OBJ32-NOT:    ]
 ; OBJ32:        ProcStart {
 ; OBJ32:          Kind: S_GPROC32_ID (0x1147)
 ; OBJ32:          CodeSize: 0x6
@@ -189,6 +182,7 @@
 ; OBJ32:      ]
 ; OBJ32:      Subsection [
 ; OBJ32-NEXT:   SubSectionType: Symbols (0xF1)
+; OBJ32-NOT:    ]
 ; OBJ32:        ProcStart {
 ; OBJ32:          Kind: S_GPROC32_ID (0x1147)
 ; OBJ32:          CodeSize: 0x10
@@ -330,10 +324,7 @@
 ; Symbol subsection for x
 ; X64-NEXT: .long   241
 ; X64-NEXT: .long [[F1_END:.*]]-[[F1_START:.*]] #
-; Compiler information record
 ; X64-NEXT: [[F1_START]]:
-; X64-NEXT: .short [[C1_END:.*]]-[[C1_START:.*]] #
-; X64:      [[C1_END]]:
 ; X64-NEXT: .short [[PROC_SEGMENT_END:.*]]-[[PROC_SEGMENT_START:.*]] #
 ; X64-NEXT: [[PROC_SEGMENT_START]]:
 ; X64-NEXT: .short  4422
@@ -358,10 +349,7 @@
 ; Symbol subsection for y
 ; X64-NEXT: .long   241
 ; X64-NEXT: .long [[F1_END:.*]]-[[F1_START:.*]] #
-; Compiler information record
 ; X64-NEXT: [[F1_START]]:
-; X64-NEXT: .short [[C1_END:.*]]-[[C1_START:.*]] #
-; X64:      [[C1_END]]:
 ; X64-NEXT: .short [[PROC_SEGMENT_END:.*]]-[[PROC_SEGMENT_START:.*]] #
 ; X64-NEXT: [[PROC_SEGMENT_START]]:
 ; X64-NEXT: .short  4423
@@ -386,10 +374,7 @@
 ; Symbol subsection for f
 ; X64-NEXT: .long   241
 ; X64-NEXT: .long [[F1_END:.*]]-[[F1_START:.*]] #
-; Compiler information record
 ; X64-NEXT: [[F1_START]]:
-; X64-NEXT: .short [[C1_END:.*]]-[[C1_START:.*]] #
-; X64:      [[C1_END]]:
 ; X64-NEXT: .short [[PROC_SEGMENT_END:.*]]-[[PROC_SEGMENT_START:.*]] #
 ; X64-NEXT: [[PROC_SEGMENT_START]]:
 ; X64-NEXT: .short  4423
@@ -421,21 +406,22 @@
 ; OBJ64:      Characteristics [ (0x42300040)
 ; OBJ64:      ]
 ; OBJ64:      Relocations [
-; OBJ64-NEXT:   0x59 IMAGE_REL_AMD64_SECREL x
-; OBJ64-NEXT:   0x5D IMAGE_REL_AMD64_SECTION x
-; OBJ64-NEXT:   0x70 IMAGE_REL_AMD64_SECREL x
-; OBJ64-NEXT:   0x74 IMAGE_REL_AMD64_SECTION x
-; OBJ64-NEXT:   0x101 IMAGE_REL_AMD64_SECREL y
-; OBJ64-NEXT:   0x105 IMAGE_REL_AMD64_SECTION y
-; OBJ64-NEXT:   0x118 IMAGE_REL_AMD64_SECREL y
-; OBJ64-NEXT:   0x11C IMAGE_REL_AMD64_SECTION y
-; OBJ64-NEXT:   0x1A9 IMAGE_REL_AMD64_SECREL f
-; OBJ64-NEXT:   0x1AD IMAGE_REL_AMD64_SECTION f
-; OBJ64-NEXT:   0x1C0 IMAGE_REL_AMD64_SECREL f
-; OBJ64-NEXT:   0x1C4 IMAGE_REL_AMD64_SECTION f
+; OBJ64-NEXT:   0x2C IMAGE_REL_AMD64_SECREL x
+; OBJ64-NEXT:   0x30 IMAGE_REL_AMD64_SECTION x
+; OBJ64-NEXT:   0x44 IMAGE_REL_AMD64_SECREL x
+; OBJ64-NEXT:   0x48 IMAGE_REL_AMD64_SECTION x
+; OBJ64-NEXT:   0xA8 IMAGE_REL_AMD64_SECREL y
+; OBJ64-NEXT:   0xAC IMAGE_REL_AMD64_SECTION y
+; OBJ64-NEXT:   0xC0 IMAGE_REL_AMD64_SECREL y
+; OBJ64-NEXT:   0xC4 IMAGE_REL_AMD64_SECTION y
+; OBJ64-NEXT:   0x124 IMAGE_REL_AMD64_SECREL f
+; OBJ64-NEXT:   0x128 IMAGE_REL_AMD64_SECTION f
+; OBJ64-NEXT:   0x13C IMAGE_REL_AMD64_SECREL f
+; OBJ64-NEXT:   0x140 IMAGE_REL_AMD64_SECTION f
 ; OBJ64-NEXT: ]
 ; OBJ64:      Subsection [
 ; OBJ64-NEXT:   SubSectionType: Symbols (0xF1)
+; OBJ64-NOT:    ]
 ; OBJ64:        ProcStart {
 ; OBJ64:          Kind: S_LPROC32_ID (0x1146)
 ; OBJ64:          CodeSize: 0xE
@@ -450,6 +436,7 @@
 ; OBJ64:      ]
 ; OBJ64:      Subsection [
 ; OBJ64-NEXT:   SubSectionType: Symbols (0xF1)
+; OBJ64-NOT:    ]
 ; OBJ64:        ProcStart {
 ; OBJ64:          Kind: S_GPROC32_ID (0x1147)
 ; OBJ64:          CodeSize: 0xE
@@ -464,6 +451,7 @@
 ; OBJ64:      ]
 ; OBJ64:      Subsection [
 ; OBJ64-NEXT:   SubSectionType: Symbols (0xF1)
+; OBJ64-NOT:    ]
 ; OBJ64:        ProcStart {
 ; OBJ64:          Kind: S_GPROC32_ID (0x1147)
 ; OBJ64:          CodeSize: 0x18

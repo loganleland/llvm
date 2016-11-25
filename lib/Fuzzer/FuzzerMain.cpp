@@ -9,7 +9,8 @@
 // main() and flags.
 //===----------------------------------------------------------------------===//
 
-#include "FuzzerDefs.h"
+#include "FuzzerInterface.h"
+#include "FuzzerInternal.h"
 
 extern "C" {
 // This function should be defined by the user.

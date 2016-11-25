@@ -34,7 +34,6 @@
 #define LLVM_TRANSFORMS_SCALAR_LICM_H
 
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/LoopPassManager.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
@@ -42,7 +41,7 @@ namespace llvm {
 /// Performs Loop Invariant Code Motion Pass.
 class LICMPass : public PassInfoMixin<LICMPass> {
 public:
-  PreservedAnalyses run(Loop &L, LoopAnalysisManager &AM);
+  PreservedAnalyses run(Loop &L, AnalysisManager<Loop> &AM);
 };
 } // end namespace llvm
 

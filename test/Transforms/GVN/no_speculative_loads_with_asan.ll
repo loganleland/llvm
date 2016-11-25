@@ -25,7 +25,9 @@ define i32 @TestNoAsan() {
 }
 
 ; CHECK-LABEL: @TestNoAsan
-; CHECK: ret i32 0
+; CHECK: %[[LOAD:[^ ]+]] = load i32
+; CHECK: {{.*}} = ashr i32 %[[LOAD]]
+; CHECK-NOT: {{.*}} = phi
 
 define i32 @TestAsan() sanitize_address {
   %1 = tail call noalias i8* @_Znam(i64 2)

@@ -16,23 +16,23 @@ declare void @something()
 ; CHECK-LABEL: test0:
 ; CHECK: loop
 ; CHECK-NEXT: block
+; CHECK-NEXT: i32.const
+; CHECK-NEXT: i32.add
 ; CHECK:      i32.lt_s
 ; CHECK-NEXT: br_if
 ; CHECK-NEXT: return
 ; CHECK-NEXT: .LBB0_3:
 ; CHECK-NEXT: end_block
-; CHECK-NEXT: i32.const
-; CHECK-NEXT: i32.add
 ; CHECK-NEXT: call
 ; CHECK-NEXT: br
 ; CHECK-NEXT: .LBB0_4:
 ; CHECK-NEXT: end_loop
 ; OPT-LABEL: test0:
 ; OPT: loop
-; OPT:      i32.ge_s
-; OPT-NEXT: br_if
 ; OPT-NEXT: i32.const
 ; OPT-NEXT: i32.add
+; OPT:      i32.ge_s
+; OPT-NEXT: br_if
 ; OPT-NOT: br
 ; OPT: call
 ; OPT: br 0{{$}}
@@ -61,23 +61,23 @@ back:
 ; CHECK-LABEL: test1:
 ; CHECK: loop
 ; CHECK-NEXT: block
+; CHECK-NEXT: i32.const
+; CHECK-NEXT: i32.add
 ; CHECK:      i32.lt_s
 ; CHECK-NEXT: br_if
 ; CHECK-NEXT: return
 ; CHECK-NEXT: .LBB1_3:
 ; CHECK-NEXT: end_block
-; CHECK-NEXT: i32.const
-; CHECK-NEXT: i32.add
 ; CHECK-NEXT: call
 ; CHECK-NEXT: br
 ; CHECK-NEXT: .LBB1_4:
 ; CHECK-NEXT: end_loop
 ; OPT-LABEL: test1:
 ; OPT: loop
-; OPT:      i32.ge_s
-; OPT-NEXT: br_if
 ; OPT-NEXT: i32.const
 ; OPT-NEXT: i32.add
+; OPT:      i32.ge_s
+; OPT-NEXT: br_if
 ; OPT-NOT: br
 ; OPT: call
 ; OPT: br 0{{$}}
@@ -207,12 +207,12 @@ exit:
 ; CHECK: block{{$}}
 ; CHECK: br_if 0, $1{{$}}
 ; CHECK: .LBB4_2:
-; CHECK: return
+; CHECK: return ${{[0-9]+}}{{$}}
 ; OPT-LABEL: triangle:
 ; OPT: block{{$}}
 ; OPT: br_if 0, $1{{$}}
 ; OPT: .LBB4_2:
-; OPT: return
+; OPT: return ${{[0-9]+}}{{$}}
 define i32 @triangle(i32* %p, i32 %a) {
 entry:
   %c = icmp eq i32 %a, 0
@@ -284,7 +284,7 @@ entry:
 ; OPT: i32.store $drop=, 0($0), $pop{{[0-9]+}}{{$}}
 ; OPT: br 0{{$}}
 ; OPT: .LBB7_2:
-define void @minimal_loop(i32* %p) {
+define i32 @minimal_loop(i32* %p) {
 entry:
   store volatile i32 0, i32* %p
   br label %loop
@@ -329,7 +329,7 @@ exit:
 ; CHECK: br_if 0, $1{{$}}
 ; CHECK: .LBB9_3:
 ; CHECK: .LBB9_4:
-; CHECK: return
+; CHECK: return ${{[0-9]+}}{{$}}
 ; OPT-LABEL: doubletriangle:
 ; OPT: block{{$}}
 ; OPT: br_if 0, $0{{$}}
@@ -337,7 +337,7 @@ exit:
 ; OPT: br_if 0, $1{{$}}
 ; OPT: .LBB9_3:
 ; OPT: .LBB9_4:
-; OPT: return
+; OPT: return ${{[0-9]+}}{{$}}
 define i32 @doubletriangle(i32 %a, i32 %b, i32* %p) {
 entry:
   %c = icmp eq i32 %a, 0
@@ -429,7 +429,7 @@ exit:
 ; OPT:      br              0{{$}}
 ; OPT:      .LBB11_6:
 ; OPT-NEXT: end_loop{{$}}
-define void @doublediamond_in_a_loop(i32 %a, i32 %b, i32* %p) {
+define i32 @doublediamond_in_a_loop(i32 %a, i32 %b, i32* %p) {
 entry:
   br label %header
 header:
@@ -774,7 +774,7 @@ u1:
 ; OPT-NEXT:  br       0{{$}}
 ; OPT-NEXT:  .LBB17_2:
 ; OPT-NEXT:  end_loop{{$}}
-define void @test8() {
+define i32 @test8() {
 bb:
   br label %bb1
 
@@ -965,7 +965,6 @@ bb6:
 ; CHECK:       br_if        0, {{[^,]+}}{{$}}
 ; CHECK-NOT:   block
 ; CHECK:       block{{$}}
-; CHECK-NEXT:  i32.const
 ; CHECK-NEXT:  br_if        0, {{[^,]+}}{{$}}
 ; CHECK-NOT:   block
 ; CHECK:       br_if        2, {{[^,]+}}{{$}}
@@ -997,8 +996,7 @@ bb6:
 ; OPT:       br_if        0, $pop{{[0-9]+}}{{$}}
 ; OPT-NOT:   block
 ; OPT:       block{{$}}
-; OPT-NEXT:  i32.const
-; OPT-NEXT:  br_if        0, {{[^,]+}}{{$}}
+; OPT-NEXT:  br_if        0, $0{{$}}
 ; OPT-NOT:   block
 ; OPT:       br_if        2, {{[^,]+}}{{$}}
 ; OPT-NEXT:  .LBB20_3:

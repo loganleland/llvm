@@ -52,26 +52,29 @@ extern cl::opt<unsigned> ViewHotFreqPercent;
 namespace llvm {
 
 template <> struct GraphTraits<MachineBlockFrequencyInfo *> {
-  typedef const MachineBasicBlock *NodeRef;
+  typedef const MachineBasicBlock NodeType;
   typedef MachineBasicBlock::const_succ_iterator ChildIteratorType;
-  typedef pointer_iterator<MachineFunction::const_iterator> nodes_iterator;
+  typedef MachineFunction::const_iterator nodes_iterator;
 
-  static NodeRef getEntryNode(const MachineBlockFrequencyInfo *G) {
+  static inline const NodeType *
+  getEntryNode(const MachineBlockFrequencyInfo *G) {
     return &G->getFunction()->front();
   }
 
-  static ChildIteratorType child_begin(const NodeRef N) {
+  static ChildIteratorType child_begin(const NodeType *N) {
     return N->succ_begin();
   }
 
-  static ChildIteratorType child_end(const NodeRef N) { return N->succ_end(); }
+  static ChildIteratorType child_end(const NodeType *N) {
+    return N->succ_end();
+  }
 
   static nodes_iterator nodes_begin(const MachineBlockFrequencyInfo *G) {
-    return nodes_iterator(G->getFunction()->begin());
+    return G->getFunction()->begin();
   }
 
   static nodes_iterator nodes_end(const MachineBlockFrequencyInfo *G) {
-    return nodes_iterator(G->getFunction()->end());
+    return G->getFunction()->end();
   }
 };
 
@@ -170,12 +173,6 @@ Optional<uint64_t> MachineBlockFrequencyInfo::getBlockProfileCount(
     const MachineBasicBlock *MBB) const {
   const Function *F = MBFI->getFunction()->getFunction();
   return MBFI ? MBFI->getBlockProfileCount(*F, MBB) : None;
-}
-
-Optional<uint64_t>
-MachineBlockFrequencyInfo::getProfileCountFromFreq(uint64_t Freq) const {
-  const Function *F = MBFI->getFunction()->getFunction();
-  return MBFI ? MBFI->getProfileCountFromFreq(*F, Freq) : None;
 }
 
 const MachineFunction *MachineBlockFrequencyInfo::getFunction() const {

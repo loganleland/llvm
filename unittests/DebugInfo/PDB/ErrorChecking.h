@@ -36,14 +36,6 @@
     }                                                                          \
   }
 
-#define EXPECT_UNEXPECTED(Exp)                                                 \
-  {                                                                            \
-    auto E = Exp.takeError();                                                  \
-    EXPECT_TRUE(static_cast<bool>(E));                                         \
-    if (E) {                                                                   \
-      consumeError(std::move(E));                                              \
-      return;                                                                  \
-    }                                                                          \
-  }
+#define EXPECT_UNEXPECTED(Exp) EXPECT_ERROR(Err)
 
 #endif

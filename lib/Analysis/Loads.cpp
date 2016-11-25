@@ -55,10 +55,6 @@ static bool isDereferenceableAndAlignedPointer(
     const Value *V, unsigned Align, const APInt &Size, const DataLayout &DL,
     const Instruction *CtxI, const DominatorTree *DT,
     SmallPtrSetImpl<const Value *> &Visited) {
-  // Already visited?  Bail out, we've likely hit unreachable code.
-  if (!Visited.insert(V).second)
-    return false;
-
   // Note that it is not safe to speculate into a malloc'd region because
   // malloc may return null.
 
@@ -91,7 +87,8 @@ static bool isDereferenceableAndAlignedPointer(
     // then the GEP (== Base + Offset == k_0 * Align + k_1 * Align) is also
     // aligned to Align bytes.
 
-    return isDereferenceableAndAlignedPointer(Base, Align, Offset + Size, DL,
+    return Visited.insert(Base).second &&
+           isDereferenceableAndAlignedPointer(Base, Align, Offset + Size, DL,
                                               CtxI, DT, Visited);
   }
 
@@ -305,11 +302,11 @@ llvm::DefMaxInstsToScan("available-load-scan-limit", cl::init(6), cl::Hidden,
            "to scan backward from a given instruction, when searching for "
            "available loaded value"));
 
-Value *llvm::FindAvailableLoadedValue(LoadInst *Load,
-                                      BasicBlock *ScanBB,
+Value *llvm::FindAvailableLoadedValue(LoadInst *Load, BasicBlock *ScanBB,
                                       BasicBlock::iterator &ScanFrom,
                                       unsigned MaxInstsToScan,
-                                      AliasAnalysis *AA, bool *IsLoadCSE) {
+                                      AliasAnalysis *AA, AAMDNodes *AATags,
+                                      bool *IsLoadCSE) {
   if (MaxInstsToScan == 0)
     MaxInstsToScan = ~0U;
 
@@ -359,6 +356,8 @@ Value *llvm::FindAvailableLoadedValue(LoadInst *Load,
         if (LI->isAtomic() < Load->isAtomic())
           return nullptr;
 
+        if (AATags)
+          LI->getAAMetadata(*AATags);
         if (IsLoadCSE)
             *IsLoadCSE = true;
         return LI;
@@ -378,8 +377,8 @@ Value *llvm::FindAvailableLoadedValue(LoadInst *Load,
         if (SI->isAtomic() < Load->isAtomic())
           return nullptr;
 
-        if (IsLoadCSE)
-          *IsLoadCSE = false;
+        if (AATags)
+          SI->getAAMetadata(*AATags);
         return SI->getOperand(0);
       }
 

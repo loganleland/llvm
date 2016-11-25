@@ -11,26 +11,15 @@
 #define LLVM_LIB_TARGET_AMDGPU_AMDGPUMACHINEFUNCTION_H
 
 #include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/ADT/DenseMap.h"
+#include <map>
 
 namespace llvm {
 
 class AMDGPUMachineFunction : public MachineFunctionInfo {
-  /// A map to keep track of local memory objects and their offsets within the
-  /// local memory space.
-  SmallDenseMap<const GlobalValue *, unsigned, 4> LocalMemoryObjects;
-
   uint64_t KernArgSize;
   unsigned MaxKernArgAlign;
 
-  /// Number of bytes in the LDS that are being used.
-  unsigned LDSSize;
-
-  // FIXME: This should probably be removed.
-  /// Start of implicit kernel args
-  unsigned ABIArgOffset;
-
-  bool IsKernel;
+  virtual void anchor();
 
 public:
   AMDGPUMachineFunction(const MachineFunction &MF);
@@ -46,27 +35,19 @@ public:
     return Result;
   }
 
-  uint64_t getKernArgSize() const {
-    return KernArgSize;
-  }
+  /// A map to keep track of local memory objects and their offsets within
+  /// the local memory space.
+  std::map<const GlobalValue *, unsigned> LocalMemoryObjects;
+  /// Number of bytes in the LDS that are being used.
+  unsigned LDSSize;
 
-  void setABIArgOffset(unsigned NewOffset) {
-    ABIArgOffset = NewOffset;
-  }
+  /// Start of implicit kernel args
+  unsigned ABIArgOffset;
 
-  unsigned getABIArgOffset() const {
-    return ABIArgOffset;
-  }
+  bool isKernel() const;
 
-  unsigned getLDSSize() const {
-    return LDSSize;
-  }
-
-  bool isKernel() const {
-    return IsKernel;
-  }
-
-  unsigned allocateLDSGlobal(const DataLayout &DL, const GlobalValue &GV);
+  unsigned ScratchSize;
+  bool IsKernel;
 };
 
 }

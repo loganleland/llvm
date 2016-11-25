@@ -21,7 +21,6 @@
 #define LLVM_ADT_SETVECTOR_H
 
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
 #include <algorithm>
 #include <cassert>
@@ -144,7 +143,8 @@ public:
   /// \brief Remove an item from the set vector.
   bool remove(const value_type& X) {
     if (set_.erase(X)) {
-      typename vector_type::iterator I = find(vector_, X);
+      typename vector_type::iterator I =
+        std::find(vector_.begin(), vector_.end(), X);
       assert(I != vector_.end() && "Corrupted SetVector instances!");
       vector_.erase(I);
       return true;
@@ -176,7 +176,7 @@ public:
   /// write it:
   ///
   /// \code
-  ///   V.erase(remove_if(V, P), V.end());
+  ///   V.erase(std::remove_if(V.begin(), V.end(), P), V.end());
   /// \endcode
   ///
   /// However, SetVector doesn't expose non-const iterators, making any
@@ -185,8 +185,9 @@ public:
   /// \returns true if any element is removed.
   template <typename UnaryPredicate>
   bool remove_if(UnaryPredicate P) {
-    typename vector_type::iterator I =
-        llvm::remove_if(vector_, TestAndEraseFromSet<UnaryPredicate>(P, set_));
+    typename vector_type::iterator I
+      = std::remove_if(vector_.begin(), vector_.end(),
+                       TestAndEraseFromSet<UnaryPredicate>(P, set_));
     if (I == vector_.end())
       return false;
     vector_.erase(I, vector_.end());

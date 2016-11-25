@@ -32,7 +32,7 @@ class GlobalValue;
 class StringRef;
 class Triple;
 
-class AArch64Subtarget final : public AArch64GenSubtargetInfo {
+class AArch64Subtarget : public AArch64GenSubtargetInfo {
 public:
   enum ARMProcFamilyEnum : uint8_t {
     Others,
@@ -82,6 +82,7 @@ protected:
   bool UseAlternateSExtLoadCVTF32Pattern = false;
   bool HasMacroOpFusion = false;
   bool DisableLatencySchedHeuristic = false;
+  bool UseRSqrt = false;
   uint8_t MaxInterleaveFactor = 2;
   uint8_t VectorInsertExtractBaseCost = 3;
   uint16_t CacheLineSize = 0;
@@ -146,8 +147,6 @@ public:
     return &getInstrInfo()->getRegisterInfo();
   }
   const CallLowering *getCallLowering() const override;
-  const InstructionSelector *getInstructionSelector() const override;
-  const MachineLegalizer *getMachineLegalizer() const override;
   const RegisterBankInfo *getRegBankInfo() const override;
   const Triple &getTargetTriple() const { return TargetTriple; }
   bool enableMachineScheduler() const override { return true; }
@@ -190,6 +189,7 @@ public:
     return UseAlternateSExtLoadCVTF32Pattern;
   }
   bool hasMacroOpFusion() const { return HasMacroOpFusion; }
+  bool useRSqrt() const { return UseRSqrt; }
   unsigned getMaxInterleaveFactor() const { return MaxInterleaveFactor; }
   unsigned getVectorInsertExtractBaseCost() const {
     return VectorInsertExtractBaseCost;

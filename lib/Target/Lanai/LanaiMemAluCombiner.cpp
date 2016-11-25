@@ -69,7 +69,7 @@ public:
 
   MachineFunctionProperties getRequiredProperties() const override {
     return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::NoVRegs);
+        MachineFunctionProperties::Property::AllVRegsAllocated);
   }
 
 private:
@@ -338,9 +338,6 @@ MbbIterator LanaiMemAluCombiner::findClosestSuitableAluInstr(
 
   while (First != Last) {
     Decrement ? --First : ++First;
-
-    if (First == Last)
-      break;
 
     // Skip over debug instructions
     if (First->isDebugValue())

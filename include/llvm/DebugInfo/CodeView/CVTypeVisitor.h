@@ -10,7 +10,6 @@
 #ifndef LLVM_DEBUGINFO_CODEVIEW_CVTYPEVISITOR_H
 #define LLVM_DEBUGINFO_CODEVIEW_CVTYPEVISITOR_H
 
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/DebugInfo/CodeView/CVRecord.h"
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"
 #include "llvm/DebugInfo/CodeView/TypeVisitorCallbacks.h"
@@ -23,13 +22,16 @@ class CVTypeVisitor {
 public:
   explicit CVTypeVisitor(TypeVisitorCallbacks &Callbacks);
 
-  Error visitTypeRecord(CVType &Record);
-  Error visitMemberRecord(CVMemberRecord &Record);
+  Error visitTypeRecord(const CVRecord<TypeLeafKind> &Record);
 
   /// Visits the type records in Data. Sets the error flag on parse failures.
   Error visitTypeStream(const CVTypeArray &Types);
 
-  Error visitFieldListMemberStream(ArrayRef<uint8_t> FieldList);
+  Error skipPadding(ArrayRef<uint8_t> &Data);
+
+  /// Visits individual member records of a field list record. Member records do
+  /// not describe their own length, and need special handling.
+  Error visitFieldList(const CVRecord<TypeLeafKind> &Record);
 
 private:
   /// The interface to the class that gets notified of each visitation.

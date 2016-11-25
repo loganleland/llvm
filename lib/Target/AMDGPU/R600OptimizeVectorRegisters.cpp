@@ -200,10 +200,12 @@ MachineInstr *R600VectorRegMerger::RebuildVector(
         .addReg(SubReg)
         .addImm(Chan);
     UpdatedRegToChan[SubReg] = Chan;
-    std::vector<unsigned>::iterator ChanPos = find(UpdatedUndef, Chan);
+    std::vector<unsigned>::iterator ChanPos =
+        std::find(UpdatedUndef.begin(), UpdatedUndef.end(), Chan);
     if (ChanPos != UpdatedUndef.end())
       UpdatedUndef.erase(ChanPos);
-    assert(!is_contained(UpdatedUndef, Chan) &&
+    assert(std::find(UpdatedUndef.begin(), UpdatedUndef.end(), Chan) ==
+               UpdatedUndef.end() &&
            "UpdatedUndef shouldn't contain Chan more than once!");
     DEBUG(dbgs() << "    ->"; Tmp->dump(););
     (void)Tmp;
@@ -234,12 +236,12 @@ void R600VectorRegMerger::RemoveMI(MachineInstr *MI) {
   for (InstructionSetMap::iterator It = PreviousRegSeqByReg.begin(),
       E = PreviousRegSeqByReg.end(); It != E; ++It) {
     std::vector<MachineInstr *> &MIs = (*It).second;
-    MIs.erase(find(MIs, MI), MIs.end());
+    MIs.erase(std::find(MIs.begin(), MIs.end(), MI), MIs.end());
   }
   for (InstructionSetMap::iterator It = PreviousRegSeqByUndefCount.begin(),
       E = PreviousRegSeqByUndefCount.end(); It != E; ++It) {
     std::vector<MachineInstr *> &MIs = (*It).second;
-    MIs.erase(find(MIs, MI), MIs.end());
+    MIs.erase(std::find(MIs.begin(), MIs.end(), MI), MIs.end());
   }
 }
 

@@ -41,16 +41,14 @@ namespace {
       initializePPCBSelPass(*PassRegistry::getPassRegistry());
     }
 
-    // The sizes of the basic blocks in the function (the first
-    // element of the pair); the second element of the pair is the amount of the
-    // size that is due to potential padding.
-    std::vector<std::pair<unsigned, unsigned>> BlockSizes;
+    /// BlockSizes - The sizes of the basic blocks in the function.
+    std::vector<unsigned> BlockSizes;
 
     bool runOnMachineFunction(MachineFunction &Fn) override;
 
     MachineFunctionProperties getRequiredProperties() const override {
       return MachineFunctionProperties().set(
-          MachineFunctionProperties::Property::NoVRegs);
+          MachineFunctionProperties::Property::AllVRegsAllocated);
     }
 
     const char *getPassName() const override {
@@ -104,19 +102,15 @@ bool PPCBSel::runOnMachineFunction(MachineFunction &Fn) {
     // alignment requirement.
     if (MBB->getNumber() > 0) {
       unsigned AlignExtra = GetAlignmentAdjustment(*MBB, FuncSize);
-
-      auto &BS = BlockSizes[MBB->getNumber()-1];
-      BS.first += AlignExtra;
-      BS.second = AlignExtra;
-
+      BlockSizes[MBB->getNumber()-1] += AlignExtra;
       FuncSize += AlignExtra;
     }
 
     unsigned BlockSize = 0;
     for (MachineInstr &MI : *MBB)
-      BlockSize += TII->getInstSizeInBytes(MI);
+      BlockSize += TII->GetInstSizeInBytes(MI);
 
-    BlockSizes[MBB->getNumber()].first = BlockSize;
+    BlockSizes[MBB->getNumber()] = BlockSize;
     FuncSize += BlockSize;
   }
   
@@ -161,7 +155,7 @@ bool PPCBSel::runOnMachineFunction(MachineFunction &Fn) {
           Dest = I->getOperand(0).getMBB();
 
         if (!Dest) {
-          MBBStartOffset += TII->getInstSizeInBytes(*I);
+          MBBStartOffset += TII->GetInstSizeInBytes(*I);
           continue;
         }
         
@@ -175,14 +169,14 @@ bool PPCBSel::runOnMachineFunction(MachineFunction &Fn) {
           BranchSize = MBBStartOffset;
           
           for (unsigned i = Dest->getNumber(), e = MBB.getNumber(); i != e; ++i)
-            BranchSize += BlockSizes[i].first;
+            BranchSize += BlockSizes[i];
         } else {
           // Otherwise, add the size of the blocks between this block and the
           // dest to the number of bytes left in this block.
           BranchSize = -MBBStartOffset;
 
           for (unsigned i = MBB.getNumber(), e = Dest->getNumber(); i != e; ++i)
-            BranchSize += BlockSizes[i].first;
+            BranchSize += BlockSizes[i];
         }
 
         // If this branch is in range, ignore it.
@@ -192,9 +186,9 @@ bool PPCBSel::runOnMachineFunction(MachineFunction &Fn) {
         }
 
         // Otherwise, we have to expand it to a long branch.
-        MachineInstr &OldBranch = *I;
-        DebugLoc dl = OldBranch.getDebugLoc();
-
+        MachineInstr *OldBranch = I;
+        DebugLoc dl = OldBranch->getDebugLoc();
+ 
         if (I->getOpcode() == PPC::BCC) {
           // The BCC operands are:
           // 0. PPC branch predicate
@@ -228,42 +222,16 @@ bool PPCBSel::runOnMachineFunction(MachineFunction &Fn) {
         I = BuildMI(MBB, I, dl, TII->get(PPC::B)).addMBB(Dest);
 
         // Remove the old branch from the function.
-        OldBranch.eraseFromParent();
-
+        OldBranch->eraseFromParent();
+        
         // Remember that this instruction is 8-bytes, increase the size of the
         // block by 4, remember to iterate.
-        BlockSizes[MBB.getNumber()].first += 4;
+        BlockSizes[MBB.getNumber()] += 4;
         MBBStartOffset += 8;
         ++NumExpanded;
         MadeChange = true;
       }
     }
-
-    if (MadeChange) {
-      // If we're going to iterate again, make sure we've updated our
-      // padding-based contributions to the block sizes.
-      unsigned Offset = 0;
-      for (MachineFunction::iterator MFI = Fn.begin(), E = Fn.end(); MFI != E;
-           ++MFI) {
-        MachineBasicBlock *MBB = &*MFI;
-
-        if (MBB->getNumber() > 0) {
-          auto &BS = BlockSizes[MBB->getNumber()-1];
-          BS.first -= BS.second;
-          Offset -= BS.second;
-
-          unsigned AlignExtra = GetAlignmentAdjustment(*MBB, Offset);
-
-          BS.first += AlignExtra;
-          BS.second = AlignExtra;
-
-          Offset += AlignExtra;
-        }
-
-        Offset += BlockSizes[MBB->getNumber()].first;
-      }
-    }
-
     EverMadeChange |= MadeChange;
   }
   

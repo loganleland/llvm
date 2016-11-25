@@ -1,4 +1,4 @@
-; RUN: llc -verify-machineinstrs < %s -mtriple=powerpc-apple-darwin
+; RUN: llc < %s -mtriple=powerpc-apple-darwin
 
 declare i8* @bar(i32)
 

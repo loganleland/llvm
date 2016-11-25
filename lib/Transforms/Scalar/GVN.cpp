@@ -583,7 +583,7 @@ void GVN::ValueTable::verifyRemoved(const Value *V) const {
 //                                GVN Pass
 //===----------------------------------------------------------------------===//
 
-PreservedAnalyses GVN::run(Function &F, FunctionAnalysisManager &AM) {
+PreservedAnalyses GVN::run(Function &F, AnalysisManager<Function> &AM) {
   // FIXME: The order of evaluation of these 'getResult' calls is very
   // significant! Re-ordering these variables will cause GVN when run alone to
   // be less effective! We should fix memdep and basic-aa to not exhibit this
@@ -725,9 +725,8 @@ static Value *CoerceAvailableValueToLoadType(Value *StoredVal, Type *LoadedTy,
   assert(CanCoerceMustAliasedValueToLoad(StoredVal, LoadedTy, DL) &&
          "precondition violation - materialization can't fail");
 
-  if (auto *C = dyn_cast<Constant>(StoredVal))
-    if (auto *FoldedStoredVal = ConstantFoldConstant(C, DL))
-      StoredVal = FoldedStoredVal;
+  if (auto *CExpr = dyn_cast<ConstantExpr>(StoredVal))
+    StoredVal = ConstantFoldConstantExpression(CExpr, DL);
 
   // If this is already the right type, just return it.
   Type *StoredValTy = StoredVal->getType();
@@ -760,9 +759,8 @@ static Value *CoerceAvailableValueToLoadType(Value *StoredVal, Type *LoadedTy,
         StoredVal = IRB.CreateIntToPtr(StoredVal, LoadedTy);
     }
 
-    if (auto *C = dyn_cast<ConstantExpr>(StoredVal))
-      if (auto *FoldedStoredVal = ConstantFoldConstant(C, DL))
-        StoredVal = FoldedStoredVal;
+    if (auto *CExpr = dyn_cast<ConstantExpr>(StoredVal))
+      StoredVal = ConstantFoldConstantExpression(CExpr, DL);
 
     return StoredVal;
   }
@@ -806,9 +804,8 @@ static Value *CoerceAvailableValueToLoadType(Value *StoredVal, Type *LoadedTy,
       StoredVal = IRB.CreateBitCast(StoredVal, LoadedTy, "bitcast");
   }
 
-  if (auto *C = dyn_cast<Constant>(StoredVal))
-    if (auto *FoldedStoredVal = ConstantFoldConstant(C, DL))
-      StoredVal = FoldedStoredVal;
+  if (auto *CExpr = dyn_cast<ConstantExpr>(StoredVal))
+    StoredVal = ConstantFoldConstantExpression(CExpr, DL);
 
   return StoredVal;
 }

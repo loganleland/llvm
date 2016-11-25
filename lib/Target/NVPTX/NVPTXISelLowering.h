@@ -539,8 +539,7 @@ private:
   SDValue PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const override;
 
   unsigned getArgumentAlignment(SDValue Callee, const ImmutableCallSite *CS,
-                                Type *Ty, unsigned Idx,
-                                const DataLayout &DL) const;
+                                Type *Ty, unsigned Idx) const;
 };
 } // namespace llvm
 

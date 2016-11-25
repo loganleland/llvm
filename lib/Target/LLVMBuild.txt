@@ -28,6 +28,7 @@ subdirectories =
  Hexagon
  MSP430
  NVPTX
+ NOPE
  Mips
  PowerPC
  Sparc

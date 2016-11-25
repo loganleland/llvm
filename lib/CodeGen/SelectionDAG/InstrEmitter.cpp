@@ -330,22 +330,16 @@ InstrEmitter::AddRegisterOperand(MachineInstrBuilder &MIB,
   // shrink VReg's register class within reason.  For example, if VReg == GR32
   // and II requires a GR32_NOSP, just constrain VReg to GR32_NOSP.
   if (II) {
-    const TargetRegisterClass *OpRC = nullptr;
+    const TargetRegisterClass *DstRC = nullptr;
     if (IIOpNum < II->getNumOperands())
-      OpRC = TII->getRegClass(*II, IIOpNum, TRI, *MF);
-
-    if (OpRC) {
-      const TargetRegisterClass *ConstrainedRC
-        = MRI->constrainRegClass(VReg, OpRC, MinRCSize);
-      if (!ConstrainedRC) {
-        unsigned NewVReg = MRI->createVirtualRegister(OpRC);
-        BuildMI(*MBB, InsertPos, Op.getNode()->getDebugLoc(),
-                TII->get(TargetOpcode::COPY), NewVReg).addReg(VReg);
-        VReg = NewVReg;
-      } else {
-        assert(ConstrainedRC->isAllocatable() &&
-           "Constraining an allocatable VReg produced an unallocatable class?");
-      }
+      DstRC = TRI->getAllocatableClass(TII->getRegClass(*II,IIOpNum,TRI,*MF));
+    assert((!DstRC || TargetRegisterInfo::isVirtualRegister(VReg)) &&
+           "Expected VReg");
+    if (DstRC && !MRI->constrainRegClass(VReg, DstRC, MinRCSize)) {
+      unsigned NewVReg = MRI->createVirtualRegister(DstRC);
+      BuildMI(*MBB, InsertPos, Op.getNode()->getDebugLoc(),
+              TII->get(TargetOpcode::COPY), NewVReg).addReg(VReg);
+      VReg = NewVReg;
     }
   }
 

@@ -7,10 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines a 'dot-cfg' analysis pass, which emits the
-// cfg.<fnname>.dot file for each function in the program, with a graph of the
-// CFG for that function.
-//
 // This file defines external functions that can be called to explicitly
 // instantiate the CFG printer.
 //
@@ -23,34 +19,9 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/Support/GraphWriter.h"
 
 namespace llvm {
-class CFGViewerPass
-    : public PassInfoMixin<CFGViewerPass> {
-public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-};
-
-class CFGOnlyViewerPass
-    : public PassInfoMixin<CFGOnlyViewerPass> {
-public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-};
-
-class CFGPrinterPass
-    : public PassInfoMixin<CFGPrinterPass> {
-public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-};
-
-class CFGOnlyPrinterPass
-    : public PassInfoMixin<CFGOnlyPrinterPass> {
-public:
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
-};
-
 template<>
 struct DOTGraphTraits<const Function*> : public DefaultDOTGraphTraits {
 
@@ -147,42 +118,13 @@ struct DOTGraphTraits<const Function*> : public DefaultDOTGraphTraits {
     }
     return "";
   }
-
-  /// Display the raw branch weights from PGO.
-  std::string getEdgeAttributes(const BasicBlock *Node, succ_const_iterator I,
-                                const Function *F) {
-    const TerminatorInst *TI = Node->getTerminator();
-    if (TI->getNumSuccessors() == 1)
-      return "";
-
-    MDNode *WeightsNode = TI->getMetadata(LLVMContext::MD_prof);
-    if (!WeightsNode)
-      return "";
-
-    MDString *MDName = cast<MDString>(WeightsNode->getOperand(0));
-    if (MDName->getString() != "branch_weights")
-      return "";
-
-    unsigned OpNo = I.getSuccessorIndex() + 1;
-    if (OpNo >= WeightsNode->getNumOperands())
-      return "";
-    ConstantInt *Weight =
-        mdconst::dyn_extract<ConstantInt>(WeightsNode->getOperand(OpNo));
-    if (!Weight)
-      return "";
-
-    // Prepend a 'W' to indicate that this is a weight rather than the actual
-    // profile count (due to scaling).
-    Twine Attrs = "label=\"W:" + Twine(Weight->getZExtValue()) + "\"";
-    return Attrs.str();
-  }
 };
 } // End llvm namespace
 
 namespace llvm {
   class FunctionPass;
-  FunctionPass *createCFGPrinterLegacyPassPass ();
-  FunctionPass *createCFGOnlyPrinterLegacyPassPass ();
+  FunctionPass *createCFGPrinterPass ();
+  FunctionPass *createCFGOnlyPrinterPass ();
 } // End llvm namespace
 
 #endif

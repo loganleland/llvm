@@ -11,9 +11,7 @@
 
 #include <cstring>
 
-#include "FuzzerDefs.h"
-#include "FuzzerMutate.h"
-#include "FuzzerRandom.h"
+#include "FuzzerInternal.h"
 
 namespace fuzzer {
 

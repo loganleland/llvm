@@ -334,11 +334,6 @@ public:
   /// Perform register allocation.
   bool runOnMachineFunction(MachineFunction &mf) override;
 
-  MachineFunctionProperties getRequiredProperties() const override {
-    return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::NoPHIs);
-  }
-
   static char ID;
 
 private:
@@ -2108,10 +2103,6 @@ unsigned RAGreedy::tryLastChanceRecoloring(LiveInterval &VirtReg,
   // Mark VirtReg as fixed, i.e., it will not be recolored pass this point in
   // this recoloring "session".
   FixedRegisters.insert(VirtReg.reg);
-  // Remember the ID of the last vreg in case the recoloring fails.
-  unsigned LastVReg =
-      TargetRegisterInfo::index2VirtReg(MRI->getNumVirtRegs() - 1);
-  SmallVector<unsigned, 4> CurrentNewVRegs;
 
   Order.rewind();
   while (unsigned PhysReg = Order.next()) {
@@ -2119,7 +2110,6 @@ unsigned RAGreedy::tryLastChanceRecoloring(LiveInterval &VirtReg,
                  << PrintReg(PhysReg, TRI) << '\n');
     RecoloringCandidates.clear();
     VirtRegToPhysReg.clear();
-    CurrentNewVRegs.clear();
 
     // It is only possible to recolor virtual register interference.
     if (Matrix->checkInterference(VirtReg, PhysReg) >
@@ -2164,11 +2154,8 @@ unsigned RAGreedy::tryLastChanceRecoloring(LiveInterval &VirtReg,
     // If we cannot recolor all the interferences, we will have to start again
     // at this point for the next physical register.
     SmallVirtRegSet SaveFixedRegisters(FixedRegisters);
-    if (tryRecoloringCandidates(RecoloringQueue, CurrentNewVRegs,
-                                FixedRegisters, Depth)) {
-      // Push the queued vregs into the main queue.
-      for (unsigned NewVReg : CurrentNewVRegs)
-        NewVRegs.push_back(NewVReg);
+    if (tryRecoloringCandidates(RecoloringQueue, NewVRegs, FixedRegisters,
+                                Depth)) {
       // Do not mess up with the global assignment process.
       // I.e., VirtReg must be unassigned.
       Matrix->unassign(VirtReg);
@@ -2181,18 +2168,6 @@ unsigned RAGreedy::tryLastChanceRecoloring(LiveInterval &VirtReg,
     // The recoloring attempt failed, undo the changes.
     FixedRegisters = SaveFixedRegisters;
     Matrix->unassign(VirtReg);
-
-    // When we move a register from RS_Assign to RS_Split, we do not
-    // actually do anything with it. I.e., it should not end up in NewVRegs.
-    // For the other cases, since we created new live-ranges, we need to
-    // process them.
-    for (SmallVectorImpl<unsigned>::iterator Next = CurrentNewVRegs.begin(),
-                                             End = CurrentNewVRegs.end();
-         Next != End; ++Next) {
-      if (*Next <= LastVReg && getStage(LIS->getInterval(*Next)) == RS_Split)
-        continue;
-      NewVRegs.push_back(*Next);
-    }
 
     for (SmallLISet::iterator It = RecoloringCandidates.begin(),
                               EndIt = RecoloringCandidates.end();
@@ -2544,7 +2519,7 @@ unsigned RAGreedy::selectOrSplitImpl(LiveInterval &VirtReg,
       return PhysReg;
     }
 
-  assert((NewVRegs.empty() || Depth) && "Cannot append to existing NewVRegs");
+  assert(NewVRegs.empty() && "Cannot append to existing NewVRegs");
 
   // The first time we see a live range, don't try to split or spill.
   // Wait until the second time, when all smaller ranges have been allocated.
@@ -2563,9 +2538,8 @@ unsigned RAGreedy::selectOrSplitImpl(LiveInterval &VirtReg,
                                    Depth);
 
   // Try splitting VirtReg or interferences.
-  unsigned NewVRegSizeBefore = NewVRegs.size();
   unsigned PhysReg = trySplit(VirtReg, Order, NewVRegs);
-  if (PhysReg || (NewVRegs.size() - NewVRegSizeBefore))
+  if (PhysReg || !NewVRegs.empty())
     return PhysReg;
 
   // Finally spill VirtReg itself.

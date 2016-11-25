@@ -15,7 +15,6 @@
 #define LLVM_OBJECT_COFF_H
 
 #include "llvm/ADT/PointerUnion.h"
-#include "llvm/DebugInfo/CodeView/CVDebugRecord.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/COFF.h"
 #include "llvm/Support/Endian.h"
@@ -162,6 +161,14 @@ struct data_directory {
   support::ulittle32_t Size;
 };
 
+struct import_directory_table_entry {
+  support::ulittle32_t ImportLookupTableRVA;
+  support::ulittle32_t TimeDateStamp;
+  support::ulittle32_t ForwarderChain;
+  support::ulittle32_t NameRVA;
+  support::ulittle32_t ImportAddressTableRVA;
+};
+
 struct debug_directory {
   support::ulittle32_t Characteristics;
   support::ulittle32_t TimeDateStamp;
@@ -171,6 +178,15 @@ struct debug_directory {
   support::ulittle32_t SizeOfData;
   support::ulittle32_t AddressOfRawData;
   support::ulittle32_t PointerToRawData;
+};
+
+/// Information that is resent in debug_directory::AddressOfRawData if Type is
+/// IMAGE_DEBUG_TYPE_CODEVIEW.
+struct debug_pdb_info {
+  support::ulittle32_t Signature;
+  uint8_t Guid[16];
+  support::ulittle32_t Age;
+  // PDBFileName: The null-terminated PDB file name follows.
 };
 
 template <typename IntTy>
@@ -518,10 +534,6 @@ struct coff_import_directory_table_entry {
   support::ulittle32_t ForwarderChain;
   support::ulittle32_t NameRVA;
   support::ulittle32_t ImportAddressTableRVA;
-  bool isNull() const {
-    return ImportLookupTableRVA == 0 && TimeDateStamp == 0 &&
-           ForwarderChain == 0 && NameRVA == 0 && ImportAddressTableRVA == 0;
-  }
 };
 
 template <typename IntTy>
@@ -621,7 +633,7 @@ private:
   const coff_symbol32 *SymbolTable32;
   const char *StringTable;
   uint32_t StringTableSize;
-  const coff_import_directory_table_entry *ImportDirectory;
+  const import_directory_table_entry *ImportDirectory;
   const delay_import_directory_table_entry *DelayImportDirectory;
   uint32_t NumberOfDelayImportDirectory;
   const export_directory_table_entry *ExportDirectory;
@@ -699,17 +711,12 @@ public:
       return COFFBigObjHeader->PointerToSymbolTable;
     llvm_unreachable("no COFF header!");
   }
-  uint32_t getRawNumberOfSymbols() const {
+  uint32_t getNumberOfSymbols() const {
     if (COFFHeader)
       return COFFHeader->isImportLibrary() ? 0 : COFFHeader->NumberOfSymbols;
     if (COFFBigObjHeader)
       return COFFBigObjHeader->NumberOfSymbols;
     llvm_unreachable("no COFF header!");
-  }
-  uint32_t getNumberOfSymbols() const {
-    if (!SymbolTable16 && !SymbolTable32)
-      return 0;
-    return getRawNumberOfSymbols();
   }
 protected:
   void moveSymbolNext(DataRefImpl &Symb) const override;
@@ -865,14 +872,14 @@ public:
 
   /// Get PDB information out of a codeview debug directory entry.
   std::error_code getDebugPDBInfo(const debug_directory *DebugDir,
-                                  const codeview::DebugInfo *&Info,
+                                  const debug_pdb_info *&Info,
                                   StringRef &PDBFileName) const;
 
   /// Get PDB information from an executable. If the information is not present,
   /// Info will be set to nullptr and PDBFileName will be empty. An error is
   /// returned only on corrupt object files. Convenience accessor that can be
   /// used if the debug directory is not already handy.
-  std::error_code getDebugPDBInfo(const codeview::DebugInfo *&Info,
+  std::error_code getDebugPDBInfo(const debug_pdb_info *&Info,
                                   StringRef &PDBFileName) const;
 
   bool isRelocatableObject() const override;
@@ -885,8 +892,8 @@ public:
 class ImportDirectoryEntryRef {
 public:
   ImportDirectoryEntryRef() : OwningObject(nullptr) {}
-  ImportDirectoryEntryRef(const coff_import_directory_table_entry *Table,
-                          uint32_t I, const COFFObjectFile *Owner)
+  ImportDirectoryEntryRef(const import_directory_table_entry *Table, uint32_t I,
+                          const COFFObjectFile *Owner)
       : ImportTable(Table), Index(I), OwningObject(Owner) {}
 
   bool operator==(const ImportDirectoryEntryRef &Other) const;
@@ -896,19 +903,15 @@ public:
   imported_symbol_iterator imported_symbol_end() const;
   iterator_range<imported_symbol_iterator> imported_symbols() const;
 
-  imported_symbol_iterator lookup_table_begin() const;
-  imported_symbol_iterator lookup_table_end() const;
-  iterator_range<imported_symbol_iterator> lookup_table_symbols() const;
-
   std::error_code getName(StringRef &Result) const;
   std::error_code getImportLookupTableRVA(uint32_t &Result) const;
   std::error_code getImportAddressTableRVA(uint32_t &Result) const;
 
   std::error_code
-  getImportTableEntry(const coff_import_directory_table_entry *&Result) const;
+  getImportTableEntry(const import_directory_table_entry *&Result) const;
 
 private:
-  const coff_import_directory_table_entry *ImportTable;
+  const import_directory_table_entry *ImportTable;
   uint32_t Index;
   const COFFObjectFile *OwningObject;
 };

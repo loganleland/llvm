@@ -320,12 +320,12 @@ R600InstrInfo::ExtractSrcs(MachineInstr &MI,
                            const DenseMap<unsigned, unsigned> &PV,
                            unsigned &ConstCount) const {
   ConstCount = 0;
+  ArrayRef<std::pair<MachineOperand *, int64_t>> Srcs = getSrcs(MI);
   const std::pair<int, unsigned> DummyPair(-1, 0);
   std::vector<std::pair<int, unsigned> > Result;
   unsigned i = 0;
-  for (const auto &Src : getSrcs(MI)) {
-    ++i;
-    unsigned Reg = Src.first->getReg();
+  for (unsigned n = Srcs.size(); i < n; ++i) {
+    unsigned Reg = Srcs[i].first->getReg();
     int Index = RI.getEncodingValue(Reg) & 0xff;
     if (Reg == AMDGPU::OQAP) {
       Result.push_back(std::make_pair(Index, 0U));
@@ -592,7 +592,9 @@ R600InstrInfo::fitsConstReadLimitations(const std::vector<MachineInstr *> &MIs)
     if (!isALUInstr(MI.getOpcode()))
       continue;
 
-    for (const auto &Src : getSrcs(MI)) {
+    ArrayRef<std::pair<MachineOperand *, int64_t>> Srcs = getSrcs(MI);
+
+    for (const auto &Src:Srcs) {
       if (Src.first->getReg() == AMDGPU::ALU_LITERAL_X)
         Literals.insert(Src.second);
       if (Literals.size() > 4)
@@ -665,7 +667,7 @@ bool R600InstrInfo::analyzeBranch(MachineBasicBlock &MBB,
   // handled
   if (isBranch(I->getOpcode()))
     return true;
-  if (!isJump(I->getOpcode())) {
+  if (!isJump(static_cast<MachineInstr *>(I)->getOpcode())) {
     return false;
   }
 
@@ -680,7 +682,8 @@ bool R600InstrInfo::analyzeBranch(MachineBasicBlock &MBB,
 
   // If there is only one terminator instruction, process it.
   unsigned LastOpc = LastInst.getOpcode();
-  if (I == MBB.begin() || !isJump((--I)->getOpcode())) {
+  if (I == MBB.begin() ||
+          !isJump(static_cast<MachineInstr *>(--I)->getOpcode())) {
     if (LastOpc == AMDGPU::JUMP) {
       TBB = LastInst.getOperand(0).getMBB();
       return false;
@@ -726,19 +729,17 @@ MachineBasicBlock::iterator FindLastAluClause(MachineBasicBlock &MBB) {
       It != E; ++It) {
     if (It->getOpcode() == AMDGPU::CF_ALU ||
         It->getOpcode() == AMDGPU::CF_ALU_PUSH_BEFORE)
-      return It.getReverse();
+      return std::prev(It.base());
   }
   return MBB.end();
 }
 
-unsigned R600InstrInfo::insertBranch(MachineBasicBlock &MBB,
+unsigned R600InstrInfo::InsertBranch(MachineBasicBlock &MBB,
                                      MachineBasicBlock *TBB,
                                      MachineBasicBlock *FBB,
                                      ArrayRef<MachineOperand> Cond,
-                                     const DebugLoc &DL,
-                                     int *BytesAdded) const {
-  assert(TBB && "insertBranch must not be told to insert a fallthrough");
-  assert(!BytesAdded && "code size not handled");
+                                     const DebugLoc &DL) const {
+  assert(TBB && "InsertBranch must not be told to insert a fallthrough");
 
   if (!FBB) {
     if (Cond.empty()) {
@@ -778,9 +779,8 @@ unsigned R600InstrInfo::insertBranch(MachineBasicBlock &MBB,
   }
 }
 
-unsigned R600InstrInfo::removeBranch(MachineBasicBlock &MBB,
-                                     int *BytesRemoved) const {
-    assert(!BytesRemoved && "code size not handled");
+unsigned
+R600InstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
 
   // Note : we leave PRED* instructions there.
   // They may be needed when predicating instructions.
@@ -910,20 +910,20 @@ R600InstrInfo::isProfitableToUnpredicate(MachineBasicBlock &TMBB,
 
 
 bool
-R600InstrInfo::reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
+R600InstrInfo::ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
   MachineOperand &MO = Cond[1];
   switch (MO.getImm()) {
-  case AMDGPU::PRED_SETE_INT:
-    MO.setImm(AMDGPU::PRED_SETNE_INT);
+  case OPCODE_IS_ZERO_INT:
+    MO.setImm(OPCODE_IS_NOT_ZERO_INT);
     break;
-  case AMDGPU::PRED_SETNE_INT:
-    MO.setImm(AMDGPU::PRED_SETE_INT);
+  case OPCODE_IS_NOT_ZERO_INT:
+    MO.setImm(OPCODE_IS_ZERO_INT);
     break;
-  case AMDGPU::PRED_SETE:
-    MO.setImm(AMDGPU::PRED_SETNE);
+  case OPCODE_IS_ZERO:
+    MO.setImm(OPCODE_IS_NOT_ZERO);
     break;
-  case AMDGPU::PRED_SETNE:
-    MO.setImm(AMDGPU::PRED_SETE);
+  case OPCODE_IS_NOT_ZERO:
+    MO.setImm(OPCODE_IS_ZERO);
     break;
   default:
     return true;
@@ -1160,10 +1160,10 @@ MachineInstrBuilder R600InstrInfo::buildIndirectRead(MachineBasicBlock *MBB,
 
 int R600InstrInfo::getIndirectIndexBegin(const MachineFunction &MF) const {
   const MachineRegisterInfo &MRI = MF.getRegInfo();
-  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  const MachineFrameInfo *MFI = MF.getFrameInfo();
   int Offset = -1;
 
-  if (MFI.getNumObjects() == 0) {
+  if (MFI->getNumObjects() == 0) {
     return -1;
   }
 
@@ -1195,14 +1195,14 @@ int R600InstrInfo::getIndirectIndexBegin(const MachineFunction &MF) const {
 
 int R600InstrInfo::getIndirectIndexEnd(const MachineFunction &MF) const {
   int Offset = 0;
-  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  const MachineFrameInfo *MFI = MF.getFrameInfo();
 
   // Variable sized objects are not supported
-  if (MFI.hasVarSizedObjects()) {
+  if (MFI->hasVarSizedObjects()) {
     return -1;
   }
 
-  if (MFI.getNumObjects() == 0) {
+  if (MFI->getNumObjects() == 0) {
     return -1;
   }
 
@@ -1480,4 +1480,12 @@ void R600InstrInfo::clearFlag(MachineInstr &MI, unsigned Operand,
     InstFlags &= ~(Flag << (NUM_MO_FLAGS * Operand));
     FlagOp.setImm(InstFlags);
   }
+}
+
+bool R600InstrInfo::isRegisterStore(const MachineInstr &MI) const {
+  return get(MI.getOpcode()).TSFlags & AMDGPU_FLAG_REGISTER_STORE;
+}
+
+bool R600InstrInfo::isRegisterLoad(const MachineInstr &MI) const {
+  return get(MI.getOpcode()).TSFlags & AMDGPU_FLAG_REGISTER_LOAD;
 }

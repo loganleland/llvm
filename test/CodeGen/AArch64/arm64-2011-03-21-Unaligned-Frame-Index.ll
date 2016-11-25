@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=arm64-eabi | FileCheck %s
+; RUN: llc < %s -march=arm64 | FileCheck %s
 define void @foo(i64 %val) {
 ; CHECK: foo
 ;   The stack frame store is not 64-bit aligned. Make sure we use an

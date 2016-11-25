@@ -329,7 +329,7 @@ MachineInstr *SSACCmpConv::findConvertibleCompare(MachineBasicBlock *MBB) {
         ++NumImmRangeRejs;
         return nullptr;
       }
-      LLVM_FALLTHROUGH;
+    // Fall through.
     case AArch64::SUBSWrr:
     case AArch64::SUBSXrr:
     case AArch64::ADDSWrr:
@@ -568,7 +568,7 @@ void SSACCmpConv::convert(SmallVectorImpl<MachineBasicBlock *> &RemovedBlocks) {
   CmpBB->removeSuccessor(Tail, true);
   Head->transferSuccessorsAndUpdatePHIs(CmpBB);
   DebugLoc TermDL = Head->getFirstTerminator()->getDebugLoc();
-  TII->removeBranch(*Head);
+  TII->RemoveBranch(*Head);
 
   // If the Head terminator was one of the cbz / tbz branches with built-in
   // compare, we need to insert an explicit compare instruction in its place.
@@ -732,9 +732,7 @@ class AArch64ConditionalCompares : public MachineFunctionPass {
 
 public:
   static char ID;
-  AArch64ConditionalCompares() : MachineFunctionPass(ID) {
-    initializeAArch64ConditionalComparesPass(*PassRegistry::getPassRegistry());
-  }
+  AArch64ConditionalCompares() : MachineFunctionPass(ID) {}
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   bool runOnMachineFunction(MachineFunction &MF) override;
   const char *getPassName() const override {
@@ -751,6 +749,10 @@ private:
 } // end anonymous namespace
 
 char AArch64ConditionalCompares::ID = 0;
+
+namespace llvm {
+void initializeAArch64ConditionalComparesPass(PassRegistry &);
+}
 
 INITIALIZE_PASS_BEGIN(AArch64ConditionalCompares, "aarch64-ccmp",
                       "AArch64 CCMP Pass", false, false)

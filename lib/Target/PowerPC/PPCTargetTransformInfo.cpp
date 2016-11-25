@@ -131,12 +131,12 @@ int PPCTTIImpl::getIntImmCost(unsigned Opcode, unsigned Idx, const APInt &Imm,
     return TTI::TCC_Free;
   case Instruction::And:
     RunFree = true; // (for the rotate-and-mask instructions)
-    LLVM_FALLTHROUGH;
+    // Fallthrough...
   case Instruction::Add:
   case Instruction::Or:
   case Instruction::Xor:
     ShiftedFree = true;
-    LLVM_FALLTHROUGH;
+    // Fallthrough...
   case Instruction::Sub:
   case Instruction::Mul:
   case Instruction::Shl:
@@ -147,8 +147,7 @@ int PPCTTIImpl::getIntImmCost(unsigned Opcode, unsigned Idx, const APInt &Imm,
   case Instruction::ICmp:
     UnsignedFree = true;
     ImmIdx = 1;
-    // Zero comparisons can use record-form instructions.
-    LLVM_FALLTHROUGH;
+    // Fallthrough... (zero comparisons can use record-form instructions)
   case Instruction::Select:
     ZeroFree = true;
     break;

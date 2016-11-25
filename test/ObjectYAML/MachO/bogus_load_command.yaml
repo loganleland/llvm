@@ -49,4 +49,3 @@ LoadCommands:
 #CHECK:       - 0x0A
 #CHECK:       - 0x0B
 #CHECK:       - 0x0C
-#CHECK-NOT: LinkEditData:

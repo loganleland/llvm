@@ -14,6 +14,8 @@
 
 using namespace llvm;
 
+class MCExpr;
+
 unsigned AddressPool::getIndex(const MCSymbol *Sym, bool TLS) {
   HasBeenUsed = true;
   auto IterBool =

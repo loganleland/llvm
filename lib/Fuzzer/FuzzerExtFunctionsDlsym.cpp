@@ -11,7 +11,7 @@
 // requires that clients of LibFuzzer pass ``--export-dynamic`` to the linker.
 // That is a complication we don't wish to expose to clients right now.
 //===----------------------------------------------------------------------===//
-#include "FuzzerDefs.h"
+#include "FuzzerInternal.h"
 #if LIBFUZZER_APPLE
 
 #include "FuzzerExtFunctions.h"

@@ -24,7 +24,6 @@ class MCInstrInfo;
 class MCObjectWriter;
 class MCRegisterInfo;
 class MCSubtargetInfo;
-class MCTargetOptions;
 class StringRef;
 class Target;
 class Triple;
@@ -45,20 +44,16 @@ MCCodeEmitter *createMipsMCCodeEmitterEL(const MCInstrInfo &MCII,
 
 MCAsmBackend *createMipsAsmBackendEB32(const Target &T,
                                        const MCRegisterInfo &MRI,
-                                       const Triple &TT, StringRef CPU,
-                                       const MCTargetOptions &Options);
+                                       const Triple &TT, StringRef CPU);
 MCAsmBackend *createMipsAsmBackendEL32(const Target &T,
                                        const MCRegisterInfo &MRI,
-                                       const Triple &TT, StringRef CPU,
-                                       const MCTargetOptions &Options);
+                                       const Triple &TT, StringRef CPU);
 MCAsmBackend *createMipsAsmBackendEB64(const Target &T,
                                        const MCRegisterInfo &MRI,
-                                       const Triple &TT, StringRef CPU,
-                                       const MCTargetOptions &Options);
+                                       const Triple &TT, StringRef CPU);
 MCAsmBackend *createMipsAsmBackendEL64(const Target &T,
                                        const MCRegisterInfo &MRI,
-                                       const Triple &TT, StringRef CPU,
-                                       const MCTargetOptions &Options);
+                                       const Triple &TT, StringRef CPU);
 
 MCObjectWriter *createMipsELFObjectWriter(raw_pwrite_stream &OS, uint8_t OSABI,
                                           bool IsLittleEndian, bool Is64Bit);

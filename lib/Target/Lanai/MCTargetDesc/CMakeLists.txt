@@ -1,4 +1,4 @@
-add_llvm_library(LLVMLanaiDesc
+add_llvm_library(LLVMLanaiMCTargetDesc
   LanaiAsmBackend.cpp
   LanaiELFObjectWriter.cpp
   LanaiMCAsmInfo.cpp

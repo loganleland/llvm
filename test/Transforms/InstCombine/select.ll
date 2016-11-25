@@ -241,15 +241,14 @@ define i32 @test12a(i1 %cond, i32 %a) {
 }
 
 define i32 @test12b(i1 %cond, i32 %a) {
+        %b = ashr i32 %a, 1
+        %c = select i1 %cond, i32 %a, i32 %b
+        ret i32 %c
 ; CHECK-LABEL: @test12b(
-; CHECK-NEXT:    [[NOT_COND:%.*]] = xor i1 %cond, true
-; CHECK-NEXT:    [[B:%.*]] = zext i1 [[NOT_COND]] to i32
-; CHECK-NEXT:    [[D:%.*]] = ashr i32 %a, [[B]]
-; CHECK-NEXT:    ret i32 [[D]]
-;
-  %b = ashr i32 %a, 1
-  %d = select i1 %cond, i32 %a, i32 %b
-  ret i32 %d
+; CHECK: zext i1 %cond to i32
+; CHECK: %b = xor i32
+; CHECK: %c = ashr i32 %a, %b
+; CHECK: ret i32 %c
 }
 
 define i32 @test13(i32 %a, i32 %b) {
@@ -1190,14 +1189,10 @@ define i64 @select_icmp_x_and_8_ne_0_y_xor_8(i32 %x, i64 %y) {
   ret i64 %xor.y
 }
 
-define i64 @select_icmp_x_and_8_ne_0_y_or_8(i32 %x, i64 %y) {
 ; CHECK-LABEL: @select_icmp_x_and_8_ne_0_y_or_8(
-; CHECK-NEXT:    [[AND:%.*]] = and i32 %x, 8
-; CHECK-NEXT:    [[TMP1:%.*]] = xor i32 [[AND]], 8
-; CHECK-NEXT:    [[TMP2:%.*]] = zext i32 [[TMP1]] to i64
-; CHECK-NEXT:    [[TMP3:%.*]] = or i64 [[TMP2]], %y
-; CHECK-NEXT:    ret i64 [[TMP3]]
-;
+; CHECK: xor i64 %1, 8
+; CHECK: or i64 %2, %y
+define i64 @select_icmp_x_and_8_ne_0_y_or_8(i32 %x, i64 %y) {
   %and = and i32 %x, 8
   %cmp = icmp eq i32 %and, 0
   %or = or i64 %y, 8
@@ -1763,38 +1758,5 @@ define <2 x i32> @select_icmp_slt0_xor_vec(<2 x i32> %x) {
   %xor = xor <2 x i32> %x, <i32 2147483648, i32 2147483648>
   %x.xor = select <2 x i1> %cmp, <2 x i32> %x, <2 x i32> %xor
   ret <2 x i32> %x.xor
-}
-
-; Make sure that undef elements of the select condition are translated into undef elements of the shuffle mask.
-
-define <4 x i32> @canonicalize_to_shuffle(<4 x i32> %a, <4 x i32> %b) {
-; CHECK-LABEL: @canonicalize_to_shuffle(
-; CHECK-NEXT:    [[SEL:%.*]] = shufflevector <4 x i32> %a, <4 x i32> %b, <4 x i32> <i32 0, i32 undef, i32 6, i32 undef>
-; CHECK-NEXT:    ret <4 x i32> [[SEL]]
-;
-  %sel = select <4 x i1> <i1 true, i1 undef, i1 false, i1 undef>, <4 x i32> %a, <4 x i32> %b
-  ret <4 x i32> %sel
-}
-
-; Don't die or try if the condition mask is a constant expression or contains a constant expression.
-
-@g = global i32 0
-
-define <4 x i32> @cannot_canonicalize_to_shuffle1(<4 x i32> %a, <4 x i32> %b) {
-; CHECK-LABEL: @cannot_canonicalize_to_shuffle1(
-; CHECK-NEXT:    [[SEL:%.*]] = select <4 x i1> bitcast (i4 ptrtoint (i32* @g to i4) to <4 x i1>), <4 x i32> %a, <4 x i32> %b
-; CHECK-NEXT:    ret <4 x i32> [[SEL]]
-;
-  %sel = select <4 x i1> bitcast (i4 ptrtoint (i32* @g to i4) to <4 x i1>), <4 x i32> %a, <4 x i32> %b
-  ret <4 x i32> %sel
-}
-
-define <4 x i32> @cannot_canonicalize_to_shuffle2(<4 x i32> %a, <4 x i32> %b) {
-; CHECK-LABEL: @cannot_canonicalize_to_shuffle2(
-; CHECK-NEXT:    [[SEL:%.*]] = select <4 x i1> <i1 true, i1 undef, i1 false, i1 icmp sle (i16 ptrtoint (i32* @g to i16), i16 4)>, <4 x i32> %a, <4 x i32> %b
-; CHECK-NEXT:    ret <4 x i32> [[SEL]]
-;
-  %sel = select <4 x i1> <i1 true, i1 undef, i1 false, i1 icmp sle (i16 ptrtoint (i32* @g to i16), i16 4)>, <4 x i32> %a, <4 x i32> %b
-  ret <4 x i32> %sel
 }
 

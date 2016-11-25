@@ -204,8 +204,7 @@ static MCStreamer *createELFStreamer(const Triple &T, MCContext &Ctx,
                                      MCAsmBackend &MAB, raw_pwrite_stream &OS,
                                      MCCodeEmitter *Emitter, bool RelaxAll) {
   return createARMELFStreamer(Ctx, MAB, OS, Emitter, false,
-                              (T.getArch() == Triple::thumb ||
-                               T.getArch() == Triple::thumbeb));
+                              T.getArch() == Triple::thumb);
 }
 
 static MCStreamer *createARMMachOStreamer(MCContext &Ctx, MCAsmBackend &MAB,

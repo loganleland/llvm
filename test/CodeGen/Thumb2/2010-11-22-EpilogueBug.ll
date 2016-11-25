@@ -5,7 +5,7 @@
 
 declare void @bar() nounwind optsize
 
-define void @foo() nounwind optsize "no-frame-pointer-elim"="true" {
+define void @foo() nounwind optsize {
 ; CHECK-LABEL: foo:
 ; CHECK: push
 ; CHECK: mov r7, sp

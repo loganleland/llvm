@@ -14,7 +14,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/LiveIntervalUnion.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SparseBitVector.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -103,7 +102,9 @@ void LiveIntervalUnion::verify(LiveVirtRegBitSet& VisitedVRegs) {
 // Scan the vector of interfering virtual registers in this union. Assume it's
 // quite small.
 bool LiveIntervalUnion::Query::isSeenInterference(LiveInterval *VirtReg) const {
-  return is_contained(InterferingVRegs, VirtReg);
+  SmallVectorImpl<LiveInterval*>::const_iterator I =
+    std::find(InterferingVRegs.begin(), InterferingVRegs.end(), VirtReg);
+  return I != InterferingVRegs.end();
 }
 
 // Collect virtual registers in this union that interfere with this

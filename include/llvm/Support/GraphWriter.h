@@ -59,19 +59,14 @@ class GraphWriter {
 
   typedef DOTGraphTraits<GraphType>           DOTTraits;
   typedef GraphTraits<GraphType>              GTraits;
-  typedef typename GTraits::NodeRef           NodeRef;
+  typedef typename GTraits::NodeType          NodeType;
   typedef typename GTraits::nodes_iterator    node_iterator;
   typedef typename GTraits::ChildIteratorType child_iterator;
   DOTTraits DTraits;
 
-  static_assert(std::is_pointer<NodeRef>::value,
-                "FIXME: Currently GraphWriter requires the NodeRef type to be "
-                "a pointer.\nThe pointer usage should be moved to "
-                "DOTGraphTraits, and removed from GraphWriter itself.");
-
   // Writes the edge labels of the node to O and returns true if there are any
   // edge labels not equal to the empty string "".
-  bool getEdgeSourceLabels(raw_ostream &O, NodeRef Node) {
+  bool getEdgeSourceLabels(raw_ostream &O, NodeType *Node) {
     child_iterator EI = GTraits::child_begin(Node);
     child_iterator EE = GTraits::child_end(Node);
     bool hasEdgeSourceLabels = false;
@@ -149,11 +144,27 @@ public:
         writeNode(*I);
   }
 
-  bool isNodeHidden(NodeRef Node) {
+  bool isNodeHidden(NodeType &Node) {
+    return isNodeHidden(&Node);
+  }
+
+  bool isNodeHidden(NodeType *const *Node) {
+    return isNodeHidden(*Node);
+  }
+
+  bool isNodeHidden(NodeType *Node) {
     return DTraits.isNodeHidden(Node);
   }
 
-  void writeNode(NodeRef Node) {
+  void writeNode(NodeType& Node) {
+    writeNode(&Node);
+  }
+
+  void writeNode(NodeType *const *Node) {
+    writeNode(*Node);
+  }
+
+  void writeNode(NodeType *Node) {
     std::string NodeAttributes = DTraits.getNodeAttributes(Node, G);
 
     O << "\tNode" << static_cast<const void*>(Node) << " [shape=record,";
@@ -226,8 +237,8 @@ public:
         writeEdge(Node, 64, EI);
   }
 
-  void writeEdge(NodeRef Node, unsigned edgeidx, child_iterator EI) {
-    if (NodeRef TargetNode = *EI) {
+  void writeEdge(NodeType *Node, unsigned edgeidx, child_iterator EI) {
+    if (NodeType *TargetNode = *EI) {
       int DestPort = -1;
       if (DTraits.edgeTargetsEdgeSource(Node, EI)) {
         child_iterator TargetIt = DTraits.getEdgeTarget(Node, EI);

@@ -12,12 +12,10 @@
 
 #include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/CodeGen/GlobalISel/MachineLegalizer.h"
 #include "llvm/CodeGen/GlobalISel/RegisterBank.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/BlockFrequency.h"
 #include "llvm/Support/CommandLine.h"
@@ -37,15 +35,14 @@ static cl::opt<RegBankSelect::Mode> RegBankSelectMode(
                clEnumValEnd));
 
 char RegBankSelect::ID = 0;
-INITIALIZE_PASS_BEGIN(RegBankSelect, DEBUG_TYPE,
+INITIALIZE_PASS_BEGIN(RegBankSelect, "regbankselect",
                       "Assign register bank of generic virtual registers",
                       false, false);
 INITIALIZE_PASS_DEPENDENCY(MachineBlockFrequencyInfo)
 INITIALIZE_PASS_DEPENDENCY(MachineBranchProbabilityInfo)
-INITIALIZE_PASS_DEPENDENCY(TargetPassConfig)
-INITIALIZE_PASS_END(RegBankSelect, DEBUG_TYPE,
+INITIALIZE_PASS_END(RegBankSelect, "regbankselect",
                     "Assign register bank of generic virtual registers", false,
-                    false)
+                    false);
 
 RegBankSelect::RegBankSelect(Mode RunningMode)
     : MachineFunctionPass(ID), RBI(nullptr), MRI(nullptr), TRI(nullptr),
@@ -63,7 +60,6 @@ void RegBankSelect::init(MachineFunction &MF) {
   assert(RBI && "Cannot work without RegisterBankInfo");
   MRI = &MF.getRegInfo();
   TRI = MF.getSubtarget().getRegisterInfo();
-  TPC = &getAnalysis<TargetPassConfig>();
   if (OptMode != Mode::Fast) {
     MBFI = &getAnalysis<MachineBlockFrequencyInfo>();
     MBPI = &getAnalysis<MachineBranchProbabilityInfo>();
@@ -81,7 +77,6 @@ void RegBankSelect::getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<MachineBlockFrequencyInfo>();
     AU.addRequired<MachineBranchProbabilityInfo>();
   }
-  AU.addRequired<TargetPassConfig>();
   MachineFunctionPass::getAnalysisUsage(AU);
 }
 
@@ -92,7 +87,7 @@ bool RegBankSelect::assignmentMatch(
   OnlyAssign = false;
   // Each part of a break down needs to end up in a different register.
   // In other word, Reg assignement does not match.
-  if (ValMapping.NumBreakDowns > 1)
+  if (ValMapping.BreakDown.size() > 1)
     return false;
 
   const RegisterBank *CurRegBank = RBI->getRegBank(Reg, *MRI, *TRI);
@@ -108,13 +103,11 @@ bool RegBankSelect::assignmentMatch(
   return CurRegBank == DesiredRegBrank;
 }
 
-bool RegBankSelect::repairReg(
+void RegBankSelect::repairReg(
     MachineOperand &MO, const RegisterBankInfo::ValueMapping &ValMapping,
     RegBankSelect::RepairingPlacement &RepairPt,
     const iterator_range<SmallVectorImpl<unsigned>::const_iterator> &NewVRegs) {
-  if (ValMapping.NumBreakDowns != 1 && !TPC->isGlobalISelAbortEnabled())
-    return false;
-  assert(ValMapping.NumBreakDowns == 1 && "Not yet implemented");
+  assert(ValMapping.BreakDown.size() == 1 && "Not yet implemented");
   // An empty range of new register means no repairing.
   assert(NewVRegs.begin() != NewVRegs.end() && "We should not have to repair");
 
@@ -133,7 +126,7 @@ bool RegBankSelect::repairReg(
          "We are about to create several defs for Dst");
 
   // Build the instruction used to repair, then clone it at the right places.
-  MachineInstr *MI = MIRBuilder.buildCopy(Dst, Src);
+  MachineInstr *MI = MIRBuilder.buildInstr(TargetOpcode::COPY, Dst, Src);
   MI->removeFromParent();
   DEBUG(dbgs() << "Copy: " << PrintReg(Src) << " to: " << PrintReg(Dst)
                << '\n');
@@ -156,16 +149,15 @@ bool RegBankSelect::repairReg(
   }
   // TODO:
   // Legalize NewInstrs if need be.
-  return true;
 }
 
 uint64_t RegBankSelect::getRepairCost(
     const MachineOperand &MO,
     const RegisterBankInfo::ValueMapping &ValMapping) const {
   assert(MO.isReg() && "We should only repair register operand");
-  assert(ValMapping.NumBreakDowns && "Nothing to map??");
+  assert(!ValMapping.BreakDown.empty() && "Nothing to map??");
 
-  bool IsSameNumOfValues = ValMapping.NumBreakDowns == 1;
+  bool IsSameNumOfValues = ValMapping.BreakDown.size() == 1;
   const RegisterBank *CurRegBank = RBI->getRegBank(MO.getReg(), *MRI, *TRI);
   // If MO does not have a register bank, we should have just been
   // able to set one unless we have to break the value down.
@@ -203,20 +195,16 @@ uint64_t RegBankSelect::getRepairCost(
     // TODO: use a dedicated constant for ImpossibleCost.
     if (Cost != UINT_MAX)
       return Cost;
-    assert(!TPC->isGlobalISelAbortEnabled() &&
-           "Legalization not available yet");
+    assert(false && "Legalization not available yet");
     // Return the legalization cost of that repairing.
   }
-  assert(!TPC->isGlobalISelAbortEnabled() &&
-         "Complex repairing not implemented yet");
-  return UINT_MAX;
+  assert(false && "Complex repairing not implemented yet");
+  return 1;
 }
 
 RegisterBankInfo::InstructionMapping &RegBankSelect::findBestMapping(
     MachineInstr &MI, RegisterBankInfo::InstructionMappings &PossibleMappings,
     SmallVectorImpl<RepairingPlacement> &RepairPts) {
-  assert(!PossibleMappings.empty() &&
-         "Do not know how to map this instruction");
 
   RegisterBankInfo::InstructionMapping *BestMapping = nullptr;
   MappingCost Cost = MappingCost::ImpossibleCost();
@@ -231,15 +219,7 @@ RegisterBankInfo::InstructionMapping &RegBankSelect::findBestMapping(
         RepairPts.emplace_back(std::move(RepairPt));
     }
   }
-  if (!BestMapping && !TPC->isGlobalISelAbortEnabled()) {
-    // If none of the mapping worked that means they are all impossible.
-    // Thus, pick the first one and set an impossible repairing point.
-    // It will trigger the failed isel mode.
-    BestMapping = &(*PossibleMappings.begin());
-    RepairPts.emplace_back(
-        RepairingPlacement(MI, 0, *TRI, *this, RepairingPlacement::Impossible));
-  } else
-    assert(BestMapping && "No suitable mapping for instruction");
+  assert(BestMapping && "No suitable mapping for instruction");
   return *BestMapping;
 }
 
@@ -270,7 +250,7 @@ void RegBankSelect::tryAvoidingSplit(
       // For the PHI case, the split may not be actually required.
       // In the copy case, a phi is already a copy on the incoming edge,
       // therefore there is no need to split.
-      if (ValMapping.NumBreakDowns == 1)
+      if (ValMapping.BreakDown.size() == 1)
         // This is a already a copy, there is nothing to do.
         RepairPt.switchTo(RepairingPlacement::RepairingKind::Reassign);
     }
@@ -347,7 +327,7 @@ void RegBankSelect::tryAvoidingSplit(
     // We will split all the edges and repair there.
   } else {
     // This is a virtual register defined by a terminator.
-    if (ValMapping.NumBreakDowns == 1) {
+    if (ValMapping.BreakDown.size() == 1) {
       // There is nothing to repair, but we may actually lie on
       // the repairing cost because of the PHIs already proceeded
       // as already stated.
@@ -486,7 +466,7 @@ RegBankSelect::MappingCost RegBankSelect::computeMapping(
   return Cost;
 }
 
-bool RegBankSelect::applyMapping(
+void RegBankSelect::applyMapping(
     MachineInstr &MI, const RegisterBankInfo::InstructionMapping &InstrMapping,
     SmallVectorImpl<RegBankSelect::RepairingPlacement> &RepairPts) {
   // OpdMapper will hold all the information needed for the rewritting.
@@ -494,27 +474,28 @@ bool RegBankSelect::applyMapping(
 
   // First, place the repairing code.
   for (RepairingPlacement &RepairPt : RepairPts) {
-    if (!RepairPt.canMaterialize() ||
-        RepairPt.getKind() == RepairingPlacement::Impossible)
-      return false;
+    assert(RepairPt.canMaterialize() &&
+           RepairPt.getKind() != RepairingPlacement::Impossible &&
+           "This mapping is impossible");
     assert(RepairPt.getKind() != RepairingPlacement::None &&
            "This should not make its way in the list");
     unsigned OpIdx = RepairPt.getOpIdx();
     MachineOperand &MO = MI.getOperand(OpIdx);
     const RegisterBankInfo::ValueMapping &ValMapping =
         InstrMapping.getOperandMapping(OpIdx);
+    unsigned BreakDownSize = ValMapping.BreakDown.size();
+    (void)BreakDownSize;
     unsigned Reg = MO.getReg();
 
     switch (RepairPt.getKind()) {
     case RepairingPlacement::Reassign:
-      assert(ValMapping.NumBreakDowns == 1 &&
+      assert(BreakDownSize == 1 &&
              "Reassignment should only be for simple mapping");
       MRI->setRegBank(Reg, *ValMapping.BreakDown[0].RegBank);
       break;
     case RepairingPlacement::Insert:
       OpdMapper.createVRegs(OpIdx);
-      if (!repairReg(MO, ValMapping, RepairPt, OpdMapper.getVRegs(OpIdx)))
-        return false;
+      repairReg(MO, ValMapping, RepairPt, OpdMapper.getVRegs(OpIdx));
       break;
     default:
       llvm_unreachable("Other kind should not happen");
@@ -523,10 +504,9 @@ bool RegBankSelect::applyMapping(
   // Second, rewrite the instruction.
   DEBUG(dbgs() << "Actual mapping of the operands: " << OpdMapper << '\n');
   RBI->applyMapping(OpdMapper);
-  return true;
 }
 
-bool RegBankSelect::assignInstr(MachineInstr &MI) {
+void RegBankSelect::assignInstr(MachineInstr &MI) {
   DEBUG(dbgs() << "Assign: " << MI);
   // Remember the repairing placement for all the operands.
   SmallVector<RepairingPlacement, 4> RepairPts;
@@ -536,13 +516,13 @@ bool RegBankSelect::assignInstr(MachineInstr &MI) {
     BestMapping = RBI->getInstrMapping(MI);
     MappingCost DefaultCost = computeMapping(MI, BestMapping, RepairPts);
     (void)DefaultCost;
-    if (DefaultCost == MappingCost::ImpossibleCost())
-      return false;
+    assert(DefaultCost != MappingCost::ImpossibleCost() &&
+           "Default mapping is not suited");
   } else {
     RegisterBankInfo::InstructionMappings PossibleMappings =
         RBI->getInstrPossibleMappings(MI);
-    if (PossibleMappings.empty())
-      return false;
+    assert(!PossibleMappings.empty() &&
+           "Do not know how to map this instruction");
     BestMapping = std::move(findBestMapping(MI, PossibleMappings, RepairPts));
   }
   // Make sure the mapping is valid for MI.
@@ -552,47 +532,16 @@ bool RegBankSelect::assignInstr(MachineInstr &MI) {
 
   // After this call, MI may not be valid anymore.
   // Do not use it.
-  return applyMapping(MI, BestMapping, RepairPts);
+  applyMapping(MI, BestMapping, RepairPts);
 }
 
 bool RegBankSelect::runOnMachineFunction(MachineFunction &MF) {
-  // If the ISel pipeline failed, do not bother running that pass.
-  if (MF.getProperties().hasProperty(
-          MachineFunctionProperties::Property::FailedISel))
-    return false;
-
   DEBUG(dbgs() << "Assign register banks for: " << MF.getName() << '\n');
   const Function *F = MF.getFunction();
   Mode SaveOptMode = OptMode;
   if (F->hasFnAttribute(Attribute::OptimizeNone))
     OptMode = Mode::Fast;
   init(MF);
-
-#ifndef NDEBUG
-  // Check that our input is fully legal: we require the function to have the
-  // Legalized property, so it should be.
-  // FIXME: This should be in the MachineVerifier, but it can't use the
-  // MachineLegalizer as it's currently in the separate GlobalISel library.
-  const MachineRegisterInfo &MRI = MF.getRegInfo();
-  if (const MachineLegalizer *MLI = MF.getSubtarget().getMachineLegalizer()) {
-    for (const MachineBasicBlock &MBB : MF) {
-      for (const MachineInstr &MI : MBB) {
-        if (isPreISelGenericOpcode(MI.getOpcode()) && !MLI->isLegal(MI, MRI)) {
-          if (!TPC->isGlobalISelAbortEnabled()) {
-            MF.getProperties().set(
-                MachineFunctionProperties::Property::FailedISel);
-            return false;
-          }
-          std::string ErrStorage;
-          raw_string_ostream Err(ErrStorage);
-          Err << "Instruction is not legal: " << MI << '\n';
-          report_fatal_error(Err.str());
-        }
-      }
-    }
-  }
-#endif
-
   // Walk the function and assign register banks to all operands.
   // Use a RPOT to make sure all registers are assigned before we choose
   // the best mapping of the current instruction.
@@ -605,18 +554,7 @@ bool RegBankSelect::runOnMachineFunction(MachineFunction &MF) {
          MII != End;) {
       // MI might be invalidated by the assignment, so move the
       // iterator before hand.
-      MachineInstr &MI = *MII++;
-
-      // Ignore target-specific instructions: they should use proper regclasses.
-      if (isTargetSpecificOpcode(MI.getOpcode()))
-        continue;
-
-      if (!assignInstr(MI)) {
-        if (TPC->isGlobalISelAbortEnabled())
-          report_fatal_error("Unable to map instruction");
-        MF.getProperties().set(MachineFunctionProperties::Property::FailedISel);
-        return false;
-      }
+      assignInstr(*MII++);
     }
   }
   OptMode = SaveOptMode;

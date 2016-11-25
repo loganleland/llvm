@@ -142,10 +142,7 @@ bool WebAssemblyInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
   return false;
 }
 
-unsigned WebAssemblyInstrInfo::removeBranch(MachineBasicBlock &MBB,
-                                            int *BytesRemoved) const {
-  assert(!BytesRemoved && "code size not handled");
-
+unsigned WebAssemblyInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
   MachineBasicBlock::instr_iterator I = MBB.instr_end();
   unsigned Count = 0;
 
@@ -164,14 +161,11 @@ unsigned WebAssemblyInstrInfo::removeBranch(MachineBasicBlock &MBB,
   return Count;
 }
 
-unsigned WebAssemblyInstrInfo::insertBranch(MachineBasicBlock &MBB,
+unsigned WebAssemblyInstrInfo::InsertBranch(MachineBasicBlock &MBB,
                                             MachineBasicBlock *TBB,
                                             MachineBasicBlock *FBB,
                                             ArrayRef<MachineOperand> Cond,
-                                            const DebugLoc &DL,
-                                            int *BytesAdded) const {
-  assert(!BytesAdded && "code size not handled");
-
+                                            const DebugLoc &DL) const {
   if (Cond.empty()) {
     if (!TBB)
       return 0;
@@ -196,7 +190,7 @@ unsigned WebAssemblyInstrInfo::insertBranch(MachineBasicBlock &MBB,
   return 2;
 }
 
-bool WebAssemblyInstrInfo::reverseBranchCondition(
+bool WebAssemblyInstrInfo::ReverseBranchCondition(
     SmallVectorImpl<MachineOperand> &Cond) const {
   assert(Cond.size() == 2 && "Expected a flag and a successor block");
   Cond.front() = MachineOperand::CreateImm(!Cond.front().getImm());

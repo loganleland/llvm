@@ -47,7 +47,6 @@ public:
   llvm::StringRef str();
 
   uint64_t size() const { return Stream.tell(); }
-  TypeRecordKind kind() const { return Kind; }
 
   void truncate(uint64_t Size) {
     // This works because raw_svector_ostream is not buffered.
@@ -57,12 +56,10 @@ public:
 
   void reset(TypeRecordKind K) {
     Buffer.clear();
-    Kind = K;
     writeTypeRecordKind(K);
   }
 
 private:
-  TypeRecordKind Kind;
   llvm::SmallVector<char, 256> Buffer;
   llvm::raw_svector_ostream Stream;
   llvm::support::endian::Writer<llvm::support::endianness::little> Writer;

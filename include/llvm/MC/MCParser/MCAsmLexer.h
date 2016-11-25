@@ -55,15 +55,7 @@ public:
     Pipe, PipePipe, Caret,
     Amp, AmpAmp, Exclaim, ExclaimEqual, Percent, Hash,
     Less, LessEqual, LessLess, LessGreater,
-    Greater, GreaterEqual, GreaterGreater, At,
-
-    // MIPS unary expression operators such as %neg.
-    PercentCall16, PercentCall_Hi, PercentCall_Lo, PercentDtprel_Hi,
-    PercentDtprel_Lo, PercentGot, PercentGot_Disp, PercentGot_Hi, PercentGot_Lo,
-    PercentGot_Ofst, PercentGot_Page, PercentGottprel, PercentGp_Rel, PercentHi,
-    PercentHigher, PercentHighest, PercentLo, PercentNeg, PercentPcrel_Hi,
-    PercentPcrel_Lo, PercentTlsgd, PercentTlsldm, PercentTprel_Hi,
-    PercentTprel_Lo
+    Greater, GreaterEqual, GreaterGreater, At
   };
 
 private:
@@ -144,7 +136,6 @@ protected: // Can only create subclasses.
   const char *TokStart;
   bool SkipSpace;
   bool AllowAtInIdentifier;
-  bool IsAtStartOfStatement;
 
   MCAsmLexer();
 
@@ -164,8 +155,6 @@ public:
   /// the main input file has been reached.
   const AsmToken &Lex() {
     assert(!CurTok.empty());
-    // Mark if we parsing out a EndOfStatement.
-    IsAtStartOfStatement = CurTok.front().getKind() == AsmToken::EndOfStatement;
     CurTok.erase(CurTok.begin());
     // LexToken may generate multiple tokens via UnLex but will always return
     // the first one. Place returned value at head of CurTok vector.
@@ -177,11 +166,8 @@ public:
   }
 
   void UnLex(AsmToken const &Token) {
-    IsAtStartOfStatement = false;
     CurTok.insert(CurTok.begin(), Token);
   }
-
-  bool isAtStartOfStatement() { return IsAtStartOfStatement; }
 
   virtual StringRef LexUntilEndOfStatement() = 0;
 

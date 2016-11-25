@@ -123,9 +123,7 @@ void ARMInstrInfo::expandLoadStackGuard(MachineBasicBlock::iterator MI) const {
 
   MIB = BuildMI(MBB, MI, DL, get(ARM::MOV_ga_pcrel_ldr), Reg)
             .addGlobalAddress(GV, 0, ARMII::MO_NONLAZY);
-  auto Flags = MachineMemOperand::MOLoad |
-               MachineMemOperand::MODereferenceable |
-               MachineMemOperand::MOInvariant;
+  auto Flags = MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant;
   MachineMemOperand *MMO = MBB.getParent()->getMachineMemOperand(
       MachinePointerInfo::getGOT(*MBB.getParent()), Flags, 4, 4);
   MIB.addMemOperand(MMO);

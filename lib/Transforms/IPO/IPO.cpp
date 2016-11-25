@@ -18,7 +18,6 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
 
 using namespace llvm;
@@ -33,7 +32,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeGlobalDCELegacyPassPass(Registry);
   initializeGlobalOptLegacyPassPass(Registry);
   initializeIPCPPass(Registry);
-  initializeAlwaysInlinerLegacyPassPass(Registry);
+  initializeAlwaysInlinerPass(Registry);
   initializeSimpleInlinerPass(Registry);
   initializeInferFunctionAttrsLegacyPassPass(Registry);
   initializeInternalizeLegacyPassPass(Registry);
@@ -54,7 +53,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeBarrierNoopPass(Registry);
   initializeEliminateAvailableExternallyLegacyPassPass(Registry);
   initializeSampleProfileLoaderLegacyPassPass(Registry);
-  initializeFunctionImportLegacyPassPass(Registry);
+  initializeFunctionImportPassPass(Registry);
   initializeWholeProgramDevirtPass(Registry);
 }
 
@@ -83,7 +82,7 @@ void LLVMAddFunctionInliningPass(LLVMPassManagerRef PM) {
 }
 
 void LLVMAddAlwaysInlinerPass(LLVMPassManagerRef PM) {
-  unwrap(PM)->add(llvm::createAlwaysInlinerLegacyPass());
+  unwrap(PM)->add(llvm::createAlwaysInlinerPass());
 }
 
 void LLVMAddGlobalDCEPass(LLVMPassManagerRef PM) {

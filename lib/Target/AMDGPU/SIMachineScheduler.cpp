@@ -479,7 +479,8 @@ void SIScheduleBlock::releaseSuccessors(SUnit *SU, bool InOrOutBlock) {
 void SIScheduleBlock::nodeScheduled(SUnit *SU) {
   // Is in TopReadySUs
   assert (!SU->NumPredsLeft);
-  std::vector<SUnit *>::iterator I = find(TopReadySUs, SU);
+  std::vector<SUnit*>::iterator I =
+    std::find(TopReadySUs.begin(), TopReadySUs.end(), SU);
   if (I == TopReadySUs.end()) {
     dbgs() << "Data Structure Bug in SI Scheduler\n";
     llvm_unreachable(nullptr);
@@ -1657,11 +1658,15 @@ SIScheduleDAGMI::SIScheduleDAGMI(MachineSchedContext *C) :
   SITII = static_cast<const SIInstrInfo*>(TII);
   SITRI = static_cast<const SIRegisterInfo*>(TRI);
 
-  VGPRSetID = SITRI->getVGPRPressureSet();
-  SGPRSetID = SITRI->getSGPRPressureSet();
+  VGPRSetID = SITRI->getVGPR32PressureSet();
+  SGPRSetID = SITRI->getSGPR32PressureSet();
 }
 
 SIScheduleDAGMI::~SIScheduleDAGMI() {
+}
+
+ScheduleDAGInstrs *llvm::createSIMachineScheduler(MachineSchedContext *C) {
+  return new SIScheduleDAGMI(C);
 }
 
 // Code adapted from scheduleDAG.cpp

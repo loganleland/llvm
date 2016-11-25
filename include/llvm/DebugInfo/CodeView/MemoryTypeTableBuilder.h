@@ -20,8 +20,7 @@ namespace codeview {
 
 class MemoryTypeTableBuilder : public TypeTableBuilder {
 public:
-  explicit MemoryTypeTableBuilder(BumpPtrAllocator &Allocator)
-      : RecordStorage(Allocator) {}
+  MemoryTypeTableBuilder() {}
 
   bool empty() const { return Records.empty(); }
 
@@ -34,13 +33,12 @@ public:
     }
   }
 
+protected:
   TypeIndex writeRecord(llvm::StringRef Data) override;
-
-  ArrayRef<StringRef> getRecords() const { return Records; }
 
 private:
   std::vector<StringRef> Records;
-  BumpPtrAllocator &RecordStorage;
+  BumpPtrAllocator RecordStorage;
   DenseMap<StringRef, TypeIndex> HashedRecords;
 };
 

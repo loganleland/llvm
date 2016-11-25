@@ -319,7 +319,7 @@ format of this section follows:
 .. code-block:: none
 
   Header {
-    uint8  : Stack Map Version (current version is 2)
+    uint8  : Stack Map Version (current version is 1)
     uint8  : Reserved (expected to be 0)
     uint16 : Reserved (expected to be 0)
   }
@@ -329,7 +329,6 @@ format of this section follows:
   StkSizeRecord[NumFunctions] {
     uint64 : Function Address
     uint64 : Stack Size
-    uint64 : Record Count
   }
   Constants[NumConstants] {
     uint64 : LargeConstant
@@ -435,7 +434,7 @@ precisely determine the location of values at a specific position in
 the code. LLVM does not maintain any mapping between those values and
 any higher-level entity. The runtime must be able to interpret the
 stack map record given only the ID, offset, and the order of the
-locations, records, and functions, which LLVM preserves.
+locations, which LLVM preserves.
 
 Note that this is quite different from the goal of debug information,
 which is a best-effort attempt to track the location of named
@@ -509,3 +508,4 @@ Support for StackMap generation and the related intrinsics requires
 some code for each backend.  Today, only a subset of LLVM's backends 
 are supported.  The currently supported architectures are X86_64, 
 PowerPC, and Aarch64.
+

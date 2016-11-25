@@ -167,13 +167,15 @@ TEST_F(InstrProfTest, get_profile_summary) {
     auto Predicate = [&Cutoff](const ProfileSummaryEntry &PE) {
       return PE.Cutoff == Cutoff;
     };
-    auto EightyPerc = find_if(Details, Predicate);
+    auto EightyPerc = std::find_if(Details.begin(), Details.end(), Predicate);
     Cutoff = 900000;
-    auto NinetyPerc = find_if(Details, Predicate);
+    auto NinetyPerc = std::find_if(Details.begin(), Details.end(), Predicate);
     Cutoff = 950000;
-    auto NinetyFivePerc = find_if(Details, Predicate);
+    auto NinetyFivePerc =
+        std::find_if(Details.begin(), Details.end(), Predicate);
     Cutoff = 990000;
-    auto NinetyNinePerc = find_if(Details, Predicate);
+    auto NinetyNinePerc =
+        std::find_if(Details.begin(), Details.end(), Predicate);
     ASSERT_EQ(576460752303423488U, EightyPerc->MinCount);
     ASSERT_EQ(288230376151711744U, NinetyPerc->MinCount);
     ASSERT_EQ(288230376151711744U, NinetyFivePerc->MinCount);
@@ -200,31 +202,6 @@ TEST_F(InstrProfTest, get_profile_summary) {
   ASSERT_TRUE(PSFromMD);
   VerifySummary(*PSFromMD);
   delete PSFromMD;
-}
-
-TEST_F(InstrProfTest, test_writer_merge) {
-  InstrProfRecord Record1("func1", 0x1234, {42});
-  NoError(Writer.addRecord(std::move(Record1)));
-
-  InstrProfWriter Writer2;
-  InstrProfRecord Record2("func2", 0x1234, {0, 0});
-  NoError(Writer2.addRecord(std::move(Record2)));
-
-  NoError(Writer.mergeRecordsFromWriter(std::move(Writer2)));
-
-  auto Profile = Writer.writeBuffer();
-  readProfile(std::move(Profile));
-
-  Expected<InstrProfRecord> R = Reader->getInstrProfRecord("func1", 0x1234);
-  ASSERT_TRUE(NoError(R.takeError()));
-  ASSERT_EQ(1U, R->Counts.size());
-  ASSERT_EQ(42U, R->Counts[0]);
-
-  R = Reader->getInstrProfRecord("func2", 0x1234);
-  ASSERT_TRUE(NoError(R.takeError()));
-  ASSERT_EQ(2U, R->Counts.size());
-  ASSERT_EQ(0U, R->Counts[0]);
-  ASSERT_EQ(0U, R->Counts[1]);
 }
 
 static const char callee1[] = "callee1";

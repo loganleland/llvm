@@ -34,7 +34,7 @@ required_libraries =
  CodeGen
  Core
  LanaiAsmParser
- LanaiDesc
+ LanaiMCTargetDesc
  LanaiInfo
  LanaiInstPrinter
  MC

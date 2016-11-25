@@ -22,7 +22,6 @@ subdirectories =
  Bitcode
  CodeGen
  DebugInfo
- Demangle
  ExecutionEngine
  LibDriver
  LineEditor

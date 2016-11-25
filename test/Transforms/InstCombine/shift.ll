@@ -7,7 +7,7 @@ define i32 @test1(i32 %A) {
 ; CHECK-LABEL: @test1(
 ; CHECK-NEXT:    ret i32 %A
 ;
-  %B = shl i32 %A, 0
+  %B = shl i32 %A, 0              ; <i32> [#uses=1]
   ret i32 %B
 }
 
@@ -15,8 +15,8 @@ define i32 @test2(i8 %A) {
 ; CHECK-LABEL: @test2(
 ; CHECK-NEXT:    ret i32 0
 ;
-  %shift.upgrd.1 = zext i8 %A to i32
-  %B = shl i32 0, %shift.upgrd.1
+  %shift.upgrd.1 = zext i8 %A to i32              ; <i32> [#uses=1]
+  %B = shl i32 0, %shift.upgrd.1          ; <i32> [#uses=1]
   ret i32 %B
 }
 
@@ -24,7 +24,7 @@ define i32 @test3(i32 %A) {
 ; CHECK-LABEL: @test3(
 ; CHECK-NEXT:    ret i32 %A
 ;
-  %B = ashr i32 %A, 0
+  %B = ashr i32 %A, 0             ; <i32> [#uses=1]
   ret i32 %B
 }
 
@@ -32,10 +32,11 @@ define i32 @test4(i8 %A) {
 ; CHECK-LABEL: @test4(
 ; CHECK-NEXT:    ret i32 0
 ;
-  %shift.upgrd.2 = zext i8 %A to i32
-  %B = ashr i32 0, %shift.upgrd.2
+  %shift.upgrd.2 = zext i8 %A to i32              ; <i32> [#uses=1]
+  %B = ashr i32 0, %shift.upgrd.2         ; <i32> [#uses=1]
   ret i32 %B
 }
+
 
 define i32 @test5(i32 %A) {
 ; CHECK-LABEL: @test5(
@@ -145,8 +146,8 @@ define i8 @test8(i8 %A) {
 ; CHECK-LABEL: @test8(
 ; CHECK-NEXT:    ret i8 0
 ;
-  %B = shl i8 %A, 5
-  %C = shl i8 %B, 3
+  %B = shl i8 %A, 5               ; <i8> [#uses=1]
+  %C = shl i8 %B, 3               ; <i8> [#uses=1]
   ret i8 %C
 }
 
@@ -156,8 +157,8 @@ define i8 @test9(i8 %A) {
 ; CHECK-NEXT:    [[B:%.*]] = and i8 %A, 1
 ; CHECK-NEXT:    ret i8 [[B]]
 ;
-  %B = shl i8 %A, 7
-  %C = lshr i8 %B, 7
+  %B = shl i8 %A, 7               ; <i8> [#uses=1]
+  %C = lshr i8 %B, 7              ; <i8> [#uses=1]
   ret i8 %C
 }
 
@@ -169,8 +170,8 @@ define i8 @test10(i8 %A) {
 ; CHECK-NEXT:    [[B:%.*]] = and i8 %A, -128
 ; CHECK-NEXT:    ret i8 [[B]]
 ;
-  %B = lshr i8 %A, 7
-  %C = shl i8 %B, 7
+  %B = lshr i8 %A, 7              ; <i8> [#uses=1]
+  %C = shl i8 %B, 7               ; <i8> [#uses=1]
   ret i8 %C
 }
 
@@ -194,9 +195,9 @@ define i8 @test11(i8 %A) {
 ; CHECK-NEXT:    [[C:%.*]] = shl i8 [[B]], 4
 ; CHECK-NEXT:    ret i8 [[C]]
 ;
-  %a = mul i8 %A, 3
-  %B = lshr i8 %a, 3
-  %C = shl i8 %B, 4
+  %a = mul i8 %A, 3               ; <i8> [#uses=1]
+  %B = lshr i8 %a, 3              ; <i8> [#uses=1]
+  %C = shl i8 %B, 4               ; <i8> [#uses=1]
   ret i8 %C
 }
 
@@ -219,8 +220,8 @@ define i32 @test12(i32 %A) {
 ; CHECK-NEXT:    [[B1:%.*]] = and i32 %A, -256
 ; CHECK-NEXT:    ret i32 [[B1]]
 ;
-  %B = ashr i32 %A, 8
-  %C = shl i32 %B, 8
+  %B = ashr i32 %A, 8             ; <i32> [#uses=1]
+  %C = shl i32 %B, 8              ; <i32> [#uses=1]
   ret i32 %C
 }
 
@@ -234,9 +235,9 @@ define i8 @test13(i8 %A) {
 ; CHECK-NEXT:    [[C:%.*]] = shl i8 [[B1]], 4
 ; CHECK-NEXT:    ret i8 [[C]]
 ;
-  %a = mul i8 %A, 3
-  %B = ashr i8 %a, 3
-  %C = shl i8 %B, 4
+  %a = mul i8 %A, 3               ; <i8> [#uses=1]
+  %B = ashr i8 %a, 3              ; <i8> [#uses=1]
+  %C = shl i8 %B, 4               ; <i8> [#uses=1]
   ret i8 %C
 }
 
@@ -258,9 +259,9 @@ define i32 @test14(i32 %A) {
 ; CHECK-NEXT:    [[C:%.*]] = or i32 [[B]], 19744
 ; CHECK-NEXT:    ret i32 [[C]]
 ;
-  %B = lshr i32 %A, 4
-  %C = or i32 %B, 1234
-  %D = shl i32 %C, 4
+  %B = lshr i32 %A, 4             ; <i32> [#uses=1]
+  %C = or i32 %B, 1234            ; <i32> [#uses=1]
+  %D = shl i32 %C, 4              ; <i32> [#uses=1]
   ret i32 %D
 }
 
@@ -270,9 +271,9 @@ define i32 @test14a(i32 %A) {
 ; CHECK-NEXT:    [[C:%.*]] = and i32 %A, 77
 ; CHECK-NEXT:    ret i32 [[C]]
 ;
-  %B = shl i32 %A, 4
-  %C = and i32 %B, 1234
-  %D = lshr i32 %C, 4
+  %B = shl i32 %A, 4              ; <i32> [#uses=1]
+  %C = and i32 %B, 1234           ; <i32> [#uses=1]
+  %D = lshr i32 %C, 4             ; <i32> [#uses=1]
   ret i32 %D
 }
 
@@ -281,8 +282,8 @@ define i32 @test15(i1 %C) {
 ; CHECK-NEXT:    [[A:%.*]] = select i1 %C, i32 12, i32 4
 ; CHECK-NEXT:    ret i32 [[A]]
 ;
-  %A = select i1 %C, i32 3, i32 1
-  %V = shl i32 %A, 2
+  %A = select i1 %C, i32 3, i32 1         ; <i32> [#uses=1]
+  %V = shl i32 %A, 2              ; <i32> [#uses=1]
   ret i32 %V
 }
 
@@ -291,9 +292,9 @@ define i32 @test15a(i1 %C) {
 ; CHECK-NEXT:    [[V:%.*]] = select i1 %C, i32 512, i32 128
 ; CHECK-NEXT:    ret i32 [[V]]
 ;
-  %A = select i1 %C, i8 3, i8 1
-  %shift.upgrd.4 = zext i8 %A to i32
-  %V = shl i32 64, %shift.upgrd.4
+  %A = select i1 %C, i8 3, i8 1           ; <i8> [#uses=1]
+  %shift.upgrd.4 = zext i8 %A to i32              ; <i32> [#uses=1]
+  %V = shl i32 64, %shift.upgrd.4         ; <i32> [#uses=1]
   ret i32 %V
 }
 
@@ -315,29 +316,19 @@ define i1 @test17(i32 %A) {
 ; CHECK-NEXT:    [[C:%.*]] = icmp eq i32 [[B_MASK]], 9872
 ; CHECK-NEXT:    ret i1 [[C]]
 ;
-  %B = lshr i32 %A, 3
-  %C = icmp eq i32 %B, 1234
+  %B = lshr i32 %A, 3             ; <i32> [#uses=1]
+  %C = icmp eq i32 %B, 1234               ; <i1> [#uses=1]
   ret i1 %C
 }
 
-define <2 x i1> @test17vec(<2 x i32> %A) {
-; CHECK-LABEL: @test17vec(
-; CHECK-NEXT:    [[B_MASK:%.*]] = and <2 x i32> %A, <i32 -8, i32 -8>
-; CHECK-NEXT:    [[C:%.*]] = icmp eq <2 x i32> [[B_MASK]], <i32 9872, i32 9872>
-; CHECK-NEXT:    ret <2 x i1> [[C]]
-;
-  %B = lshr <2 x i32> %A, <i32 3, i32 3>
-  %C = icmp eq <2 x i32> %B, <i32 1234, i32 1234>
-  ret <2 x i1> %C
-}
 
 define i1 @test18(i8 %A) {
 ; CHECK-LABEL: @test18(
 ; CHECK-NEXT:    ret i1 false
 ;
-  %B = lshr i8 %A, 7
+  %B = lshr i8 %A, 7              ; <i8> [#uses=1]
   ;; false
-  %C = icmp eq i8 %B, 123
+  %C = icmp eq i8 %B, 123         ; <i1> [#uses=1]
   ret i1 %C
 }
 
@@ -346,50 +337,31 @@ define i1 @test19(i32 %A) {
 ; CHECK-NEXT:    [[C:%.*]] = icmp ult i32 %A, 4
 ; CHECK-NEXT:    ret i1 [[C]]
 ;
-  %B = ashr i32 %A, 2
+  %B = ashr i32 %A, 2             ; <i32> [#uses=1]
   ;; (X & -4) == 0
-  %C = icmp eq i32 %B, 0
+  %C = icmp eq i32 %B, 0          ; <i1> [#uses=1]
   ret i1 %C
 }
 
-define <2 x i1> @test19vec(<2 x i32> %A) {
-; CHECK-LABEL: @test19vec(
-; CHECK-NEXT:    [[C:%.*]] = icmp ult <2 x i32> %A, <i32 4, i32 4>
-; CHECK-NEXT:    ret <2 x i1> [[C]]
-;
-  %B = ashr <2 x i32> %A, <i32 2, i32 2>
-  %C = icmp eq <2 x i32> %B, zeroinitializer
-  ret <2 x i1> %C
-}
 
-;; X >u ~4
 define i1 @test19a(i32 %A) {
 ; CHECK-LABEL: @test19a(
 ; CHECK-NEXT:    [[C:%.*]] = icmp ugt i32 %A, -5
 ; CHECK-NEXT:    ret i1 [[C]]
 ;
-  %B = ashr i32 %A, 2
-  %C = icmp eq i32 %B, -1
+  %B = ashr i32 %A, 2             ; <i32> [#uses=1]
+  ;; X >u ~4
+  %C = icmp eq i32 %B, -1         ; <i1> [#uses=1]
   ret i1 %C
-}
-
-define <2 x i1> @test19a_vec(<2 x i32> %A) {
-; CHECK-LABEL: @test19a_vec(
-; CHECK-NEXT:    [[C:%.*]] = icmp ugt <2 x i32> %A, <i32 -5, i32 -5>
-; CHECK-NEXT:    ret <2 x i1> [[C]]
-;
-  %B = ashr <2 x i32> %A, <i32 2, i32 2>
-  %C = icmp eq <2 x i32> %B, <i32 -1, i32 -1>
-  ret <2 x i1> %C
 }
 
 define i1 @test20(i8 %A) {
 ; CHECK-LABEL: @test20(
 ; CHECK-NEXT:    ret i1 false
 ;
-  %B = ashr i8 %A, 7
+  %B = ashr i8 %A, 7              ; <i8> [#uses=1]
   ;; false
-  %C = icmp eq i8 %B, 123
+  %C = icmp eq i8 %B, 123         ; <i1> [#uses=1]
   ret i1 %C
 }
 
@@ -399,8 +371,8 @@ define i1 @test21(i8 %A) {
 ; CHECK-NEXT:    [[C:%.*]] = icmp eq i8 [[B_MASK]], 8
 ; CHECK-NEXT:    ret i1 [[C]]
 ;
-  %B = shl i8 %A, 4
-  %C = icmp eq i8 %B, -128
+  %B = shl i8 %A, 4               ; <i8> [#uses=1]
+  %C = icmp eq i8 %B, -128                ; <i1> [#uses=1]
   ret i1 %C
 }
 
@@ -410,8 +382,8 @@ define i1 @test22(i8 %A) {
 ; CHECK-NEXT:    [[C:%.*]] = icmp eq i8 [[B_MASK]], 0
 ; CHECK-NEXT:    ret i1 [[C]]
 ;
-  %B = shl i8 %A, 4
-  %C = icmp eq i8 %B, 0
+  %B = shl i8 %A, 4               ; <i8> [#uses=1]
+  %C = icmp eq i8 %B, 0           ; <i1> [#uses=1]
   ret i1 %C
 }
 
@@ -421,9 +393,9 @@ define i8 @test23(i32 %A) {
 ; CHECK-NEXT:    ret i8 [[D]]
 ;
   ;; casts not needed
-  %B = shl i32 %A, 24
-  %C = ashr i32 %B, 24
-  %D = trunc i32 %C to i8
+  %B = shl i32 %A, 24             ; <i32> [#uses=1]
+  %C = ashr i32 %B, 24            ; <i32> [#uses=1]
+  %D = trunc i32 %C to i8         ; <i8> [#uses=1]
   ret i8 %D
 }
 
@@ -432,9 +404,9 @@ define i8 @test24(i8 %X) {
 ; CHECK-NEXT:    [[Z:%.*]] = and i8 %X, 3
 ; CHECK-NEXT:    ret i8 [[Z]]
 ;
-  %Y = and i8 %X, -5
-  %Z = shl i8 %Y, 5
-  %Q = ashr i8 %Z, 5
+  %Y = and i8 %X, -5              ; <i8> [#uses=1]
+  %Z = shl i8 %Y, 5               ; <i8> [#uses=1]
+  %Q = ashr i8 %Z, 5              ; <i8> [#uses=1]
   ret i8 %Q
 }
 
@@ -445,10 +417,10 @@ define i32 @test25(i32 %tmp.2, i32 %AA) {
 ; CHECK-NEXT:    [[TMP_6:%.*]] = and i32 [[X2]], -131072
 ; CHECK-NEXT:    ret i32 [[TMP_6]]
 ;
-  %x = lshr i32 %AA, 17
-  %tmp.3 = lshr i32 %tmp.2, 17
-  %tmp.5 = add i32 %tmp.3, %x
-  %tmp.6 = shl i32 %tmp.5, 17
+  %x = lshr i32 %AA, 17           ; <i32> [#uses=1]
+  %tmp.3 = lshr i32 %tmp.2, 17            ; <i32> [#uses=1]
+  %tmp.5 = add i32 %tmp.3, %x             ; <i32> [#uses=1]
+  %tmp.6 = shl i32 %tmp.5, 17             ; <i32> [#uses=1]
   ret i32 %tmp.6
 }
 
@@ -473,9 +445,9 @@ define i32 @test26(i32 %A) {
 ; CHECK-NEXT:    [[B:%.*]] = and i32 %A, -2
 ; CHECK-NEXT:    ret i32 [[B]]
 ;
-  %B = lshr i32 %A, 1
-  %C = bitcast i32 %B to i32
-  %D = shl i32 %C, 1
+  %B = lshr i32 %A, 1             ; <i32> [#uses=1]
+  %C = bitcast i32 %B to i32              ; <i32> [#uses=1]
+  %D = shl i32 %C, 1              ; <i32> [#uses=1]
   ret i32 %D
 }
 
@@ -491,24 +463,26 @@ define i1 @test27(i32 %x) nounwind {
   ret i1 %z
 }
 
-define i1 @test28(i8 %x) {
+define i8 @test28(i8 %x) {
 ; CHECK-LABEL: @test28(
-; CHECK-NEXT:    [[CMP:%.*]] = icmp slt i8 %x, 0
-; CHECK-NEXT:    ret i1 [[CMP]]
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    [[COND1:%.*]] = icmp slt i8 %x, 0
+; CHECK-NEXT:    br i1 [[COND1]], label %bb1, label %bb2
+; CHECK:       bb1:
+; CHECK-NEXT:    ret i8 0
+; CHECK:       bb2:
+; CHECK-NEXT:    ret i8 1
 ;
-  %shr = lshr i8 %x, 7
-  %cmp = icmp ne i8 %shr, 0
-  ret i1 %cmp
-}
+entry:
+  %tmp1 = lshr i8 %x, 7
+  %cond1 = icmp ne i8 %tmp1, 0
+  br i1 %cond1, label %bb1, label %bb2
 
-define <2 x i1> @test28vec(<2 x i8> %x) {
-; CHECK-LABEL: @test28vec(
-; CHECK-NEXT:    [[CMP:%.*]] = icmp slt <2 x i8> %x, zeroinitializer
-; CHECK-NEXT:    ret <2 x i1> [[CMP]]
-;
-  %shr = lshr <2 x i8> %x, <i8 7, i8 7>
-  %cmp = icmp ne <2 x i8> %shr, zeroinitializer
-  ret <2 x i1> %cmp
+bb1:
+  ret i8 0
+
+bb2:
+  ret i8 1
 }
 
 define i8 @test28a(i8 %x, i8 %y) {
@@ -598,17 +572,6 @@ define i1 @test33(i32 %X) {
   ret i1 %tmp2
 }
 
-define <2 x i1> @test33vec(<2 x i32> %X) {
-; CHECK-LABEL: @test33vec(
-; CHECK-NEXT:    [[TMP1_MASK:%.*]] = and <2 x i32> %X, <i32 16777216, i32 16777216>
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp ne <2 x i32> [[TMP1_MASK]], zeroinitializer
-; CHECK-NEXT:    ret <2 x i1> [[TMP2]]
-;
-  %tmp1 = shl <2 x i32> %X, <i32 7, i32 7>
-  %tmp2 = icmp slt <2 x i32> %tmp1, zeroinitializer
-  ret <2 x i1> %tmp2
-}
-
 define i1 @test34(i32 %X) {
 ; CHECK-LABEL: @test34(
 ; CHECK-NEXT:    ret i1 false
@@ -626,16 +589,6 @@ define i1 @test35(i32 %X) {
   %tmp1 = ashr i32 %X, 7
   %tmp2 = icmp slt i32 %tmp1, 0
   ret i1 %tmp2
-}
-
-define <2 x i1> @test35vec(<2 x i32> %X) {
-; CHECK-LABEL: @test35vec(
-; CHECK-NEXT:    [[TMP2:%.*]] = icmp slt <2 x i32> %X, zeroinitializer
-; CHECK-NEXT:    ret <2 x i1> [[TMP2]]
-;
-  %tmp1 = ashr <2 x i32> %X, <i32 7, i32 7>
-  %tmp2 = icmp slt <2 x i32> %tmp1, zeroinitializer
-  ret <2 x i1> %tmp2
 }
 
 define i128 @test36(i128 %A, i128 %B) {

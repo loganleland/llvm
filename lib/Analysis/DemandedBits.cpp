@@ -280,8 +280,10 @@ void DemandedBits::performAnalysis() {
     // add their operands to the work list (for integer values operands, mark
     // all bits as live).
     if (IntegerType *IT = dyn_cast<IntegerType>(I.getType())) {
-      if (AliveBits.try_emplace(&I, IT->getBitWidth(), 0).second)
+      if (!AliveBits.count(&I)) {
+        AliveBits[&I] = APInt(IT->getBitWidth(), 0);
         Worklist.push_back(&I);
+      }
 
       continue;
     }
@@ -361,9 +363,8 @@ APInt DemandedBits::getDemandedBits(Instruction *I) {
   performAnalysis();
   
   const DataLayout &DL = I->getParent()->getModule()->getDataLayout();
-  auto Found = AliveBits.find(I);
-  if (Found != AliveBits.end())
-    return Found->second;
+  if (AliveBits.count(I))
+    return AliveBits[I];
   return APInt::getAllOnesValue(DL.getTypeSizeInBits(I->getType()));
 }
 
@@ -389,7 +390,7 @@ FunctionPass *llvm::createDemandedBitsWrapperPass() {
 char DemandedBitsAnalysis::PassID;
 
 DemandedBits DemandedBitsAnalysis::run(Function &F,
-                                             FunctionAnalysisManager &AM) {
+                                             AnalysisManager<Function> &AM) {
   auto &AC = AM.getResult<AssumptionAnalysis>(F);
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   return DemandedBits(F, AC, DT);

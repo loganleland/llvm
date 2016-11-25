@@ -27,14 +27,10 @@ enum {
   CCRRegBankID = 2, /// Conditional register: NZCV.
   NumRegisterBanks
 };
-
-extern RegisterBank GPRRegBank;
-extern RegisterBank FPRRegBank;
-extern RegisterBank CCRRegBank;
 } // End AArch64 namespace.
 
 /// This class provides the information for the target register banks.
-class AArch64RegisterBankInfo final : public RegisterBankInfo {
+class AArch64RegisterBankInfo : public RegisterBankInfo {
   /// See RegisterBankInfo::applyMapping.
   void applyMappingImpl(const OperandsMapper &OpdMapper) const override;
 
@@ -68,8 +64,6 @@ public:
   /// Alternative in the sense different from getInstrMapping.
   InstructionMappings
   getInstrAlternativeMappings(const MachineInstr &MI) const override;
-
-  InstructionMapping getInstrMapping(const MachineInstr &MI) const override;
 };
 } // End llvm namespace.
 #endif

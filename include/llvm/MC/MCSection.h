@@ -31,8 +31,16 @@ class MCSection;
 class MCSymbol;
 class raw_ostream;
 
-template <> struct ilist_alloc_traits<MCFragment> {
+template<>
+struct ilist_node_traits<MCFragment> {
+  MCFragment *createNode(const MCFragment &V);
   static void deleteNode(MCFragment *V);
+
+  void addNodeToList(MCFragment *) {}
+  void removeNodeFromList(MCFragment *) {}
+  void transferNodesFromList(ilist_node_traits &    /*SrcTraits*/,
+                             ilist_iterator<MCFragment> /*first*/,
+                             ilist_iterator<MCFragment> /*last*/) {}
 };
 
 /// Instances of this class represent a uniqued identifier for a section in the
@@ -153,17 +161,25 @@ public:
   const MCDummyFragment &getDummyFragment() const { return DummyFragment; }
   MCDummyFragment &getDummyFragment() { return DummyFragment; }
 
-  iterator begin() { return Fragments.begin(); }
-  const_iterator begin() const { return Fragments.begin(); }
+  MCSection::iterator begin();
+  MCSection::const_iterator begin() const {
+    return const_cast<MCSection *>(this)->begin();
+  }
 
-  iterator end() { return Fragments.end(); }
-  const_iterator end() const { return Fragments.end(); }
+  MCSection::iterator end();
+  MCSection::const_iterator end() const {
+    return const_cast<MCSection *>(this)->end();
+  }
 
-  reverse_iterator rbegin() { return Fragments.rbegin(); }
-  const_reverse_iterator rbegin() const { return Fragments.rbegin(); }
+  MCSection::reverse_iterator rbegin();
+  MCSection::const_reverse_iterator rbegin() const {
+    return const_cast<MCSection *>(this)->rbegin();
+  }
 
-  reverse_iterator rend() { return Fragments.rend(); }
-  const_reverse_iterator rend() const  { return Fragments.rend(); }
+  MCSection::reverse_iterator rend();
+  MCSection::const_reverse_iterator rend() const {
+    return const_cast<MCSection *>(this)->rend();
+  }
 
   MCSection::iterator getSubsectionInsertionPoint(unsigned Subsection);
 

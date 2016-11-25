@@ -84,10 +84,6 @@ public:
     return WinCFISectionID;
   }
 
-  static bool isImplicitlyDiscardable(StringRef Name) {
-    return Name.startswith(".debug");
-  }
-
   static bool classof(const MCSection *S) { return S->getVariant() == SV_COFF; }
 };
 

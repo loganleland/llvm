@@ -94,7 +94,9 @@ public:
   void savePacket();
   unsigned getTotalPackets() const { return TotalPackets; }
 
-  bool isInPacket(SUnit *SU) const { return is_contained(Packet, SU); }
+  bool isInPacket(SUnit *SU) const {
+    return std::find(Packet.begin(), Packet.end(), SU) != Packet.end();
+  }
 };
 
 /// Extend the standard ScheduleDAGMI to provide more context and override the

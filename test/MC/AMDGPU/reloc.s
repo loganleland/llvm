@@ -4,7 +4,6 @@
 // CHECK: R_AMDGPU_ABS32_LO SCRATCH_RSRC_DWORD0 0x0
 // CHECK: R_AMDGPU_ABS32_HI SCRATCH_RSRC_DWORD1 0x0
 // CHECK: R_AMDGPU_GOTPCREL global_var 0x0
-// CHECK: R_AMDGPU_ABS32 var 0x0
 // CHECK: ]
 
 kernel:
@@ -15,6 +14,3 @@ kernel:
 .globl global_var
 
 .globl SCRATCH_RSRC_DWORD0
-
-.section nonalloc, "w", @progbits
-  .long var, common_var

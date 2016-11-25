@@ -322,7 +322,7 @@ extern char &LCSSAID;
 // EarlyCSE - This pass performs a simple and fast CSE pass over the dominator
 // tree.
 //
-FunctionPass *createEarlyCSEPass(bool UseMemorySSA = false);
+FunctionPass *createEarlyCSEPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -516,7 +516,7 @@ FunctionPass *createLoopVersioningPass();
 FunctionPass *createLoopDataPrefetchPass();
 
 ///===---------------------------------------------------------------------===//
-ModulePass *createNameAnonGlobalPass();
+ModulePass *createNameAnonFunctionPass();
 
 } // End llvm namespace
 

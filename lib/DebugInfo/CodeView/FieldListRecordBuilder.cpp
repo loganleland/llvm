@@ -15,7 +15,7 @@ using namespace codeview;
 FieldListRecordBuilder::FieldListRecordBuilder()
     : ListRecordBuilder(TypeRecordKind::FieldList) {}
 
-void FieldListRecordBuilder::writeMemberType(const BaseClassRecord &Record) {
+void FieldListRecordBuilder::writeBaseClass(const BaseClassRecord &Record) {
   TypeRecordBuilder &Builder = getBuilder();
 
   Builder.writeTypeRecordKind(TypeRecordKind::BaseClass);
@@ -26,7 +26,7 @@ void FieldListRecordBuilder::writeMemberType(const BaseClassRecord &Record) {
   finishSubRecord();
 }
 
-void FieldListRecordBuilder::writeMemberType(const EnumeratorRecord &Record) {
+void FieldListRecordBuilder::writeEnumerator(const EnumeratorRecord &Record) {
   TypeRecordBuilder &Builder = getBuilder();
 
   Builder.writeTypeRecordKind(TypeRecordKind::Enumerator);
@@ -38,7 +38,7 @@ void FieldListRecordBuilder::writeMemberType(const EnumeratorRecord &Record) {
   finishSubRecord();
 }
 
-void FieldListRecordBuilder::writeMemberType(const DataMemberRecord &Record) {
+void FieldListRecordBuilder::writeDataMember(const DataMemberRecord &Record) {
   TypeRecordBuilder &Builder = getBuilder();
 
   Builder.writeTypeRecordKind(Record.getKind());
@@ -50,7 +50,7 @@ void FieldListRecordBuilder::writeMemberType(const DataMemberRecord &Record) {
   finishSubRecord();
 }
 
-void FieldListRecordBuilder::writeMemberType(
+void FieldListRecordBuilder::writeOverloadedMethod(
     const OverloadedMethodRecord &Record) {
   TypeRecordBuilder &Builder = getBuilder();
 
@@ -62,7 +62,7 @@ void FieldListRecordBuilder::writeMemberType(
   finishSubRecord();
 }
 
-void FieldListRecordBuilder::writeMemberType(const OneMethodRecord &Record) {
+void FieldListRecordBuilder::writeOneMethod(const OneMethodRecord &Record) {
   TypeRecordBuilder &Builder = getBuilder();
 
   uint16_t Flags = static_cast<uint16_t>(Record.getAccess());
@@ -84,7 +84,7 @@ void FieldListRecordBuilder::writeMemberType(const OneMethodRecord &Record) {
   finishSubRecord();
 }
 
-void FieldListRecordBuilder::writeMemberType(const NestedTypeRecord &Record) {
+void FieldListRecordBuilder::writeNestedType(const NestedTypeRecord &Record) {
   TypeRecordBuilder &Builder = getBuilder();
 
   Builder.writeTypeRecordKind(Record.getKind());
@@ -95,7 +95,7 @@ void FieldListRecordBuilder::writeMemberType(const NestedTypeRecord &Record) {
   finishSubRecord();
 }
 
-void FieldListRecordBuilder::writeMemberType(
+void FieldListRecordBuilder::writeStaticDataMember(
     const StaticDataMemberRecord &Record) {
   TypeRecordBuilder &Builder = getBuilder();
 
@@ -107,7 +107,7 @@ void FieldListRecordBuilder::writeMemberType(
   finishSubRecord();
 }
 
-void FieldListRecordBuilder::writeMemberType(
+void FieldListRecordBuilder::writeVirtualBaseClass(
     const VirtualBaseClassRecord &Record) {
   TypeRecordBuilder &Builder = getBuilder();
 
@@ -121,7 +121,7 @@ void FieldListRecordBuilder::writeMemberType(
   finishSubRecord();
 }
 
-void FieldListRecordBuilder::writeMemberType(const VFPtrRecord &Record) {
+void FieldListRecordBuilder::writeVFPtr(const VFPtrRecord &Record) {
   TypeRecordBuilder &Builder = getBuilder();
 
   Builder.writeTypeRecordKind(TypeRecordKind::VFPtr);

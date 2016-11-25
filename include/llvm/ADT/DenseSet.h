@@ -58,10 +58,6 @@ public:
   /// the Size of the set.
   void resize(size_t Size) { TheMap.resize(Size); }
 
-  /// Grow the DenseSet so that it can contain at least \p NumEntries items
-  /// before resizing again.
-  void reserve(size_t Size) { TheMap.reserve(Size); }
-
   void clear() {
     TheMap.clear();
   }
@@ -155,12 +151,7 @@ public:
 
   std::pair<iterator, bool> insert(const ValueT &V) {
     detail::DenseSetEmpty Empty;
-    return TheMap.try_emplace(V, Empty);
-  }
-
-  std::pair<iterator, bool> insert(ValueT &&V) {
-    detail::DenseSetEmpty Empty;
-    return TheMap.try_emplace(std::move(V), Empty);
+    return TheMap.insert(std::make_pair(V, Empty));
   }
 
   /// Alternative version of insert that uses a different (and possibly less
@@ -168,11 +159,12 @@ public:
   template <typename LookupKeyT>
   std::pair<iterator, bool> insert_as(const ValueT &V,
                                       const LookupKeyT &LookupKey) {
-    return TheMap.insert_as({V, detail::DenseSetEmpty()}, LookupKey);
+    return insert_as(ValueT(V), LookupKey);
   }
   template <typename LookupKeyT>
   std::pair<iterator, bool> insert_as(ValueT &&V, const LookupKeyT &LookupKey) {
-    return TheMap.insert_as({std::move(V), detail::DenseSetEmpty()}, LookupKey);
+    detail::DenseSetEmpty Empty;
+    return TheMap.insert_as(std::make_pair(std::move(V), Empty), LookupKey);
   }
 
   // Range insertion of values.

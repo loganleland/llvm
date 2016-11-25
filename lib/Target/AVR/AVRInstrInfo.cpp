@@ -111,7 +111,7 @@ void AVRInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
     DL = MI->getDebugLoc();
   }
 
-  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  const MachineFrameInfo &MFI = *MF.getFrameInfo();
 
   MachineMemOperand *MMO = MF.getMachineMemOperand(
       MachinePointerInfo::getFixedStack(MF, FrameIndex),
@@ -145,7 +145,7 @@ void AVRInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   }
 
   MachineFunction &MF = *MBB.getParent();
-  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  const MachineFrameInfo &MFI = *MF.getFrameInfo();
 
   MachineMemOperand *MMO = MF.getMachineMemOperand(
       MachinePointerInfo::getFixedStack(MF, FrameIndex),
@@ -373,16 +373,13 @@ bool AVRInstrInfo::analyzeBranch(MachineBasicBlock &MBB,
   return false;
 }
 
-unsigned AVRInstrInfo::insertBranch(MachineBasicBlock &MBB,
+unsigned AVRInstrInfo::InsertBranch(MachineBasicBlock &MBB,
                                     MachineBasicBlock *TBB,
                                     MachineBasicBlock *FBB,
                                     ArrayRef<MachineOperand> Cond,
-                                    const DebugLoc &DL,
-                                    int *BytesAdded) const {
-  assert(!BytesAdded && "code size not handled");
-
+                                    const DebugLoc &DL) const {
   // Shouldn't be a fall through.
-  assert(TBB && "insertBranch must not be told to insert a fallthrough");
+  assert(TBB && "InsertBranch must not be told to insert a fallthrough");
   assert((Cond.size() == 1 || Cond.size() == 0) &&
          "AVR branch conditions have one component!");
 
@@ -407,10 +404,7 @@ unsigned AVRInstrInfo::insertBranch(MachineBasicBlock &MBB,
   return Count;
 }
 
-unsigned AVRInstrInfo::removeBranch(MachineBasicBlock &MBB,
-                                    int *BytesRemoved) const {
-  assert(!BytesRemoved && "code size not handled");
-
+unsigned AVRInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
   MachineBasicBlock::iterator I = MBB.end();
   unsigned Count = 0;
 
@@ -435,7 +429,7 @@ unsigned AVRInstrInfo::removeBranch(MachineBasicBlock &MBB,
   return Count;
 }
 
-bool AVRInstrInfo::reverseBranchCondition(
+bool AVRInstrInfo::ReverseBranchCondition(
     SmallVectorImpl<MachineOperand> &Cond) const {
   assert(Cond.size() == 1 && "Invalid AVR branch condition!");
 
@@ -445,8 +439,8 @@ bool AVRInstrInfo::reverseBranchCondition(
   return false;
 }
 
-unsigned AVRInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
-  unsigned Opcode = MI.getOpcode();
+unsigned AVRInstrInfo::GetInstSizeInBytes(const MachineInstr *MI) const {
+  unsigned Opcode = MI->getOpcode();
 
   switch (Opcode) {
   // A regular instruction
@@ -460,10 +454,10 @@ unsigned AVRInstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
   case TargetOpcode::DBG_VALUE:
     return 0;
   case TargetOpcode::INLINEASM: {
-    const MachineFunction *MF = MI.getParent()->getParent();
+    const MachineFunction *MF = MI->getParent()->getParent();
     const AVRTargetMachine &TM = static_cast<const AVRTargetMachine&>(MF->getTarget());
     const TargetInstrInfo &TII = *TM.getSubtargetImpl()->getInstrInfo();
-    return TII.getInlineAsmLength(MI.getOperand(0).getSymbolName(),
+    return TII.getInlineAsmLength(MI->getOperand(0).getSymbolName(),
                                   *TM.getMCAsmInfo());
   }
   }

@@ -20,7 +20,6 @@
 #include "llvm/ADT/iterator_range.h"
 // PointerUnion needs to have access to the full RegisterBank type.
 #include "llvm/CodeGen/GlobalISel/RegisterBank.h"
-#include "llvm/CodeGen/LowLevelType.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBundle.h"
 #include "llvm/Target/TargetRegisterInfo.h"
@@ -52,7 +51,7 @@ private:
   Delegate *TheDelegate;
 
   /// True if subregister liveness is tracked.
-  const bool TracksSubRegLiveness;
+  bool TracksSubRegLiveness;
 
   /// VRegInfo - Information we keep for each virtual register.
   ///
@@ -105,16 +104,16 @@ private:
   /// started.
   BitVector ReservedRegs;
 
-  typedef DenseMap<unsigned, LLT> VRegToTypeMap;
+  typedef DenseMap<unsigned, unsigned> VRegToSizeMap;
   /// Map generic virtual registers to their actual size.
-  mutable std::unique_ptr<VRegToTypeMap> VRegToType;
+  mutable std::unique_ptr<VRegToSizeMap> VRegToSize;
 
-  /// Accessor for VRegToType. This accessor should only be used
+  /// Accessor for VRegToSize. This accessor should only be used
   /// by global-isel related work.
-  VRegToTypeMap &getVRegToType() const {
-    if (!VRegToType)
-      VRegToType.reset(new VRegToTypeMap);
-    return *VRegToType.get();
+  VRegToSizeMap &getVRegToSize() const {
+    if (!VRegToSize)
+      VRegToSize.reset(new VRegToSizeMap);
+    return *VRegToSize.get();
   }
 
   /// Keep track of the physical registers that are live in to the function.
@@ -167,7 +166,7 @@ public:
 
   // leaveSSA - Indicates that the machine function is no longer in SSA form.
   void leaveSSA() {
-    MF->getProperties().reset(MachineFunctionProperties::Property::IsSSA);
+    MF->getProperties().clear(MachineFunctionProperties::Property::IsSSA);
   }
 
   /// tracksLiveness - Returns true when tracking register liveness accurately.
@@ -183,7 +182,7 @@ public:
   /// This should be called by late passes that invalidate the liveness
   /// information.
   void invalidateLiveness() {
-    MF->getProperties().reset(
+    MF->getProperties().clear(
         MachineFunctionProperties::Property::TracksLiveness);
   }
 
@@ -198,6 +197,10 @@ public:
   }
   bool subRegLivenessEnabled() const {
     return TracksSubRegLiveness;
+  }
+
+  void enableSubRegLiveness(bool Enable = true) {
+    TracksSubRegLiveness = Enable;
   }
 
   //===--------------------------------------------------------------------===//
@@ -642,20 +645,18 @@ public:
   ///
   unsigned createVirtualRegister(const TargetRegisterClass *RegClass);
 
-  /// Get the low-level type of \p VReg or LLT{} if VReg is not a generic
+  /// Get the size in bits of \p VReg or 0 if VReg is not a generic
   /// (target independent) virtual register.
-  LLT getType(unsigned VReg) const;
+  unsigned getSize(unsigned VReg) const;
 
-  /// Set the low-level type of \p VReg to \p Ty.
-  void setType(unsigned VReg, LLT Ty);
+  /// Set the size in bits of \p VReg to \p Size.
+  /// Although the size should be set at build time, mir infrastructure
+  /// is not yet able to do it.
+  void setSize(unsigned VReg, unsigned Size);
 
-  /// Create and return a new generic virtual register with low-level
-  /// type \p Ty.
-  unsigned createGenericVirtualRegister(LLT Ty);
-
-  /// Remove all types associated to virtual registers (after instruction
-  /// selection and constraining of all generic virtual registers).
-  void clearVirtRegTypes();
+  /// Create and return a new generic virtual register with a size of \p Size.
+  /// \pre Size > 0.
+  unsigned createGenericVirtualRegister(unsigned Size);
 
   /// getNumVirtRegs - Return the number of virtual registers created.
   ///

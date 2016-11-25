@@ -18,7 +18,6 @@
 #define LLVM_LIB_CODEGEN_ALLOCATIONORDER_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/MC/MCRegisterInfo.h"
 
 namespace llvm {
@@ -80,7 +79,9 @@ public:
   bool isHint() const { return Pos <= 0; }
 
   /// Return true if PhysReg is a preferred register.
-  bool isHint(unsigned PhysReg) const { return is_contained(Hints, PhysReg); }
+  bool isHint(unsigned PhysReg) const {
+    return std::find(Hints.begin(), Hints.end(), PhysReg) != Hints.end();
+  }
 };
 
 } // end namespace llvm

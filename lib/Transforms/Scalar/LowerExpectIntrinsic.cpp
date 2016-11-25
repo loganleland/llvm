@@ -83,8 +83,9 @@ static bool handleSwitchExpect(SwitchInst &SI) {
   return true;
 }
 
-// Handle both BranchInst and SelectInst.
-template <class BrSelInst> static bool handleBrSelExpect(BrSelInst &BSI) {
+static bool handleBranchExpect(BranchInst &BI) {
+  if (BI.isUnconditional())
+    return false;
 
   // Handle non-optimized IR code like:
   //   %expval = call i64 @llvm.expect.i64(i64 %conv1, i64 1)
@@ -97,9 +98,9 @@ template <class BrSelInst> static bool handleBrSelExpect(BrSelInst &BSI) {
 
   CallInst *CI;
 
-  ICmpInst *CmpI = dyn_cast<ICmpInst>(BSI.getCondition());
+  ICmpInst *CmpI = dyn_cast<ICmpInst>(BI.getCondition());
   if (!CmpI) {
-    CI = dyn_cast<CallInst>(BSI.getCondition());
+    CI = dyn_cast<CallInst>(BI.getCondition());
   } else {
     if (CmpI->getPredicate() != CmpInst::ICMP_NE)
       return false;
@@ -128,20 +129,13 @@ template <class BrSelInst> static bool handleBrSelExpect(BrSelInst &BSI) {
   else
     Node = MDB.createBranchWeights(UnlikelyBranchWeight, LikelyBranchWeight);
 
-  BSI.setMetadata(LLVMContext::MD_prof, Node);
+  BI.setMetadata(LLVMContext::MD_prof, Node);
 
   if (CmpI)
     CmpI->setOperand(0, ArgValue);
   else
-    BSI.setCondition(ArgValue);
+    BI.setCondition(ArgValue);
   return true;
-}
-
-static bool handleBranchExpect(BranchInst &BI) {
-  if (BI.isUnconditional())
-    return false;
-
-  return handleBrSelExpect<BranchInst>(BI);
 }
 
 static bool lowerExpectIntrinsic(Function &F) {
@@ -157,19 +151,11 @@ static bool lowerExpectIntrinsic(Function &F) {
         ExpectIntrinsicsHandled++;
     }
 
-    // Remove llvm.expect intrinsics. Iterate backwards in order
-    // to process select instructions before the intrinsic gets
-    // removed.
-    for (auto BI = BB.rbegin(), BE = BB.rend(); BI != BE;) {
-      Instruction *Inst = &*BI++;
-      CallInst *CI = dyn_cast<CallInst>(Inst);
-      if (!CI) {
-        if (SelectInst *SI = dyn_cast<SelectInst>(Inst)) {
-          if (handleBrSelExpect(*SI))
-            ExpectIntrinsicsHandled++;
-        }
+    // Remove llvm.expect intrinsics.
+    for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
+      CallInst *CI = dyn_cast<CallInst>(BI++);
+      if (!CI)
         continue;
-      }
 
       Function *Fn = CI->getCalledFunction();
       if (Fn && Fn->getIntrinsicID() == Intrinsic::expect) {

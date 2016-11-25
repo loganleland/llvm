@@ -24,7 +24,6 @@ class MCInstrInfo;
 class MCObjectWriter;
 class MCRegisterInfo;
 class MCSubtargetInfo;
-class MCTargetOptions;
 class Target;
 class Triple;
 class StringRef;
@@ -39,8 +38,7 @@ MCCodeEmitter *createSparcMCCodeEmitter(const MCInstrInfo &MCII,
                                         const MCRegisterInfo &MRI,
                                         MCContext &Ctx);
 MCAsmBackend *createSparcAsmBackend(const Target &T, const MCRegisterInfo &MRI,
-                                    const Triple &TT, StringRef CPU,
-                                    const MCTargetOptions &Options);
+                                    const Triple &TT, StringRef CPU);
 MCObjectWriter *createSparcELFObjectWriter(raw_pwrite_stream &OS, bool Is64Bit,
                                            bool IsLIttleEndian, uint8_t OSABI);
 } // End llvm namespace

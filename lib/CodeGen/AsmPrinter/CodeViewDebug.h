@@ -36,7 +36,6 @@ struct ClassInfo;
 /// \brief Collects and handles line tables information in a CodeView format.
 class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
   MCStreamer &OS;
-  llvm::BumpPtrAllocator Allocator;
   codeview::MemoryTypeTableBuilder TypeTable;
 
   /// Represents the most general definition range.
@@ -191,8 +190,6 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
 
   void emitTypeInformation();
 
-  void emitCompilerInformation();
-
   void emitInlineeLinesSubsection();
 
   void emitDebugInfoForFunction(const Function *GV, FunctionInfo &FI);
@@ -204,8 +201,7 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
   void emitDebugInfoForUDTs(
       ArrayRef<std::pair<std::string, codeview::TypeIndex>> UDTs);
 
-  void emitDebugInfoForGlobal(const DIGlobalVariable *DIGV,
-                              const GlobalVariable *GV, MCSymbol *GVSym);
+  void emitDebugInfoForGlobal(const DIGlobalVariable *DIGV, MCSymbol *GVSym);
 
   /// Opens a subsection of the given kind in a .debug$S codeview section.
   /// Returns an end label for use with endCVSubsection when the subsection is
@@ -255,7 +251,6 @@ class LLVM_LIBRARY_VISIBILITY CodeViewDebug : public DebugHandlerBase {
   codeview::TypeIndex lowerTypeMemberPointer(const DIDerivedType *Ty);
   codeview::TypeIndex lowerTypeModifier(const DIDerivedType *Ty);
   codeview::TypeIndex lowerTypeFunction(const DISubroutineType *Ty);
-  codeview::TypeIndex lowerTypeVFTableShape(const DIDerivedType *Ty);
   codeview::TypeIndex lowerTypeMemberFunction(const DISubroutineType *Ty,
                                               const DIType *ClassTy,
                                               int ThisAdjustment);

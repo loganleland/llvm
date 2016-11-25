@@ -14,7 +14,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Utils/LowerInvoke.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Instructions.h"
@@ -29,29 +28,36 @@ using namespace llvm;
 STATISTIC(NumInvokes, "Number of invokes replaced");
 
 namespace {
-  class LowerInvokeLegacyPass : public FunctionPass {
+  class LowerInvoke : public FunctionPass {
   public:
     static char ID; // Pass identification, replacement for typeid
-    explicit LowerInvokeLegacyPass() : FunctionPass(ID) {
-      initializeLowerInvokeLegacyPassPass(*PassRegistry::getPassRegistry());
+    explicit LowerInvoke() : FunctionPass(ID) {
+      initializeLowerInvokePass(*PassRegistry::getPassRegistry());
     }
     bool runOnFunction(Function &F) override;
   };
 }
 
-char LowerInvokeLegacyPass::ID = 0;
-INITIALIZE_PASS(LowerInvokeLegacyPass, "lowerinvoke",
+char LowerInvoke::ID = 0;
+INITIALIZE_PASS(LowerInvoke, "lowerinvoke",
                 "Lower invoke and unwind, for unwindless code generators",
                 false, false)
 
-static bool runImpl(Function &F) {
+char &llvm::LowerInvokePassID = LowerInvoke::ID;
+
+// Public Interface To the LowerInvoke pass.
+FunctionPass *llvm::createLowerInvokePass() {
+  return new LowerInvoke();
+}
+
+bool LowerInvoke::runOnFunction(Function &F) {
   bool Changed = false;
   for (BasicBlock &BB : F)
     if (InvokeInst *II = dyn_cast<InvokeInst>(BB.getTerminator())) {
-      SmallVector<Value *, 16> CallArgs(II->op_begin(), II->op_end() - 3);
+      SmallVector<Value*,16> CallArgs(II->op_begin(), II->op_end() - 3);
       // Insert a normal call instruction...
-      CallInst *NewCall =
-          CallInst::Create(II->getCalledValue(), CallArgs, "", II);
+      CallInst *NewCall = CallInst::Create(II->getCalledValue(),
+                                           CallArgs, "", II);
       NewCall->takeName(II);
       NewCall->setCallingConv(II->getCallingConv());
       NewCall->setAttributes(II->getAttributes());
@@ -67,28 +73,7 @@ static bool runImpl(Function &F) {
       // Remove the invoke instruction now.
       BB.getInstList().erase(II);
 
-      ++NumInvokes;
-      Changed = true;
+      ++NumInvokes; Changed = true;
     }
   return Changed;
-}
-
-bool LowerInvokeLegacyPass::runOnFunction(Function &F) {
-  return runImpl(F);
-}
-
-namespace llvm {
-char &LowerInvokePassID = LowerInvokeLegacyPass::ID;
-
-// Public Interface To the LowerInvoke pass.
-FunctionPass *createLowerInvokePass() { return new LowerInvokeLegacyPass(); }
-
-PreservedAnalyses LowerInvokePass::run(Function &F,
-                                       FunctionAnalysisManager &AM) {
-  bool Changed = runImpl(F);
-  if (!Changed)
-    return PreservedAnalyses::all();
-
-  return PreservedAnalyses::none();
-}
 }
