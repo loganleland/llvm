@@ -28,7 +28,7 @@ namespace NOPECC {
         COND_GE = 4,
         COND_L = 5,
 
-        COND_INVALID = -1
+        COND_INVALID = 6
     };
 }
 
