@@ -368,6 +368,12 @@ let Defs = [SR] in {
 
 let isCommutable = 1 in { // X = ADD Y, Z  == X = ADD Z, Y
 
+def ADDLW  : I8rr<0x0,
+                   (outs GR8:$dst), (ins GR8:$src, GR8:$src2),
+                   "movf\t$dst, W\n\taddlw\t{$src2}\n\tmovwf $dst",
+                   [(set GR8:$dst, (add GR8:$src, GR8:$src2)),
+                    (implicit SR)]>;
+
 def ADD8rr  : I8rr<0x0,
                    (outs GR8:$dst), (ins GR8:$src, GR8:$src2),
                    "add.b\t{$src2, $dst}",
