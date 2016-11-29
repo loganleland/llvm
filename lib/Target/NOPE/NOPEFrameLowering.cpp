@@ -63,18 +63,28 @@ void NOPEFrameLowering::emitPrologue(MachineFunction &MF,
     // Update the frame offset adjustment.
     MFI->setOffsetAdjustment(-NumBytes);
 
-    // Save FP into the appropriate stack slot...
-    //BuildMI(MBB, MBBI, DL, TII.get(NOPE::PUSH16r))
-    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W))
-      .addReg(NOPE::FP, RegState::Kill);
-
-    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF), NOPE::FSR);
-
-    // Update FP with the new base value...
-    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF))
+    BuildMI(MBB, MBBI, DL, TII.get(NOPE::INCF_F))
       .addReg(NOPE::SP);
 
-    BuildMI(MBB, MBBI, DL, TII.get(NOPE::DECF_F), NOPE::SP);
+    BuildMI(MBB, MBBI, DL, TII.get(NOPE::INCF_F), NOPE::SP);
+
+    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W), NOPE::SP);
+
+    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF))
+      .addReg(NOPE::FSR);
+
+   BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W))
+      .addReg(NOPE::FP);
+
+   BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF))
+      .addReg(NOPE::INDF);
+
+   BuildMI(MBB, MBBI, DL, TII.get(NOPE::DECF_F), NOPE::SP);
+   BuildMI(MBB, MBBI, DL, TII.get(NOPE::DECF_F), NOPE::FSR);
+
+   BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W), NOPE::SP);
+
+   BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF), NOPE::FP);
 
     // Mark the FramePtr as live-in in every block except the entry.
     for (MachineFunction::iterator I = std::next(MF.begin()), E = MF.end();
@@ -101,7 +111,7 @@ void NOPEFrameLowering::emitPrologue(MachineFunction &MF,
 
     if (NumBytes) {
       MachineInstr *MI =
-        BuildMI(MBB, MBBI, DL, TII.get(NOPE::SUB16ri), NOPE::SP)
+        BuildMI(MBB, MBBI, DL, TII.get(NOPE::ADDLW), NOPE::SP)
         .addReg(NOPE::SP).addImm(NumBytes);
       // The SRW implicit def is dead.
       MI->getOperand(3).setIsDead();
