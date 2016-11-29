@@ -43,7 +43,7 @@ def R13B  : NOPEReg<13, "r13">;
 def R14B  : NOPEReg<14, "r14">;
 def R15B  : NOPEReg<15, "r15">;
 def FSRB  : NOPEReg<16, "r16">;
-def INDFB : NOPEReg<17, "r17">;
+def INDRFB : NOPEReg<17, "r17">;
 
 def subreg_8bit : SubRegIndex<8> { let Namespace = "NOPE"; }
 
@@ -65,14 +65,14 @@ def R13  : NOPERegWithSubregs<13, "r13", [R13B]>;
 def R14  : NOPERegWithSubregs<14, "r14", [R14B]>;
 def R15  : NOPERegWithSubregs<15, "r15", [R15B]>;
 def FSR  : NOPERegWithSubregs<16, "FSR", [FSRB]>;
-def INDF : NOPERegWithSubregs<17, "INDF", [INDFB]>;
+def INDR : NOPERegWithSubregs<17, "INDR", [INDFB]>;
 }
 
 def GR8 : RegisterClass<"NOPE", [i8], 8,
    // Volatile registers
   (add R12B, R13B, R14B, R15B, R11B, R10B, R9B, R8B, R7B, R6B, R5B,
    // Frame pointer, sometimes allocable
-   FPB,FSRB,INDFB,
+   FPB,FSRB,INDRFB,
    // Volatile, but not allocable
    PCB, SPB, SRB, CGB)>;
 
@@ -80,6 +80,6 @@ def GR16 : RegisterClass<"NOPE", [i16], 16,
    // Volatile registers
   (add R12, R13, R14, R15, R11, R10, R9, R8, R7, R6, R5,
    // Frame pointer, sometimes allocable
-   FP,FSR,INDF,
+   FP,FSR,INDR,
    // Volatile, but not allocable
    PC, SP, SR, CG)>;
