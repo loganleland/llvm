@@ -65,7 +65,7 @@ def R13  : NOPERegWithSubregs<13, "r13", [R13B]>;
 def R14  : NOPERegWithSubregs<14, "r14", [R14B]>;
 def R15  : NOPERegWithSubregs<15, "r15", [R15B]>;
 def FSR  : NOPERegWithSubregs<16, "FSR", [FSRB]>;
-def INDR : NOPERegWithSubregs<17, "INDR", [INDFB]>;
+def INDR : NOPERegWithSubregs<17, "INDR", [INDRFB]>;
 }
 
 def GR8 : RegisterClass<"NOPE", [i8], 8,

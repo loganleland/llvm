@@ -65,7 +65,6 @@ void NOPEFrameLowering::emitPrologue(MachineFunction &MF,
 
     BuildMI(MBB, MBBI, DL, TII.get(NOPE::INCF_F))
       .addReg(NOPE::SP);
-
     BuildMI(MBB, MBBI, DL, TII.get(NOPE::INCF_F), NOPE::SP);
 
     BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W), NOPE::SP);
@@ -77,7 +76,7 @@ void NOPEFrameLowering::emitPrologue(MachineFunction &MF,
       .addReg(NOPE::FP);
 
    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF))
-      .addReg(NOPE::INDF);
+      .addReg(NOPE::INDR);
 
    BuildMI(MBB, MBBI, DL, TII.get(NOPE::DECF_F), NOPE::SP);
    BuildMI(MBB, MBBI, DL, TII.get(NOPE::DECF_F), NOPE::FSR);
@@ -146,8 +145,16 @@ void NOPEFrameLowering::emitEpilogue(MachineFunction &MF,
     uint64_t FrameSize = StackSize - 2;
     NumBytes = FrameSize - CSSize;
 
-    // pop FP.
-    BuildMI(MBB, MBBI, DL, TII.get(NOPE::INCF_F), NOPE::SP);
+    //restore the FP to the parent function's FP
+    //and have FSR contain the parent functions' FP
+    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W), NOPE::FP);
+    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF), NOPE::FSR);
+    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W))
+      .addReg(NOPE::INDR);
+    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF), NOPE::FSR);
+    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W), NOPE::INDR);
+    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF), NOPE::FP);
+    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF), NOPE::FSR);
   } else
     NumBytes = StackSize - CSSize;
 
@@ -162,31 +169,13 @@ void NOPEFrameLowering::emitEpilogue(MachineFunction &MF,
 
   DL = MBBI->getDebugLoc();
 
-  // If there is an ADD16ri or SUB16ri of SP immediately before this
-  // instruction, merge the two instructions.
-  //if (NumBytes || MFI->hasVarSizedObjects())
-  //  mergeSPUpdatesUp(MBB, MBBI, StackPtr, &NumBytes);
-
-  if (MFI->hasVarSizedObjects()) {
-    BuildMI(MBB, MBBI, DL,
-            TII.get(NOPE::MOV16rr), NOPE::SP).addReg(NOPE::FP);
-    if (CSSize) {
-      MachineInstr *MI =
-        BuildMI(MBB, MBBI, DL,
-                TII.get(NOPE::SUB16ri), NOPE::SP)
-        .addReg(NOPE::SP).addImm(CSSize);
-      // The SRW implicit def is dead.
-      MI->getOperand(3).setIsDead();
-    }
-  } else {
-    // adjust stack pointer back: SP += numbytes
-    if (NumBytes) {
-      MachineInstr *MI =
-        BuildMI(MBB, MBBI, DL, TII.get(NOPE::ADD16ri), NOPE::SP)
-        .addReg(NOPE::SP).addImm(NumBytes);
-      // The SRW implicit def is dead.
-      MI->getOperand(3).setIsDead();
-    }
+  // adjust stack pointer back: SP += numbytes
+  if (NumBytes) {
+    MachineInstr *MI =
+      BuildMI(MBB, MBBI, DL, TII.get(NOPE::SUBLW), NOPE::SP)
+      .addReg(NOPE::SP).addImm(NumBytes);
+    // The SRW implicit def is dead.
+    MI->getOperand(3).setIsDead();
   }
 }
 
