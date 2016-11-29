@@ -44,7 +44,6 @@ def R14B  : NOPEReg<14, "r14">;
 def R15B  : NOPEReg<15, "r15">;
 def FSRB  : NOPEReg<16, "r16">;
 def INDFB : NOPEReg<17, "r17">;
-def prevFPB : NOPEReg<18, "r19">;
 
 def subreg_8bit : SubRegIndex<8> { let Namespace = "NOPE"; }
 
@@ -67,7 +66,6 @@ def R14  : NOPERegWithSubregs<14, "r14", [R14B]>;
 def R15  : NOPERegWithSubregs<15, "r15", [R15B]>;
 def FSR  : NOPERegWithSubregs<16, "FSR", [FSRB]>;
 def INDF : NOPERegWithSubregs<17, "INDF", [INDFB]>;
-def preFP : NOPERegWithSubregs<18, "prevFP", [prevFPB]>;
 }
 
 def GR8 : RegisterClass<"NOPE", [i8], 8,
