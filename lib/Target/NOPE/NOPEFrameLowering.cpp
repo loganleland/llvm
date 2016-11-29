@@ -112,7 +112,7 @@ void NOPEFrameLowering::emitPrologue(MachineFunction &MF,
     if (NumBytes) {
       MachineInstr *MI =
         BuildMI(MBB, MBBI, DL, TII.get(NOPE::ADDLW), NOPE::SP)
-        .addReg(NOPE::SP).addImm(NumBytes);
+        .addReg(NOPE::SP).addImm(NumBytes-1);
       // The SRW implicit def is dead.
       MI->getOperand(3).setIsDead();
     }
