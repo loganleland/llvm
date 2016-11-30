@@ -332,13 +332,13 @@ def def8 : PatLeaf<(i8 GR8:$src), [{
 def : Pat<(i16 (zext def8:$src)),
           (SUBREG_TO_REG (i16 0), GR8:$src, subreg_8bit)>;
 
-def MOV8mi  : I8mi<0x0,
+def LOCALVAR: I8mi<0x0,
                    (outs), (ins memdst:$dst, i8imm:$src),
-                   "MOV8mi\t{$src, $dst}",
+                   "movf FSR, W\n\taddlw $dst\n\tmovwf FSR\n\tmovlw $src\n\tmovwf INDR\n\tmovf FSR,W\n\tsublw $dst \n\tmovwf FSR",
                    [(store (i8 imm:$src), addr:$dst)]>;
-def MOV16mi : I16mi<0x0,
+def LOCALVAR_ : I16mi<0x0,
                     (outs), (ins memdst:$dst, i16imm:$src),
-                    "MOV16mi\t{$src, $dst}",
+                    "movf FSR, W\n\taddlw $dst\n\tmovwf FSR\n\tmovlw $src\n\tmovwf INDR\n\tmovf FSR,W\n\tsublw $dst \n\tmovwf FSR",
                     [(store (i16 imm:$src), addr:$dst)]>;
 
 def MOV8mr  : I8mr<0x0,
@@ -1186,11 +1186,11 @@ def : Pat<(add GR16:$src, (NOPEWrapper tblockaddress:$src2)),
           (ADD16ri GR16:$src, tblockaddress:$src2)>;
 
 def : Pat<(store (i16 (NOPEWrapper tglobaladdr:$src)), addr:$dst),
-          (MOV16mi addr:$dst, tglobaladdr:$src)>;
+          (LOCALVAR_ addr:$dst, tglobaladdr:$src)>;
 def : Pat<(store (i16 (NOPEWrapper texternalsym:$src)), addr:$dst),
-          (MOV16mi addr:$dst, texternalsym:$src)>;
+          (LOCALVAR_ addr:$dst, texternalsym:$src)>;
 def : Pat<(store (i16 (NOPEWrapper tblockaddress:$src)), addr:$dst),
-          (MOV16mi addr:$dst, tblockaddress:$src)>;
+          (LOCALVAR_ addr:$dst, tblockaddress:$src)>;
 
 // calls
 def : Pat<(NOPEcall (i16 tglobaladdr:$dst)),

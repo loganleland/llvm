@@ -582,21 +582,6 @@ SDValue NOPETargetLowering::LowerCCCCallTo(
 
     SDValue Arg = OutVals[i];
 
-    // Promote the value if needed.
-    switch (VA.getLocInfo()) {
-      default: llvm_unreachable("Unknown loc info!");
-      case CCValAssign::Full: break;
-      case CCValAssign::SExt:
-        Arg = DAG.getNode(ISD::SIGN_EXTEND, dl, VA.getLocVT(), Arg);
-        break;
-      case CCValAssign::ZExt:
-        Arg = DAG.getNode(ISD::ZERO_EXTEND, dl, VA.getLocVT(), Arg);
-        break;
-      case CCValAssign::AExt:
-        Arg = DAG.getNode(ISD::ANY_EXTEND, dl, VA.getLocVT(), Arg);
-        break;
-    }
-
     // Arguments that can be passed on register must be kept at RegsToPass
     // vector
     if (VA.isRegLoc()) {
@@ -1146,16 +1131,16 @@ bool NOPETargetLowering::isTruncateFree(EVT VT1, EVT VT2) const {
 
 bool NOPETargetLowering::isZExtFree(Type *Ty1, Type *Ty2) const {
   // NOPE implicitly zero-extends 8-bit results in 16-bit registers.
-  return 0 && Ty1->isIntegerTy(8) && Ty2->isIntegerTy(16);
+  return true;
 }
 
 bool NOPETargetLowering::isZExtFree(EVT VT1, EVT VT2) const {
   // NOPE implicitly zero-extends 8-bit results in 16-bit registers.
-  return 0 && VT1 == MVT::i8 && VT2 == MVT::i16;
+  return true;
 }
 
 bool NOPETargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
-  return isZExtFree(Val.getValueType(), VT2);
+  return true;
 }
 
 //===----------------------------------------------------------------------===//
