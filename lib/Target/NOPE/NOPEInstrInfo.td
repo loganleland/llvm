@@ -261,6 +261,12 @@ def MOVF_W  : I8rr<0x0,
                    "movf\t{$src, W}",
                    []>;
 
+def MOVLW  : I8rr<0x0,
+                   (outs), (ins GR8:$src),
+                   "movlw $src",
+                   []>;
+
+
 def MOVWF  : I8rr<0x0,
                    (outs), (ins GR8:$src),
                    "movwf\t{$src}",
@@ -280,11 +286,11 @@ def MOV16rr : I16rr<0x0,
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in {
 def MOV8ri  : I8ri<0x0,
                    (outs GR8:$dst), (ins i8imm:$src),
-                   "MOV8ri\t{$src, $dst}",
+                   "movlw $src\n\tmovwf $dst",
                    [(set GR8:$dst, imm:$src)]>;
 def MOV16ri : I16ri<0x0,
                     (outs GR16:$dst), (ins i16imm:$src),
-                    "MOV16ri\t{$src, $dst}",
+                    "movlw $src\n\tmovwf $dst",
                     [(set GR16:$dst, imm:$src)]>;
 }
 
@@ -343,11 +349,11 @@ def LOCALVAR_ : I16mi<0x0,
 
 def MOV8mr  : I8mr<0x0,
                    (outs), (ins memdst:$dst, GR8:$src),
-                   "MOV8mr\t{$src, $dst}",
+                   "movlw $dst\n\tmovwf $src",
                    [(store GR8:$src, addr:$dst)]>;
 def MOV16mr : I16mr<0x0,
                     (outs), (ins memdst:$dst, GR16:$src),
-                    "MOV16mr\t{$src, $dst}",
+                    "movlw $dst\n\tmovwf $src",
                     [(store GR16:$src, addr:$dst)]>;
 
 def MOV8mm  : I8mm<0x0,

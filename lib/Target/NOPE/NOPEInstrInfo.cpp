@@ -50,13 +50,18 @@ void NOPEInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
       MFI.getObjectAlignment(FrameIdx));
 
   if (RC == &NOPE::GR16RegClass)
-    BuildMI(MBB, MI, DL, get(NOPE::MOV16mr))
-      .addFrameIndex(FrameIdx).addImm(0)
+  {
+    BuildMI(MBB, MI, DL, get(NOPE::MOVLW))
+      .addFrameIndex(FrameIdx).addImm(0);
+    BuildMI(MBB, MI, DL, get(NOPE::MOVWF))
       .addReg(SrcReg, getKillRegState(isKill)).addMemOperand(MMO);
-  else if (RC == &NOPE::GR8RegClass)
-    BuildMI(MBB, MI, DL, get(NOPE::MOV8mr))
-      .addFrameIndex(FrameIdx).addImm(0)
+  }
+  else if (RC == &NOPE::GR8RegClass){
+    BuildMI(MBB, MI, DL, get(NOPE::MOVLW))
+      .addFrameIndex(FrameIdx).addImm(0);
+    BuildMI(MBB, MI, DL, get(NOPE::MOVWF))
       .addReg(SrcReg, getKillRegState(isKill)).addMemOperand(MMO);
+  }
   else
     llvm_unreachable("Cannot store this register to stack slot!");
 }
