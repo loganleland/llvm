@@ -50,7 +50,7 @@ void NOPEInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   if (Op.isReg()) {
     O << getRegisterName(Op.getReg());
   } else if (Op.isImm()) {
-    O << Op.getImm();
+    O << "d'" << Op.getImm() << "'";
   } else {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
     Op.getExpr()->print(O, &MAI);
@@ -62,7 +62,7 @@ void NOPEInstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
                                            const char *Modifier) {
   const MCOperand &Base = MI->getOperand(OpNo);
   const MCOperand &Disp = MI->getOperand(OpNo+1);
-
+  uint64_t alpha = Disp.getImm()-Disp.getImm()-Disp.getImm();
   // Print displacement first
 
   // If the global address expression is a part of displacement field with a
@@ -78,12 +78,12 @@ void NOPEInstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
     Disp.getExpr()->print(O, &MAI);
   else {
     assert(Disp.isImm() && "Expected immediate in displacement field");
-    O << Disp.getImm();
+    O << "d'" << alpha << "'";
   }
 
   // Print register base field
-  if (Base.getReg())
-    O << '(' << getRegisterName(Base.getReg()) << ')';
+  //if (Base.getReg())
+  //  O << '(' << getRegisterName(Base.getReg()) << ')';
 }
 
 void NOPEInstPrinter::printCCOperand(const MCInst *MI, unsigned OpNo,
