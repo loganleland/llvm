@@ -38,12 +38,12 @@ def R8B   : NOPEReg<8,  "r8">;
 def R9B   : NOPEReg<9,  "r9">;
 def R10B  : NOPEReg<10, "r10">;
 def R11B  : NOPEReg<11, "r11">;
-def R12B  : NOPEReg<12, "r12">;
-def R13B  : NOPEReg<13, "r13">;
-def R14B  : NOPEReg<14, "r14">;
-def R15B  : NOPEReg<15, "r15">;
-def FSRB  : NOPEReg<16, "r16">;
-def INDRFB : NOPEReg<17, "r17">;
+def R12B  : NOPEReg<12, "GPR1">;
+def R13B  : NOPEReg<13, "GPR2">;
+def R14B  : NOPEReg<14, "GPR3">;
+def R15B  : NOPEReg<15, "GPR4">;
+def FSRB  : NOPEReg<16, "FSR">;
+def INDRFB : NOPEReg<17, "INDR">;
 
 def subreg_8bit : SubRegIndex<8> { let Namespace = "NOPE"; }
 
@@ -60,10 +60,10 @@ def R8   : NOPERegWithSubregs<8,  "r8",  [R8B]>;
 def R9   : NOPERegWithSubregs<9,  "r9",  [R9B]>;
 def R10  : NOPERegWithSubregs<10, "r10", [R10B]>;
 def R11  : NOPERegWithSubregs<11, "r11", [R11B]>;
-def R12  : NOPERegWithSubregs<12, "r12", [R12B]>;
-def R13  : NOPERegWithSubregs<13, "r13", [R13B]>;
-def R14  : NOPERegWithSubregs<14, "r14", [R14B]>;
-def R15  : NOPERegWithSubregs<15, "r15", [R15B]>;
+def R12  : NOPERegWithSubregs<12, "GPR1", [R12B]>;
+def R13  : NOPERegWithSubregs<13, "GPR2", [R13B]>;
+def R14  : NOPERegWithSubregs<14, "GPR3", [R14B]>;
+def R15  : NOPERegWithSubregs<15, "GPR4", [R15B]>;
 def FSR  : NOPERegWithSubregs<16, "FSR", [FSRB]>;
 def INDR : NOPERegWithSubregs<17, "INDR", [INDRFB]>;
 }
