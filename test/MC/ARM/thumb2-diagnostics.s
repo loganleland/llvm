@@ -29,11 +29,7 @@
 @ CHECK-ERRORS:         ittfe le
 @ CHECK-ERRORS:           ^
 @ CHECK-ERRORS: error: predicated instructions must be in IT block
-<<<<<<< HEAD
-@ CHECK-ERRORS:         nopeq
-=======
 @ CHECK-ERRORS:         pic16q
->>>>>>> Star_Wars_A_New_PIC16
 @ CHECK-ERRORS:         ^
 
         @ Out of range immediates for MRC/MRC2/MRRC/MRRC2
@@ -60,13 +56,8 @@
         bkpteq #1
 @ CHECK-ERRORS: error: instruction 'bkpt' is not predicable, but condition code specified
 
-<<<<<<< HEAD
-        nopeq
-        nopeq
-=======
         pic16q
         pic16q
->>>>>>> Star_Wars_A_New_PIC16
 
 @ out of range operands for Thumb2 targets
 

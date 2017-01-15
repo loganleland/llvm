@@ -64,11 +64,7 @@
 #define	print	lprint
 #define	at	lat
 #define	match	lmat
-<<<<<<< HEAD
-#define	nope	lnope
-=======
 #define	pic16	lpic16
->>>>>>> Star_Wars_A_New_PIC16
 #endif
 
 /* another structure passed up and down to avoid zillions of parameters */
@@ -121,11 +117,7 @@ static char *pchar(int);
 #define	SP(t, s, c)	print(m, t, s, c, stdout)
 #define	AT(t, p1, p2, s1, s2)	at(m, t, p1, p2, s1, s2)
 #define	NOTE(str)	{ if (m->eflags&REG_TRACE) (void)printf("=%s\n", (str)); }
-<<<<<<< HEAD
-static int nope = 0;
-=======
 static int pic16 = 0;
->>>>>>> Star_Wars_A_New_PIC16
 #else
 #define	SP(t, s, c)	/* nothing */
 #define	AT(t, p1, p2, s1, s2)	/* nothing */
@@ -336,11 +328,7 @@ dissect(struct match *m, const char *start, const char *stop, sopno startst,
 		/* figure out what it matched */
 		switch (OP(m->g->strip[ss])) {
 		case OEND:
-<<<<<<< HEAD
-			assert(nope);
-=======
 			assert(pic16);
->>>>>>> Star_Wars_A_New_PIC16
 			break;
 		case OCHAR:
 			sp++;
@@ -356,11 +344,7 @@ dissect(struct match *m, const char *start, const char *stop, sopno startst,
 			break;
 		case OBACK_:
 		case O_BACK:
-<<<<<<< HEAD
-			assert(nope);
-=======
 			assert(pic16);
->>>>>>> Star_Wars_A_New_PIC16
 			break;
 		/* cases where length of match is hard to find */
 		case OQUEST_:
@@ -470,11 +454,7 @@ dissect(struct match *m, const char *start, const char *stop, sopno startst,
 		case OOR1:
 		case OOR2:
 		case O_CH:
-<<<<<<< HEAD
-			assert(nope);
-=======
 			assert(pic16);
->>>>>>> Star_Wars_A_New_PIC16
 			break;
 		case OLPAREN:
 			i = OPND(m->g->strip[ss]);
@@ -487,11 +467,7 @@ dissect(struct match *m, const char *start, const char *stop, sopno startst,
 			m->pmatch[i].rm_eo = sp - m->offp;
 			break;
 		default:		/* uh oh */
-<<<<<<< HEAD
-			assert(nope);
-=======
 			assert(pic16);
->>>>>>> Star_Wars_A_New_PIC16
 			break;
 		}
 	}
@@ -690,20 +666,12 @@ backref(struct match *m, const char *start, const char *stop, sopno startst,
 		return(NULL);
 		break;
 	default:		/* uh oh */
-<<<<<<< HEAD
-		assert(nope);
-=======
 		assert(pic16);
->>>>>>> Star_Wars_A_New_PIC16
 		break;
 	}
 
 	/* "can't happen" */
-<<<<<<< HEAD
-	assert(nope);
-=======
 	assert(pic16);
->>>>>>> Star_Wars_A_New_PIC16
 	/* NOTREACHED */
         return NULL;
 }
@@ -982,11 +950,7 @@ step(struct re_guts *g,
 			FWD(aft, aft, 1);
 			break;
 		default:		/* ooooops... */
-<<<<<<< HEAD
-			assert(nope);
-=======
 			assert(pic16);
->>>>>>> Star_Wars_A_New_PIC16
 			break;
 		}
 	}
@@ -1067,8 +1031,4 @@ pchar(int ch)
 #undef	print
 #undef	at
 #undef	match
-<<<<<<< HEAD
-#undef	nope
-=======
 #undef	pic16
->>>>>>> Star_Wars_A_New_PIC16

@@ -253,11 +253,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("mips64", mips64)
     .Case("mips64el", mips64el)
     .Case("msp430", msp430)
-<<<<<<< HEAD
-    .Case("nope", nope)
-=======
     .Case("pic16", pic16)
->>>>>>> Star_Wars_A_New_PIC16
     .Case("ppc64", ppc64)
     .Case("ppc32", ppc)
     .Case("ppc", ppc)
@@ -373,11 +369,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("thumbeb", Triple::thumbeb)
     .Case("avr", Triple::avr)
     .Case("msp430", Triple::msp430)
-<<<<<<< HEAD
-    .Case("nope", Triple::nope)
-=======
     .Case("pic16", Triple::pic16)
->>>>>>> Star_Wars_A_New_PIC16
     .Cases("mips", "mipseb", "mipsallegrex", Triple::mips)
     .Cases("mipsel", "mipsallegrexel", Triple::mipsel)
     .Cases("mips64", "mips64eb", Triple::mips64)
@@ -610,11 +602,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::mips64el:
   case Triple::mipsel:
   case Triple::msp430:
-<<<<<<< HEAD
-  case Triple::nope:
-=======
   case Triple::pic16:
->>>>>>> Star_Wars_A_New_PIC16
   case Triple::nvptx:
   case Triple::nvptx64:
   case Triple::ppc64le:
@@ -1137,11 +1125,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
 
   case llvm::Triple::avr:
   case llvm::Triple::msp430:
-<<<<<<< HEAD
-  case llvm::Triple::nope:
-=======
   case llvm::Triple::pic16:
->>>>>>> Star_Wars_A_New_PIC16
     return 16;
 
   case llvm::Triple::arm:
@@ -1215,11 +1199,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::bpfel:
   case Triple::bpfeb:
   case Triple::msp430:
-<<<<<<< HEAD
-  case Triple::nope:
-=======
   case Triple::pic16:
->>>>>>> Star_Wars_A_New_PIC16
   case Triple::systemz:
   case Triple::ppc64le:
     T.setArch(UnknownArch);
@@ -1279,11 +1259,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::kalimba:
   case Triple::lanai:
   case Triple::msp430:
-<<<<<<< HEAD
-  case Triple::nope:
-=======
   case Triple::pic16:
->>>>>>> Star_Wars_A_New_PIC16
   case Triple::r600:
   case Triple::tce:
   case Triple::xcore:
@@ -1352,11 +1328,7 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::le32:
   case Triple::le64:
   case Triple::msp430:
-<<<<<<< HEAD
-  case Triple::nope:
-=======
   case Triple::pic16:
->>>>>>> Star_Wars_A_New_PIC16
   case Triple::nvptx64:
   case Triple::nvptx:
   case Triple::r600:
@@ -1440,11 +1412,7 @@ bool Triple::isLittleEndian() const {
   case Triple::mips64el:
   case Triple::mipsel:
   case Triple::msp430:
-<<<<<<< HEAD
-  case Triple::nope:
-=======
   case Triple::pic16:
->>>>>>> Star_Wars_A_New_PIC16
   case Triple::nvptx64:
   case Triple::nvptx:
   case Triple::ppc64le:

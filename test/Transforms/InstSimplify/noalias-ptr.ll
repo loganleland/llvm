@@ -160,11 +160,7 @@ define void @_Z4pic16bbPi(i1 zeroext %b1, i1 zeroext %b2, i32* readnone %q) #0 {
   %7 = icmp eq i32* %6, %3
   br i1 %7, label %9, label %8
 
-<<<<<<< HEAD
-; CHECK-LABEL: @_Z4nopebbPi
-=======
 ; CHECK-LABEL: @_Z4pic16bbPi
->>>>>>> Star_Wars_A_New_PIC16
 ; CHECK: icmp
 ; CHECK: ret void
 
