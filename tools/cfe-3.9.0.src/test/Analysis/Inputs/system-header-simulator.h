@@ -47,7 +47,7 @@ int setvbuf(FILE * restrict, char * restrict, int, size_t);
 
 FILE *fopen(const char * restrict, const char * restrict);
 int fclose(FILE *);
-FILE *funopen(const void *,
+FILE *fupic16n(const void *,
                  int (*)(void *, char *, int),
                  int (*)(void *, const char *, int),
                  fpos_t (*)(void *, fpos_t, int),

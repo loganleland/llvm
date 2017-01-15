@@ -226,7 +226,7 @@ set(LLVM_ALL_TARGETS
 #  Hexagon
 #  Mips
   MSP430
-  NOPE
+  PIC16
 #  NVPTX
 #  PowerPC
 #  Sparc

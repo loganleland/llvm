@@ -83,7 +83,7 @@ ReduceMiscompilingPasses::doTest(std::vector<std::string> &Prefix,
   if (!Error.empty())
     return InternalError;
   if (Diff) {
-    outs() << " nope.\n";
+    outs() << " pic16.\n";
     if (Suffix.empty()) {
       errs() << BD.getToolName() << ": I'm confused: the test fails when "
              << "no passes are run, nondeterministic program?\n";
@@ -120,7 +120,11 @@ ReduceMiscompilingPasses::doTest(std::vector<std::string> &Prefix,
   if (!Error.empty())
     return InternalError;
   if (Diff) {
+<<<<<<< HEAD
     outs() << " nope.\n";
+=======
+    outs() << " pic16.\n";
+>>>>>>> Star_Wars_A_New_PIC16
     sys::fs::remove(BitcodeResult);
     return KeepPrefix;
   }
@@ -163,7 +167,11 @@ ReduceMiscompilingPasses::doTest(std::vector<std::string> &Prefix,
   if (!Error.empty())
     return InternalError;
   if (Diff) {
+<<<<<<< HEAD
     outs() << " nope.\n";
+=======
+    outs() << " pic16.\n";
+>>>>>>> Star_Wars_A_New_PIC16
     return KeepSuffix;
   }
 
@@ -712,7 +720,11 @@ static bool TestOptimizer(BugDriver &BD, std::unique_ptr<Module> Test,
   std::unique_ptr<Module> New = testMergedProgram(
       BD, std::move(Optimized), std::move(Safe), Error, Broken);
   if (New) {
+<<<<<<< HEAD
     outs() << (Broken ? " nope.\n" : " yup.\n");
+=======
+    outs() << (Broken ? " pic16.\n" : " yup.\n");
+>>>>>>> Star_Wars_A_New_PIC16
     // Delete the original and set the new program.
     delete BD.swapProgramIn(New.release());
   }

@@ -16,11 +16,11 @@ struct x {
 x<float, 4> y;
 
 template <typename T, int Q>
-struct nope {
+struct pic16 {
   // expected-error@+1 {{requested alignment is not a power of 2}}
   void foo(T &b __attribute__((align_value(sizeof(T)+1))));
 };
 
-// expected-note@+1 {{in instantiation of template class 'nope<long double, 4>' requested here}}
-nope<long double, 4> y2;
+// expected-note@+1 {{in instantiation of template class 'pic16<long double, 4>' requested here}}
+pic16<long double, 4> y2;
 

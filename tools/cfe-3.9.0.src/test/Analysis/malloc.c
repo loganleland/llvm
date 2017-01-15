@@ -1171,14 +1171,14 @@ void testPthereadSpecificEscape(pthread_key_t key) {
   pthread_setspecific(key, buf); // no warning
 }
 
-// PR12101: Test funopen().
+// PR12101: Test fupic16n().
 static int releasePtr(void *_ctx) {
     free(_ctx);
     return 0;
 }
 FILE *useFunOpen() {
     void *ctx = malloc(sizeof(int));
-    FILE *f = funopen(ctx, 0, 0, 0, releasePtr); // no warning
+    FILE *f = fupic16n(ctx, 0, 0, 0, releasePtr); // no warning
     if (f == 0) {
         free(ctx);
     }
@@ -1186,7 +1186,7 @@ FILE *useFunOpen() {
 }
 FILE *useFunOpenNoReleaseFunction() {
     void *ctx = malloc(sizeof(int));
-    FILE *f = funopen(ctx, 0, 0, 0, 0);
+    FILE *f = fupic16n(ctx, 0, 0, 0, 0);
     if (f == 0) {
         free(ctx);
     }
@@ -1198,7 +1198,7 @@ static int readNothing(void *_ctx, char *buf, int size) {
 }
 FILE *useFunOpenReadNoRelease() {
   void *ctx = malloc(sizeof(int));
-  FILE *f = funopen(ctx, readNothing, 0, 0, 0);
+  FILE *f = fupic16n(ctx, readNothing, 0, 0, 0);
   if (f == 0) {
     free(ctx);
   }

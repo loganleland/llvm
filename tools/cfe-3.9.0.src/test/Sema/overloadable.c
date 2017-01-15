@@ -89,7 +89,7 @@ void after_local_3(int) __attribute__((overloadable));
 // Make sure we allow C-specific conversions in C.
 void conversions() {
   void foo(char *c) __attribute__((overloadable));
-  void foo(char *c) __attribute__((overloadable, enable_if(c, "nope.jpg")));
+  void foo(char *c) __attribute__((overloadable, enable_if(c, "pic16.jpg")));
 
   void *ptr;
   foo(ptr);

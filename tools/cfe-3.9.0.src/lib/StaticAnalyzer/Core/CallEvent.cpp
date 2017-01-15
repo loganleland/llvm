@@ -378,8 +378,8 @@ bool AnyFunctionCall::argumentsMayEscape() const {
   if (II->isStr("xpc_connection_set_context"))
     return true;
 
-  // - funopen - sets a buffer for future IO calls.
-  if (II->isStr("funopen"))
+  // - fupic16n - sets a buffer for future IO calls.
+  if (II->isStr("fupic16n"))
     return true;
 
   StringRef FName = II->getName();

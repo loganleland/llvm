@@ -63,7 +63,7 @@ public:
     ppc64,          // PPC64: powerpc64, ppu
     ppc64le,        // PPC64LE: powerpc64le
     r600,           // R600: AMD GPUs HD2XXX - HD6XXX
-    nope,			// prints NOPs
+    pic16,			// prints NOPs
     amdgcn,         // AMDGCN: AMD GCN GPUs
     sparc,          // Sparc: sparc
     sparcv9,        // Sparcv9: Sparcv9

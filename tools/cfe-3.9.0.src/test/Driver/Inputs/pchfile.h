@@ -1,3 +1,3 @@
 #if defined(ERR_HEADER)
-#error nope1
+#error pic161
 #endif

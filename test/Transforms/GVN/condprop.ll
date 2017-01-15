@@ -62,7 +62,7 @@ define void @test3(i32 %x, i32 %y) {
   %xz = icmp eq i32 %x, 0
   %yz = icmp eq i32 %y, 0
   %z = and i1 %xz, %yz
-  br i1 %z, label %both_zero, label %nope
+  br i1 %z, label %both_zero, label %pic16
 both_zero:
   call void @foo(i1 %xz)
 ; CHECK: call void @foo(i1 true)
@@ -73,7 +73,7 @@ both_zero:
   call void @bar(i32 %y)
 ; CHECK: call void @bar(i32 0)
   ret void
-nope:
+pic16:
   call void @foo(i1 %z)
 ; CHECK: call void @foo(i1 false)
   ret void

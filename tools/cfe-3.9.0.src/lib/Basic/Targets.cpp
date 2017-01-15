@@ -6964,11 +6964,11 @@ ArrayRef<const char *> MSP430TargetInfo::getGCCRegNames() const {
   return llvm::makeArrayRef(GCCRegNames);
 }
 
-class NOPETargetInfo : public TargetInfo {
+class PIC16TargetInfo : public TargetInfo {
   static const char *const GCCRegNames[];
 
 public:
-  NOPETargetInfo(const llvm::Triple &Triple, const TargetOptions &)
+  PIC16TargetInfo(const llvm::Triple &Triple, const TargetOptions &)
       : TargetInfo(Triple) {
     BigEndian = false;
     TLSSupported = false;
@@ -6989,8 +6989,13 @@ public:
   }
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override {
+<<<<<<< HEAD
     Builder.defineMacro("NOPE");
     Builder.defineMacro("__NOPE__");
+=======
+    Builder.defineMacro("PIC16");
+    Builder.defineMacro("__PIC16__");
+>>>>>>> Star_Wars_A_New_PIC16
     // FIXME: defines for different 'flavours' of MCU
   }
   ArrayRef<Builtin::Info> getTargetBuiltins() const override {
@@ -6998,7 +7003,11 @@ public:
     return None;
   }
   bool hasFeature(StringRef Feature) const override {
+<<<<<<< HEAD
     return Feature == "nope";
+=======
+    return Feature == "pic16";
+>>>>>>> Star_Wars_A_New_PIC16
   }
   ArrayRef<const char *> getGCCRegNames() const override;
   ArrayRef<TargetInfo::GCCRegAlias> getGCCRegAliases() const override {
@@ -7027,11 +7036,19 @@ public:
   }
 };
 
+<<<<<<< HEAD
 const char *const NOPETargetInfo::GCCRegNames[] = {
     "r0", "r1", "r2",  "r3",  "r4",  "r5",  "r6",  "r7",
     "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"};
 
 ArrayRef<const char *> NOPETargetInfo::getGCCRegNames() const {
+=======
+const char *const PIC16TargetInfo::GCCRegNames[] = {
+    "r0", "r1", "r2",  "r3",  "r4",  "r5",  "r6",  "r7",
+    "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"};
+
+ArrayRef<const char *> PIC16TargetInfo::getGCCRegNames() const {
+>>>>>>> Star_Wars_A_New_PIC16
   return llvm::makeArrayRef(GCCRegNames);
 }
 
@@ -8302,8 +8319,13 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple,
   case llvm::Triple::msp430:
     return new MSP430TargetInfo(Triple, Opts);
 
+<<<<<<< HEAD
   case llvm::Triple::nope:
     return new NOPETargetInfo(Triple, Opts);
+=======
+  case llvm::Triple::pic16:
+    return new PIC16TargetInfo(Triple, Opts);
+>>>>>>> Star_Wars_A_New_PIC16
 
   case llvm::Triple::mips:
     switch (os) {

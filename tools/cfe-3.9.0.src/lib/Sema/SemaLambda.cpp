@@ -550,7 +550,7 @@ static EnumDecl *findEnumForBlockReturn(Expr *E) {
     return ET->getDecl();
   }
 
-  // Otherwise, nope.
+  // Otherwise, pic16.
   return nullptr;
 }
 

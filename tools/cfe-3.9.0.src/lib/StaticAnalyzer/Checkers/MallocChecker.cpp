@@ -2488,7 +2488,7 @@ bool MallocChecker::mayFreeAnyEscapedMemoryOrIsModeledExplicitly(
   // 'closefn' is specified (and if that function does free memory),
   // but it will not if closefn is not specified.
   // Currently, we do not inspect the 'closefn' function (PR12101).
-  if (FName == "funopen")
+  if (FName == "fupic16n")
     if (Call->getNumArgs() >= 4 && Call->getArgSVal(4).isConstant(0))
       return false;
 
