@@ -225,13 +225,13 @@ set(LLVM_ALL_TARGETS
 #  BPF
 #  Hexagon
 #  Mips
-  MSP430
+#  MSP430
   PIC16
 #  NVPTX
 #  PowerPC
 #  Sparc
 #  SystemZ
-  X86
+#  X86
 #  XCore
   )
 
