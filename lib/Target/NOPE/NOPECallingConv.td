@@ -13,11 +13,11 @@
 // NOPE Return Value Calling Convention
 //===----------------------------------------------------------------------===//
 def RetCC_NOPE : CallingConv<[
-  // i8 are returned in registers R15B, R14B, R13B, R12B
-  CCIfType<[i8], CCAssignToReg<[R15B, R14B, R13B, R12B]>>,
+  // i8 are returned in registers GPR4B, GPR3B, GPR2B, GPR1B
+  CCIfType<[i8], CCAssignToReg<[GPR4B, GPR3B, GPR2B, GPR1B]>>,
 
-  // i16 are returned in registers R15, R14, R13, R12
-  CCIfType<[i16], CCAssignToReg<[R15, R14, R13, R12]>>
+  // i16 are returned in registers R15, R14, R13, GPR1
+  CCIfType<[i16], CCAssignToReg<[GPR4, GPR3, GPR2, GPR1]>>
 ]>;
 
 //===----------------------------------------------------------------------===//

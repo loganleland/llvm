@@ -50,10 +50,10 @@ void NOPEInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   if (Op.isReg()) {
     O << getRegisterName(Op.getReg());
   } else if (Op.isImm()) {
-    O << "d'" << Op.getImm() << "'";
+      O << "d'" << Op.getImm() << "'";
   } else {
-    assert(Op.isExpr() && "unknown operand kind in printOperand");
-    Op.getExpr()->print(O, &MAI);
+      assert(Op.isExpr() && "unknown operand kind in printOperand");
+      Op.getExpr()->print(O, &MAI);
   }
 }
 

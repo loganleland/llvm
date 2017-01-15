@@ -276,7 +276,7 @@ static void AnalyzeArguments(CCState &State,
                              SmallVectorImpl<CCValAssign> &ArgLocs,
                              const SmallVectorImpl<ArgT> &Args) {
   static const MCPhysReg RegList[] = {
-    NOPE::R15, NOPE::R14, NOPE::R13, NOPE::R12
+    NOPE::GPR4, NOPE::GPR3, NOPE::GPR2, NOPE::GPR1
   };
   static const unsigned NbRegs = array_lengthof(RegList);
 

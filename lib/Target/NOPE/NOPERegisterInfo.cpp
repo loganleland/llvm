@@ -52,13 +52,13 @@ NOPERegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   static const MCPhysReg CalleeSavedRegsIntr[] = {
     NOPE::FP,  NOPE::R5,  NOPE::R6,  NOPE::R7,
     NOPE::R8,  NOPE::R9,  NOPE::R10, NOPE::R11,
-    NOPE::R12, NOPE::R13, NOPE::R14, NOPE::R15,
+    NOPE::GPR1, NOPE::GPR2, NOPE::GPR3, NOPE::GPR4,
     0
   };
   static const MCPhysReg CalleeSavedRegsIntrFP[] = {
     NOPE::R5,  NOPE::R6,  NOPE::R7,
     NOPE::R8,  NOPE::R9,  NOPE::R10, NOPE::R11,
-    NOPE::R12, NOPE::R13, NOPE::R14, NOPE::R15,
+    NOPE::GPR1, NOPE::GPR2, NOPE::GPR3, NOPE::GPR4,
     0
   };
 

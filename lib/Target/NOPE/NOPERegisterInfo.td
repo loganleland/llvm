@@ -38,12 +38,12 @@ def R8B   : NOPEReg<8,  "r8">;
 def R9B   : NOPEReg<9,  "r9">;
 def R10B  : NOPEReg<10, "r10">;
 def R11B  : NOPEReg<11, "r11">;
-def R12B  : NOPEReg<12, "GPR1">;
-def R13B  : NOPEReg<13, "GPR2">;
-def R14B  : NOPEReg<14, "GPR3">;
-def R15B  : NOPEReg<15, "GPR4">;
+def GPR1B  : NOPEReg<12, "GPR1">;
+def GPR2B  : NOPEReg<13, "GPR2">;
+def GPR3B  : NOPEReg<14, "GPR3">;
+def GPR4B  : NOPEReg<15, "GPR4">;
 def FSRB  : NOPEReg<16, "FSR">;
-def INDRFB : NOPEReg<17, "INDR">;
+def INDFB : NOPEReg<17, "INDF">;
 
 def subreg_8bit : SubRegIndex<8> { let Namespace = "NOPE"; }
 
@@ -60,26 +60,26 @@ def R8   : NOPERegWithSubregs<8,  "r8",  [R8B]>;
 def R9   : NOPERegWithSubregs<9,  "r9",  [R9B]>;
 def R10  : NOPERegWithSubregs<10, "r10", [R10B]>;
 def R11  : NOPERegWithSubregs<11, "r11", [R11B]>;
-def R12  : NOPERegWithSubregs<12, "GPR1", [R12B]>;
-def R13  : NOPERegWithSubregs<13, "GPR2", [R13B]>;
-def R14  : NOPERegWithSubregs<14, "GPR3", [R14B]>;
-def R15  : NOPERegWithSubregs<15, "GPR4", [R15B]>;
+def GPR1  : NOPERegWithSubregs<12, "GPR1", [GPR1B]>;
+def GPR2  : NOPERegWithSubregs<13, "GPR2", [GPR2B]>;
+def GPR3  : NOPERegWithSubregs<14, "GPR3", [GPR3B]>;
+def GPR4  : NOPERegWithSubregs<15, "GPR4", [GPR3B]>;
 def FSR  : NOPERegWithSubregs<16, "FSR", [FSRB]>;
-def INDR : NOPERegWithSubregs<17, "INDR", [INDRFB]>;
+def INDF : NOPERegWithSubregs<17, "INDF", [INDFB]>;
 }
 
 def GR8 : RegisterClass<"NOPE", [i8], 8,
    // Volatile registers
-  (add R12B, R13B, R14B, R15B, R11B, R10B, R9B, R8B, R7B, R6B, R5B,
+  (add GPR1B, GPR2B, GPR3B, GPR4B, R11B, R10B, R9B, R8B, R7B, R6B, R5B,
    // Frame pointer, sometimes allocable
-   FPB,FSRB,INDRFB,
+   FPB,FSRB,INDFB,
    // Volatile, but not allocable
    PCB, SPB, SRB, CGB)>;
 
 def GR16 : RegisterClass<"NOPE", [i16], 16,
    // Volatile registers
-  (add R12, R13, R14, R15, R11, R10, R9, R8, R7, R6, R5,
+  (add GPR1, GPR2, GPR3, GPR4, R11, R10, R9, R8, R7, R6, R5,
    // Frame pointer, sometimes allocable
-   FP,FSR,INDR,
+   FP,FSR,INDF,
    // Volatile, but not allocable
    PC, SP, SR, CG)>;

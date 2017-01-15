@@ -207,7 +207,7 @@ let isCall = 1 in
   // a use to prevent stack-pointer assignments that appear immediately
   // before calls from potentially appearing dead. Uses for argument
   // registers are added manually.
-  let Defs = [R12, R13, R14, R15, SR],
+  let Defs = [GPR1, GPR2, GPR3, GPR4, SR],
       Uses = [SP] in {
     def CALLi     : II16i<0x0,
                           (outs), (ins i16imm:$dst),
@@ -388,24 +388,24 @@ def SUBLW  : I8rr<0x0,
 
 def ADD8rr  : I8rr<0x0,
                    (outs GR8:$dst), (ins GR8:$src, GR8:$src2),
-                   "add.b\t{$src2, $dst}",
+                   "add8rr.b\t{$src2, $dst}",
                    [(set GR8:$dst, (add GR8:$src, GR8:$src2)),
                     (implicit SR)]>;
 def ADD16rr : I16rr<0x0,
                     (outs GR16:$dst), (ins GR16:$src, GR16:$src2),
-                    "add.w\t{$src2, $dst}",
+                    "add8rr.w\t{$src2, $dst}",
                     [(set GR16:$dst, (add GR16:$src, GR16:$src2)),
                      (implicit SR)]>;
 }
 
 def ADD8rm  : I8rm<0x0,
                    (outs GR8:$dst), (ins GR8:$src, memsrc:$src2),
-                   "add.b\t{$src2, $dst}",
+                   "movf $src2,W\n\taddlw $src2\n\tadd8rm.b\t{$src2, $dst}",
                    [(set GR8:$dst, (add GR8:$src, (load addr:$src2))),
                     (implicit SR)]>;
 def ADD16rm : I16rm<0x0,
                     (outs GR16:$dst), (ins GR16:$src, memsrc:$src2),
-                    "add.w\t{$src2, $dst}",
+                    "add16rm.w\t{$src2, $dst}",
                     [(set GR16:$dst, (add GR16:$src, (load addr:$src2))),
                      (implicit SR)]>;
 
@@ -414,17 +414,17 @@ Constraints = "$base = $base_wb, $src = $dst" in {
 def ADD8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
                          (outs GR8:$dst, GR16:$base_wb),
                          (ins GR8:$src, GR16:$base),
-                         "add.b\t{@$base+, $dst}", []>;
+                         "add8rm_POST.b\t{@$base+, $dst}", []>;
 def ADD16rm_POST : IForm16<0x0, DstReg, SrcPostInc, Size2Bytes,
                            (outs GR16:$dst, GR16:$base_wb),
                            (ins GR16:$src, GR16:$base),
-                          "add.w\t{@$base+, $dst}", []>;
+                          "add16rm_POST.w\t{@$base+, $dst}", []>;
 }
 
 
 def ADD8ri  : I8ri<0x0,
                    (outs GR8:$dst), (ins GR8:$src, i8imm:$src2),
-                   "add.b\t{$src2, $dst}",
+                   "add8ri.b\t{$src2, $dst}",
                    [(set GR8:$dst, (add GR8:$src, imm:$src2)),
                     (implicit SR)]>;
 def ADD16ri : I16ri<0x0,
@@ -436,35 +436,35 @@ def ADD16ri : I16ri<0x0,
 let Constraints = "" in {
 def ADD8mr  : I8mr<0x0,
                    (outs), (ins memdst:$dst, GR8:$src),
-                   "add.b\t{$src, $dst}",
+                   "add8mr.b\t{$src, $dst}",
                    [(store (add (load addr:$dst), GR8:$src), addr:$dst),
                     (implicit SR)]>;
 def ADD16mr : I16mr<0x0,
                     (outs), (ins memdst:$dst, GR16:$src),
-                    "add.w\t{$src, $dst}",
+                    "add16mr.w\t{$src, $dst}",
                     [(store (add (load addr:$dst), GR16:$src), addr:$dst),
                      (implicit SR)]>;
 
 def ADD8mi  : I8mi<0x0,
                    (outs), (ins memdst:$dst, i8imm:$src),
-                   "add.b\t{$src, $dst}",
+                   "add8mi.b\t{$src, $dst}",
                    [(store (add (load addr:$dst), (i8 imm:$src)), addr:$dst),
                     (implicit SR)]>;
 def ADD16mi : I16mi<0x0,
                     (outs), (ins memdst:$dst, i16imm:$src),
-                    "add.w\t{$src, $dst}",
+                    "add16mi.w\t{$src, $dst}",
                     [(store (add (load addr:$dst), (i16 imm:$src)), addr:$dst),
                      (implicit SR)]>;
 
 def ADD8mm  : I8mm<0x0,
                    (outs), (ins memdst:$dst, memsrc:$src),
-                   "add.b\t{$src, $dst}",
+                   "add8mm.b\t{$src, $dst}",
                    [(store (add (load addr:$dst), 
                                 (i8 (load addr:$src))), addr:$dst),
                     (implicit SR)]>;
 def ADD16mm : I16mm<0x0,
                     (outs), (ins memdst:$dst, memsrc:$src),
-                    "add.w\t{$src, $dst}",
+                    "add16mm.w\t{$src, $dst}",
                     [(store (add (load addr:$dst), 
                                   (i16 (load addr:$src))), addr:$dst),
                      (implicit SR)]>;

@@ -74,7 +74,7 @@ void NOPEFrameLowering::emitPrologue(MachineFunction &MF,
    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W))
       .addReg(NOPE::FP);
    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF))
-      .addReg(NOPE::INDR);
+      .addReg(NOPE::INDF);
    BuildMI(MBB, MBBI, DL, TII.get(NOPE::DECF_F), NOPE::SP);
    BuildMI(MBB, MBBI, DL, TII.get(NOPE::DECF_F), NOPE::FSR);
    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W), NOPE::SP);
@@ -142,12 +142,13 @@ void NOPEFrameLowering::emitEpilogue(MachineFunction &MF,
 
     //restore the FP to the parent function's FP
     //and have FSR contain the parent functions' FP
+    BuildMI(MBB, MBBI, DL, TII.get(NOPE::INCF_F), NOPE::FP);
     BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W), NOPE::FP);
     BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF), NOPE::FSR);
     BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W))
-      .addReg(NOPE::INDR);
+      .addReg(NOPE::INDF);
     BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF), NOPE::FSR);
-    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W), NOPE::INDR);
+    BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVF_W), NOPE::INDF);
     BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF), NOPE::FP);
     BuildMI(MBB, MBBI, DL, TII.get(NOPE::MOVWF), NOPE::FSR);
   } else
@@ -164,7 +165,7 @@ void NOPEFrameLowering::emitEpilogue(MachineFunction &MF,
 
   DL = MBBI->getDebugLoc();
 
-  // adjust stack pointer back: SP += numbytes
+  // adjust stack pointer back: SP -= numbytes
   if (NumBytes) {
     MachineInstr *MI =
       BuildMI(MBB, MBBI, DL, TII.get(NOPE::SUBLW), NOPE::SP)
@@ -174,7 +175,6 @@ void NOPEFrameLowering::emitEpilogue(MachineFunction &MF,
   }
 }
 
-// FIXME: Can we eleminate these in favour of generic code?
 bool
 NOPEFrameLowering::spillCalleeSavedRegisters(MachineBasicBlock &MBB,
                                            MachineBasicBlock::iterator MI,
