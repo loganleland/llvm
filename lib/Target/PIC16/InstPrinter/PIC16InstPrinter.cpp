@@ -50,7 +50,7 @@ void PIC16InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   if (Op.isReg()) {
     O << getRegisterName(Op.getReg());
   } else if (Op.isImm()) {
-      O << "d'" << Op.getImm() << "'";
+      O << Op.getImm();
   } else {
       assert(Op.isExpr() && "unknown operand kind in printOperand");
       Op.getExpr()->print(O, &MAI);
@@ -78,7 +78,7 @@ void PIC16InstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
     Disp.getExpr()->print(O, &MAI);
   else {
     assert(Disp.isImm() && "Expected immediate in displacement field");
-    O << "d'" << alpha << "'";
+    O << alpha;
   }
 
   // Print register base field
