@@ -298,17 +298,6 @@ static void AnalyzeArguments(CCState &State,
     MVT LocVT = ArgVT;
     CCValAssign::LocInfo LocInfo = CCValAssign::Full;
 
-    // Promote i8 to i16
-    if (LocVT == MVT::i8) {
-      LocVT = MVT::i16;
-      if (ArgFlags.isSExt())
-          LocInfo = CCValAssign::SExt;
-      else if (ArgFlags.isZExt())
-          LocInfo = CCValAssign::ZExt;
-      else
-          LocInfo = CCValAssign::AExt;
-    }
-
     // Handle byval arguments
     if (ArgFlags.isByVal()) {
       State.HandleByVal(ValNo++, ArgVT, LocVT, LocInfo, 2, 2, ArgFlags);
