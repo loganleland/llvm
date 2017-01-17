@@ -34,3 +34,5 @@ rm "$1".bak
 
 # This adds the "end" directive at the end of the assembly file
 echo end >> "$1"
+
+mv "$1" "${1/.s/.asm}"

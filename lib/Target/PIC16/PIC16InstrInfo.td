@@ -340,11 +340,11 @@ def : Pat<(i16 (zext def8:$src)),
 
 def LOCALVAR: I8mi<0x0,
                    (outs), (ins memdst:$dst, i8imm:$src),
-                   "movf FSR, W\n\taddlw $dst\n\tmovwf FSR\n\tmovlw $src\n\tmovwf INDR\n\tmovf FSR,W\n\tsublw $dst \n\tmovwf FSR",
+                   "movf FSR, W\n\taddlw $dst\n\tmovwf FSR\n\tmovlw $src\n\tmovwf INDF\n\tmovf FSR,W\n\tsublw $dst \n\tmovwf FSR",
                    [(store (i8 imm:$src), addr:$dst)]>;
 def LOCALVAR_ : I16mi<0x0,
                     (outs), (ins memdst:$dst, i16imm:$src),
-                    "movf FSR, W\n\taddlw $dst\n\tmovwf FSR\n\tmovlw $src\n\tmovwf INDR\n\tmovf FSR,W\n\tsublw $dst \n\tmovwf FSR",
+                    "movf FSR, W\n\taddlw $dst\n\tmovwf FSR\n\tmovlw $src\n\tmovwf INDF\n\tmovf FSR,W\n\tsublw $dst \n\tmovwf FSR",
                     [(store (i16 imm:$src), addr:$dst)]>;
 
 def MOV8mr  : I8mr<0x0,
