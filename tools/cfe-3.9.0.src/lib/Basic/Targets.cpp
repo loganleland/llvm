@@ -6985,7 +6985,7 @@ public:
     IntPtrType = SignedInt;
     PtrDiffType = SignedInt;
     SigAtomicType = SignedLong;
-    resetDataLayout("e-m:e-p:16:16-i32:16:32-a:16-n8:16");
+    resetDataLayout("e-m:e-p:16:16-i32:16:32-a:16-n8");
   }
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override {

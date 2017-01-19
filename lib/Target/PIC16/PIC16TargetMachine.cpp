@@ -38,13 +38,19 @@ PIC16TargetMachine::PIC16TargetMachine(const Target &T, const Triple &TT,
                                          Optional<Reloc::Model> RM,
                                          CodeModel::Model CM,
                                          CodeGenOpt::Level OL)
-    : LLVMTargetMachine(T, "e-m:e-p:16:16-i32:16:32-a:16-n8:16", TT, CPU, FS,
+    : LLVMTargetMachine(T, "e-m:e-p:16:16-i32:16:32-a:16-n8", TT, CPU, FS,
                         Options, getEffectiveRelocModel(RM), CM, OL),
       TLOF(make_unique<TargetLoweringObjectFileELF>()),
-      // FIXME: Check DataLayout string.
       Subtarget(TT, CPU, FS, *this) {
   initAsmInfo();
 }
+      // FIXME: Check DataLayout string.
+      // e -> Little endian
+      // m:e -> ELF mangling (PIC16 uses ELF)
+      // p:16:16 -> Assembler takes care of addr. space. But 13b ptr, 8b align
+      // i32:16:32 -> i32 has 16b alignment but prefers 32b
+      // a:16 -> Aggregate types aligned to 16b
+      // n8 -> Native integers are 8b
 
 PIC16TargetMachine::~PIC16TargetMachine() {}
 
