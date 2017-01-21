@@ -104,11 +104,11 @@ void PIC16FrameLowering::emitPrologue(MachineFunction &MF,
     // mergeSPUpdatesDown(MBB, MBBI, &NumBytes);
 
     if (NumBytes) {
-      MachineInstr *MI =
-        BuildMI(MBB, MBBI, DL, TII.get(PIC16::ADDLW), PIC16::SP)
-        .addReg(PIC16::SP).addImm(NumBytes-1);
-      // The SRW implicit def is dead.
-      MI->getOperand(3).setIsDead();
+     MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
+        BuildMI(MBB, MBBI, DL, TII.get(PIC16::ADDLW))
+        .addImm(NumBytes-1);
+    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::SP);
+      MI->getOperand(0).setIsDead();
     }
   }
 }
@@ -167,11 +167,11 @@ void PIC16FrameLowering::emitEpilogue(MachineFunction &MF,
 
   // adjust stack pointer back: SP -= numbytes
   if (NumBytes) {
-    MachineInstr *MI =
-      BuildMI(MBB, MBBI, DL, TII.get(PIC16::SUBLW), PIC16::SP)
-      .addReg(PIC16::SP).addImm(NumBytes);
-    // The SRW implicit def is dead.
-    MI->getOperand(3).setIsDead();
+         MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
+        BuildMI(MBB, MBBI, DL, TII.get(PIC16::SUBLW))
+        .addImm(NumBytes-1);
+    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::SP);
+      MI->getOperand(0).setIsDead();
   }
 }
 
