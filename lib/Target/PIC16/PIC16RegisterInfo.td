@@ -26,6 +26,8 @@ class PIC16RegWithSubregs<bits<8> num, string n, list<Register> subregs>
 //  Registers
 //===----------------------------------------------------------------------===//
 
+def WReg  : PIC16Reg<200, "W">;
+
 def PCB   : PIC16Reg<0,  "r0">;
 def SPB   : PIC16Reg<1,  "r1">;
 def SRB   : PIC16Reg<2,  "r2">;
@@ -83,3 +85,6 @@ def GR16 : RegisterClass<"PIC16", [i16], 16,
    FP,FSR,INDF,
    // Volatile, but not allocable
    PC, SP, SR, CG)>;
+ 
+def WRegClass : RegisterClass<"PIC16", [i8], 8,
+    (add WReg)>;

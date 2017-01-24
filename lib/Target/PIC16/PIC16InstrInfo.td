@@ -261,6 +261,11 @@ def MOVF_W  : I8rr<0x0,
                    "movf\t{$src, W}",
                    []>;
 
+def MOVF_F  : I8rr<0x0,
+                   (outs), (ins GR8:$src),
+                   "movf\t{$src, F}",
+                   []>;
+
 def MOVLW  : I8rr<0x0,
                    (outs), (ins GR8:$src),
                    "movlw $src",
@@ -377,6 +382,20 @@ def SUBLW  : I8rr<0x0,
                    (outs), (ins GR8:$src),
                    "sublw\t{$src}",
                    []>;
+
+let Constraints = "$src2 = $dst" in {
+def ADDWF_W : I8rr<0x0,
+                   (outs WRegClass:$dst), (ins GR8:$src, WRegClass:$src2),
+                   "addwf\t{$src2}, W",
+                    [(set WRegClass:$dst, (add GR8:$src, WRegClass:$src2))]>;
+}
+
+let Constraints = "$src = $dst" in {
+def ADDWF_F : I8rr<0x0,
+                   (outs GR8:$dst), (ins GR8:$src, WRegClass:$src2),
+                   "addwf\t{$src2}, F",
+                   [(set GR8:$dst, (add GR8:$src, WRegClass:$src2))]>;
+}
 
 let Constraints = "$src = $dst" in {
 let Defs = [SR] in {
