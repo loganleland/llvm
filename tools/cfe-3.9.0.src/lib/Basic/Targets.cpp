@@ -6972,20 +6972,20 @@ public:
       : TargetInfo(Triple) {
     BigEndian = false;
     TLSSupported = false;
-    IntWidth = 16;
-    IntAlign = 16;
-    LongWidth = 32;
-    LongLongWidth = 64;
-    LongAlign = LongLongAlign = 16;
-    PointerWidth = 16;
-    PointerAlign = 16;
-    SuitableAlign = 16;
+    IntWidth = 8;
+    IntAlign = 8;
+    LongWidth = 8;
+    LongLongWidth = 8;
+    LongAlign = LongLongAlign = 8;
+    PointerWidth = 8;
+    PointerAlign = 8;
+    SuitableAlign = 8;
     SizeType = UnsignedInt;
     IntMaxType = SignedLongLong;
     IntPtrType = SignedInt;
     PtrDiffType = SignedInt;
     SigAtomicType = SignedLong;
-    resetDataLayout("e-m:e-p:16:16-i32:16:32-a:16-n8");
+    resetDataLayout("e-m:e-p:8:8-i8:8:8-a:8-n8");
   }
   void getTargetDefines(const LangOptions &Opts,
                         MacroBuilder &Builder) const override {

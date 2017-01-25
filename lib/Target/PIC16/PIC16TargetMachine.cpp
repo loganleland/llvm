@@ -38,7 +38,7 @@ PIC16TargetMachine::PIC16TargetMachine(const Target &T, const Triple &TT,
                                          Optional<Reloc::Model> RM,
                                          CodeModel::Model CM,
                                          CodeGenOpt::Level OL)
-    : LLVMTargetMachine(T, "e-m:e-p:16:16-i32:16:32-a:16-n8", TT, CPU, FS,
+    : LLVMTargetMachine(T, "e-m:e-p:8:8-i8:8:8-a:8-n8", TT, CPU, FS,
                         Options, getEffectiveRelocModel(RM), CM, OL),
       TLOF(make_unique<TargetLoweringObjectFileELF>()),
       Subtarget(TT, CPU, FS, *this) {
