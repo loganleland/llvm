@@ -1100,35 +1100,6 @@ const char *PIC16TargetLowering::getTargetNodeName(unsigned Opcode) const {
   return nullptr;
 }
 
-bool PIC16TargetLowering::isTruncateFree(Type *Ty1,
-                                          Type *Ty2) const {
-  if (!Ty1->isIntegerTy() || !Ty2->isIntegerTy())
-    return false;
-
-  return (Ty1->getPrimitiveSizeInBits() > Ty2->getPrimitiveSizeInBits());
-}
-
-bool PIC16TargetLowering::isTruncateFree(EVT VT1, EVT VT2) const {
-  if (!VT1.isInteger() || !VT2.isInteger())
-    return false;
-
-  return (VT1.getSizeInBits() > VT2.getSizeInBits());
-}
-
-bool PIC16TargetLowering::isZExtFree(Type *Ty1, Type *Ty2) const {
-  // PIC16 implicitly zero-extends 8-bit results in 16-bit registers.
-  return true;
-}
-
-bool PIC16TargetLowering::isZExtFree(EVT VT1, EVT VT2) const {
-  // PIC16 implicitly zero-extends 8-bit results in 16-bit registers.
-  return true;
-}
-
-bool PIC16TargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
-  return true;
-}
-
 //===----------------------------------------------------------------------===//
 //  Other Lowering Code
 //===----------------------------------------------------------------------===//

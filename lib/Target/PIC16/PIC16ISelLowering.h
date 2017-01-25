@@ -103,24 +103,6 @@ namespace llvm {
     getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
                                  StringRef Constraint, MVT VT) const override;
 
-    /// isTruncateFree - Return true if it's free to truncate a value of type
-    /// Ty1 to type Ty2. e.g. On pic16 it's free to truncate a i16 value in
-    /// register R15W to i8 by referencing its sub-register R15B.
-    bool isTruncateFree(Type *Ty1, Type *Ty2) const override;
-    bool isTruncateFree(EVT VT1, EVT VT2) const override;
-
-    /// isZExtFree - Return true if any actual instruction that defines a value
-    /// of type Ty1 implicit zero-extends the value to Ty2 in the result
-    /// register. This does not necessarily include registers defined in unknown
-    /// ways, such as incoming arguments, or copies from unknown virtual
-    /// registers. Also, if isTruncateFree(Ty2, Ty1) is true, this does not
-    /// necessarily apply to truncate instructions. e.g. on pic16, all
-    /// instructions that define 8-bit values implicit zero-extend the result
-    /// out to 16 bits.
-    bool isZExtFree(Type *Ty1, Type *Ty2) const override;
-    bool isZExtFree(EVT VT1, EVT VT2) const override;
-    bool isZExtFree(SDValue Val, EVT VT2) const override;
-
     MachineBasicBlock *
     EmitInstrWithCustomInserter(MachineInstr &MI,
                                 MachineBasicBlock *BB) const override;
