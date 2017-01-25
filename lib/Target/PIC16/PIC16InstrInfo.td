@@ -284,7 +284,7 @@ def MOV8rm  : I8rm<0x0,
 
 let mayLoad = 1, hasExtraDefRegAllocReq = 1, Constraints = "$base = $base_wb" in {
 def MOV8rm_POST  : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
-                         (outs GR8:$dst, GR16:$base_wb), (ins GR16:$base),
+                         (outs GR8:$dst, GR8:$base_wb), (ins GR8:$base),
                          "MOV8rm_POST\t{@$base+, $dst}", []>;
 }
 
@@ -364,8 +364,8 @@ def ADD8rm  : I8rm<0x0,
 let mayLoad = 1, hasExtraDefRegAllocReq = 1, 
 Constraints = "$base = $base_wb, $src = $dst" in {
 def ADD8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
-                         (outs GR8:$dst, GR16:$base_wb),
-                         (ins GR8:$src, GR16:$base),
+                         (outs GR8:$dst, GR8:$base_wb),
+                         (ins GR8:$src, GR8:$base),
                          "add8rm_POST.b\t{@$base+, $dst}", []>;
 }
 
@@ -465,8 +465,8 @@ def AND8rm  : I8rm<0x0,
 let mayLoad = 1, hasExtraDefRegAllocReq = 1, 
 Constraints = "$base = $base_wb, $src = $dst" in {
 def AND8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
-                         (outs GR8:$dst, GR16:$base_wb),
-                         (ins GR8:$src, GR16:$base),
+                         (outs GR8:$dst, GR8:$base_wb),
+                         (ins GR8:$src, GR8:$base),
                          "and.b\t{@$base+, $dst}", []>;
 }
 
@@ -511,8 +511,8 @@ def OR8rm  : I8rm<0x0,
 let mayLoad = 1, hasExtraDefRegAllocReq = 1, 
 Constraints = "$base = $base_wb, $src = $dst" in {
 def OR8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
-                        (outs GR8:$dst, GR16:$base_wb),
-                        (ins GR8:$src, GR16:$base),
+                        (outs GR8:$dst, GR8:$base_wb),
+                        (ins GR8:$src, GR8:$base),
                         "bis.b\t{@$base+, $dst}", []>;
 }
 
@@ -581,8 +581,8 @@ def XOR8rm  : I8rm<0x0,
 let mayLoad = 1, hasExtraDefRegAllocReq = 1, 
 Constraints = "$base = $base_wb, $src = $dst" in {
 def XOR8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
-                         (outs GR8:$dst, GR16:$base_wb),
-                         (ins GR8:$src, GR16:$base),
+                         (outs GR8:$dst, GR8:$base_wb),
+                         (ins GR8:$src, GR8:$base),
                          "xor.b\t{@$base+, $dst}", []>;
 }
 
@@ -628,8 +628,8 @@ def SUB8rm  : I8rm<0x0,
 let mayLoad = 1, hasExtraDefRegAllocReq = 1, 
 Constraints = "$base = $base_wb, $src = $dst" in {
 def SUB8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
-                         (outs GR8:$dst, GR16:$base_wb),
-                         (ins GR8:$src, GR16:$base),
+                         (outs GR8:$dst, GR8:$base_wb),
+                         (ins GR8:$src, GR8:$base),
                          "SUB8RM_POST\t{@$base+, $dst}", []>;
 }
 

@@ -76,10 +76,6 @@ BitVector PIC16RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   const PIC16FrameLowering *TFI = getFrameLowering(MF);
 
   // Mark 4 special registers with subregisters as reserved.
-  Reserved.set(PIC16::PCB);
-  Reserved.set(PIC16::SPB);
-  Reserved.set(PIC16::SRB);
-  Reserved.set(PIC16::CGB);
   Reserved.set(PIC16::PC);
   Reserved.set(PIC16::SP);
   Reserved.set(PIC16::SR);
@@ -87,7 +83,6 @@ BitVector PIC16RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
 
   // Mark frame pointer as reserved if needed.
   if (TFI->hasFP(MF)) {
-    Reserved.set(PIC16::FPB);
     Reserved.set(PIC16::FP);
   }
 
@@ -97,7 +92,7 @@ BitVector PIC16RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
 const TargetRegisterClass *
 PIC16RegisterInfo::getPointerRegClass(const MachineFunction &MF, unsigned Kind)
                                                                          const {
-  return &PIC16::GR16RegClass;
+  return &PIC16::GR8RegClass;
 }
 
 void

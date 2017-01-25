@@ -63,7 +63,6 @@ PIC16TargetLowering::PIC16TargetLowering(const TargetMachine &TM,
 
   // Set up the register classes.
   addRegisterClass(MVT::i8,  &PIC16::GR8RegClass);
-  addRegisterClass(MVT::i16, &PIC16::GR16RegClass);
 
   // Compute derived properties from the register classes
   computeRegisterProperties(STI.getRegisterInfo());
@@ -227,8 +226,6 @@ PIC16TargetLowering::getRegForInlineAsmConstraint(
     case 'r':   // GENERAL_REGS
       if (VT == MVT::i8)
         return std::make_pair(0U, &PIC16::GR8RegClass);
-
-      return std::make_pair(0U, &PIC16::GR16RegClass);
     }
   }
 
@@ -432,8 +429,8 @@ SDValue PIC16TargetLowering::LowerCCCArguments(
 #endif
           llvm_unreachable(nullptr);
         }
-      case MVT::i16:
-        unsigned VReg = RegInfo.createVirtualRegister(&PIC16::GR16RegClass);
+      case MVT::i8:
+        unsigned VReg = RegInfo.createVirtualRegister(&PIC16::GR8RegClass);
         RegInfo.addLiveIn(VA.getLocReg(), VReg);
         SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, VReg, RegVT);
 

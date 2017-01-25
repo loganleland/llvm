@@ -49,14 +49,7 @@ void PIC16InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
       MachineMemOperand::MOStore, MFI.getObjectSize(FrameIdx),
       MFI.getObjectAlignment(FrameIdx));
 
-  if (RC == &PIC16::GR16RegClass)
-  {
-    BuildMI(MBB, MI, DL, get(PIC16::MOVLW))
-      .addFrameIndex(FrameIdx).addImm(0);
-    BuildMI(MBB, MI, DL, get(PIC16::MOVWF))
-      .addReg(SrcReg, getKillRegState(isKill)).addMemOperand(MMO);
-  }
-  else if (RC == &PIC16::GR8RegClass){
+  if (RC == &PIC16::GR8RegClass){
     BuildMI(MBB, MI, DL, get(PIC16::MOVLW))
       .addFrameIndex(FrameIdx).addImm(0);
     BuildMI(MBB, MI, DL, get(PIC16::MOVWF))
