@@ -127,13 +127,13 @@ PIC16RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   // Fold imm into offset
   Offset += MI.getOperand(FIOperandNum + 1).getImm();
 
-  if (MI.getOpcode() == PIC16::ADD16ri) {
+  if (MI.getOpcode() == PIC16::ADD8ri) {
     // This is actually "load effective address" of the stack slot
     // instruction. We have only two-address instructions, thus we need to
     // expand it into mov + add
     const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
 
-    MI.setDesc(TII.get(PIC16::MOV16rr));
+    MI.setDesc(TII.get(PIC16::MOV8rr));
     MI.getOperand(FIOperandNum).ChangeToRegister(BasePtr, false);
 
     if (Offset == 0)
@@ -142,10 +142,10 @@ PIC16RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     // We need to materialize the offset via add instruction.
     unsigned DstReg = MI.getOperand(0).getReg();
     if (Offset < 0)
-      BuildMI(MBB, std::next(II), dl, TII.get(PIC16::SUB16ri), DstReg)
+      BuildMI(MBB, std::next(II), dl, TII.get(PIC16::SUB8ri), DstReg)
         .addReg(DstReg).addImm(-Offset);
     else
-      BuildMI(MBB, std::next(II), dl, TII.get(PIC16::ADD16ri), DstReg)
+      BuildMI(MBB, std::next(II), dl, TII.get(PIC16::ADD8ri), DstReg)
         .addReg(DstReg).addImm(Offset);
 
     return;

@@ -89,7 +89,7 @@ void PIC16FrameLowering::emitPrologue(MachineFunction &MF,
     NumBytes = StackSize - PIC16FI->getCalleeSavedFrameSize();
 
   // Skip the callee-saved push instructions.
-  while (MBBI != MBB.end() && (MBBI->getOpcode() == PIC16::PUSH16r))
+  while (MBBI != MBB.end() && (MBBI->getOpcode() == PIC16::PUSH8r))
     ++MBBI;
 
   if (MBBI != MBB.end())
@@ -158,7 +158,7 @@ void PIC16FrameLowering::emitEpilogue(MachineFunction &MF,
   while (MBBI != MBB.begin()) {
     MachineBasicBlock::iterator PI = std::prev(MBBI);
     unsigned Opc = PI->getOpcode();
-    if (Opc != PIC16::POP16r && !PI->isTerminator())
+    if (Opc != PIC16::POP8r && !PI->isTerminator())
       break;
     --MBBI;
   }
@@ -195,7 +195,7 @@ PIC16FrameLowering::spillCalleeSavedRegisters(MachineBasicBlock &MBB,
     unsigned Reg = CSI[i-1].getReg();
     // Add the callee-saved register as live-in. It's killed at the spill.
     MBB.addLiveIn(Reg);
-    BuildMI(MBB, MI, DL, TII.get(PIC16::PUSH16r))
+    BuildMI(MBB, MI, DL, TII.get(PIC16::PUSH8r))
       .addReg(Reg, RegState::Kill);
   }
   return true;
@@ -216,7 +216,7 @@ PIC16FrameLowering::restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
   const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
 
   for (unsigned i = 0, e = CSI.size(); i != e; ++i)
-    BuildMI(MBB, MI, DL, TII.get(PIC16::POP16r), CSI[i].getReg());
+    BuildMI(MBB, MI, DL, TII.get(PIC16::POP8r), CSI[i].getReg());
 
   return true;
 }
@@ -244,7 +244,7 @@ MachineBasicBlock::iterator PIC16FrameLowering::eliminateCallFramePseudoInstr(
       MachineInstr *New = nullptr;
       if (Old.getOpcode() == TII.getCallFrameSetupOpcode()) {
         New =
-            BuildMI(MF, Old.getDebugLoc(), TII.get(PIC16::SUB16ri), PIC16::SP)
+            BuildMI(MF, Old.getDebugLoc(), TII.get(PIC16::SUB8ri), PIC16::SP)
                 .addReg(PIC16::SP)
                 .addImm(Amount);
       } else {
@@ -253,7 +253,7 @@ MachineBasicBlock::iterator PIC16FrameLowering::eliminateCallFramePseudoInstr(
         uint64_t CalleeAmt = Old.getOperand(1).getImm();
         Amount -= CalleeAmt;
         if (Amount)
-          New = BuildMI(MF, Old.getDebugLoc(), TII.get(PIC16::ADD16ri),
+          New = BuildMI(MF, Old.getDebugLoc(), TII.get(PIC16::ADD8ri),
                         PIC16::SP)
                     .addReg(PIC16::SP)
                     .addImm(Amount);
@@ -273,7 +273,7 @@ MachineBasicBlock::iterator PIC16FrameLowering::eliminateCallFramePseudoInstr(
     if (uint64_t CalleeAmt = I->getOperand(1).getImm()) {
       MachineInstr &Old = *I;
       MachineInstr *New =
-          BuildMI(MF, Old.getDebugLoc(), TII.get(PIC16::SUB16ri), PIC16::SP)
+          BuildMI(MF, Old.getDebugLoc(), TII.get(PIC16::SUB8ri), PIC16::SP)
               .addReg(PIC16::SP)
               .addImm(CalleeAmt);
       // The SRW implicit def is dead.

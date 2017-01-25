@@ -1152,25 +1152,13 @@ PIC16TargetLowering::EmitShiftInstr(MachineInstr &MI,
    Opc = PIC16::SHL8r1;
    RC = &PIC16::GR8RegClass;
    break;
-  case PIC16::Shl16:
-   Opc = PIC16::SHL16r1;
-   RC = &PIC16::GR16RegClass;
-   break;
   case PIC16::Sra8:
    Opc = PIC16::SAR8r1;
    RC = &PIC16::GR8RegClass;
    break;
-  case PIC16::Sra16:
-   Opc = PIC16::SAR16r1;
-   RC = &PIC16::GR16RegClass;
-   break;
   case PIC16::Srl8:
    Opc = PIC16::SAR8r1c;
    RC = &PIC16::GR8RegClass;
-   break;
-  case PIC16::Srl16:
-   Opc = PIC16::SAR16r1c;
-   RC = &PIC16::GR16RegClass;
    break;
   }
 
@@ -1247,15 +1235,14 @@ PIC16TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                   MachineBasicBlock *BB) const {
   unsigned Opc = MI.getOpcode();
 
-  if (Opc == PIC16::Shl8 || Opc == PIC16::Shl16 ||
-      Opc == PIC16::Sra8 || Opc == PIC16::Sra16 ||
-      Opc == PIC16::Srl8 || Opc == PIC16::Srl16)
+  if (Opc == PIC16::Shl8 or Opc == PIC16::Sra8 or
+      Opc == PIC16::Srl8)
     return EmitShiftInstr(MI, BB);
 
   const TargetInstrInfo &TII = *BB->getParent()->getSubtarget().getInstrInfo();
   DebugLoc dl = MI.getDebugLoc();
 
-  assert((Opc == PIC16::Select16 || Opc == PIC16::Select8) &&
+  assert((Opc == PIC16::Select8) and 
          "Unexpected instr type to insert");
 
   // To "insert" a SELECT instruction, we actually have to insert the diamond

@@ -81,11 +81,7 @@ void PIC16InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
       MachineMemOperand::MOLoad, MFI.getObjectSize(FrameIdx),
       MFI.getObjectAlignment(FrameIdx));
 
-  if (RC == &PIC16::GR16RegClass)
-    BuildMI(MBB, MI, DL, get(PIC16::MOV16rm))
-      .addReg(DestReg, getDefRegState(true)).addFrameIndex(FrameIdx)
-      .addImm(0).addMemOperand(MMO);
-  else if (RC == &PIC16::GR8RegClass)
+  if (RC == &PIC16::GR8RegClass)
     BuildMI(MBB, MI, DL, get(PIC16::MOV8rm))
       .addReg(DestReg, getDefRegState(true)).addFrameIndex(FrameIdx)
       .addImm(0).addMemOperand(MMO);
@@ -98,9 +94,7 @@ void PIC16InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   const DebugLoc &DL, unsigned DestReg,
                                   unsigned SrcReg, bool KillSrc) const {
   unsigned Opc;
-  if (PIC16::GR16RegClass.contains(DestReg, SrcReg))
-    Opc = PIC16::MOV16rr;
-  else if (PIC16::GR8RegClass.contains(DestReg, SrcReg))
+  if (PIC16::GR8RegClass.contains(DestReg, SrcReg))
     Opc = PIC16::MOV8rr;
   else
     llvm_unreachable("Impossible reg-to-reg copy");
@@ -322,7 +316,6 @@ unsigned PIC16InstrInfo::GetInstSizeInBytes(const MachineInstr &MI) const {
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Unknown instruction size!");
     case PIC16::SAR8r1c:
-    case PIC16::SAR16r1c:
       return 4;
     }
   case PIC16II::Size2Bytes:
