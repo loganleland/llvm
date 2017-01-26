@@ -40,25 +40,25 @@ PIC16RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   const PIC16FrameLowering *TFI = getFrameLowering(*MF);
   const Function* F = MF->getFunction();
   static const MCPhysReg CalleeSavedRegs[] = {
-    PIC16::FP, PIC16::R5, PIC16::R6, PIC16::R7,
-    PIC16::R8, PIC16::R9, PIC16::R10, PIC16::R11,
+    PIC16::FP, PIC16::GPR0, PIC16::GPR1, PIC16::GPR2,
+    PIC16::GPR3, PIC16::GPR4, PIC16::GPR5, PIC16::GPR6,
     0
   };
   static const MCPhysReg CalleeSavedRegsFP[] = {
-    PIC16::R5, PIC16::R6, PIC16::R7,
-    PIC16::R8, PIC16::R9, PIC16::R10, PIC16::R11,
+    PIC16::GPR0, PIC16::GPR1, PIC16::GPR2,
+    PIC16::GPR3, PIC16::GPR4, PIC16::GPR5, PIC16::GPR6,
     0
   };
   static const MCPhysReg CalleeSavedRegsIntr[] = {
-    PIC16::FP,  PIC16::R5,  PIC16::R6,  PIC16::R7,
-    PIC16::R8,  PIC16::R9,  PIC16::R10, PIC16::R11,
-    PIC16::GPR1, PIC16::GPR2, PIC16::GPR3, PIC16::GPR4,
+    PIC16::FP,  PIC16::GPR0,  PIC16::GPR1,  PIC16::GPR2,
+    PIC16::GPR3,  PIC16::GPR4,  PIC16::GPR5, PIC16::GPR6,
+    PIC16::GPR7, PIC16::GPR8, PIC16::GPR9, PIC16::GPR10,
     0
   };
   static const MCPhysReg CalleeSavedRegsIntrFP[] = {
-    PIC16::R5,  PIC16::R6,  PIC16::R7,
-    PIC16::R8,  PIC16::R9,  PIC16::R10, PIC16::R11,
-    PIC16::GPR1, PIC16::GPR2, PIC16::GPR3, PIC16::GPR4,
+    PIC16::GPR0,  PIC16::GPR1,  PIC16::GPR2,
+    PIC16::GPR3,  PIC16::GPR4,  PIC16::GPR5, PIC16::GPR6,
+    PIC16::GPR7, PIC16::GPR8, PIC16::GPR9, PIC16::GPR10,
     0
   };
 
