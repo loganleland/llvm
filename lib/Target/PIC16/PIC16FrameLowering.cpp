@@ -191,13 +191,6 @@ PIC16FrameLowering::spillCalleeSavedRegisters(MachineBasicBlock &MBB,
   PIC16MachineFunctionInfo *MFI = MF.getInfo<PIC16MachineFunctionInfo>();
   MFI->setCalleeSavedFrameSize(CSI.size() * 2);
 
-  for (unsigned i = CSI.size(); i != 0; --i) {
-    unsigned Reg = CSI[i-1].getReg();
-    // Add the callee-saved register as live-in. It's killed at the spill.
-    MBB.addLiveIn(Reg);
-    BuildMI(MBB, MI, DL, TII.get(PIC16::PUSH8r))
-      .addReg(Reg, RegState::Kill);
-  }
   return true;
 }
 
@@ -214,9 +207,6 @@ PIC16FrameLowering::restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
 
   MachineFunction &MF = *MBB.getParent();
   const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
-
-  for (unsigned i = 0, e = CSI.size(); i != e; ++i)
-    BuildMI(MBB, MI, DL, TII.get(PIC16::POP8r), CSI[i].getReg());
 
   return true;
 }

@@ -256,20 +256,20 @@ bool PIC16DAGToDAGISel::SelectAddr(SDValue N,
 
   if (AM.GV)
     Disp = CurDAG->getTargetGlobalAddress(AM.GV, SDLoc(N),
-                                          MVT::i16, AM.Disp,
+                                          MVT::i8, AM.Disp,
                                           0/*AM.SymbolFlags*/);
   else if (AM.CP)
-    Disp = CurDAG->getTargetConstantPool(AM.CP, MVT::i16,
+    Disp = CurDAG->getTargetConstantPool(AM.CP, MVT::i8,
                                          AM.Align, AM.Disp, 0/*AM.SymbolFlags*/);
   else if (AM.ES)
-    Disp = CurDAG->getTargetExternalSymbol(AM.ES, MVT::i16, 0/*AM.SymbolFlags*/);
+    Disp = CurDAG->getTargetExternalSymbol(AM.ES, MVT::i8, 0/*AM.SymbolFlags*/);
   else if (AM.JT != -1)
     Disp = CurDAG->getTargetJumpTable(AM.JT, MVT::i16, 0/*AM.SymbolFlags*/);
   else if (AM.BlockAddr)
-    Disp = CurDAG->getTargetBlockAddress(AM.BlockAddr, MVT::i32, 0,
+    Disp = CurDAG->getTargetBlockAddress(AM.BlockAddr, MVT::i8, 0,
                                          0/*AM.SymbolFlags*/);
   else
-    Disp = CurDAG->getTargetConstant(AM.Disp, SDLoc(N), MVT::i16);
+    Disp = CurDAG->getTargetConstant(AM.Disp, SDLoc(N), MVT::i8);
 
   return true;
 }
