@@ -74,14 +74,12 @@ PIC16TargetLowering::PIC16TargetLowering(const TargetMachine &TM,
 
   // We have post-incremented loads / stores.
   setIndexedLoadAction(ISD::POST_INC, MVT::i8, Legal);
-  setIndexedLoadAction(ISD::POST_INC, MVT::i16, Legal);
+//  setIndexedLoadAction(ISD::POST_INC, MVT::i16, Legal);
 
   for (MVT VT : MVT::integer_valuetypes()) {
     setLoadExtAction(ISD::EXTLOAD,  VT, MVT::i1,  Promote);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i1,  Promote);
     setLoadExtAction(ISD::ZEXTLOAD, VT, MVT::i1,  Promote);
-    setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i8,  Expand);
-    setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i16, Expand);
   }
 
   // We don't have any truncstores
@@ -136,11 +134,6 @@ PIC16TargetLowering::PIC16TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::MULHU,            MVT::i8,    Expand);
   setOperationAction(ISD::SMUL_LOHI,        MVT::i8,    Expand);
   setOperationAction(ISD::UMUL_LOHI,        MVT::i8,    Expand);
-  setOperationAction(ISD::MUL,              MVT::i16,   Expand);
-  setOperationAction(ISD::MULHS,            MVT::i16,   Expand);
-  setOperationAction(ISD::MULHU,            MVT::i16,   Expand);
-  setOperationAction(ISD::SMUL_LOHI,        MVT::i16,   Expand);
-  setOperationAction(ISD::UMUL_LOHI,        MVT::i16,   Expand);
 
   setOperationAction(ISD::UDIV,             MVT::i8,    Expand);
   setOperationAction(ISD::UDIVREM,          MVT::i8,    Expand);
@@ -148,27 +141,19 @@ PIC16TargetLowering::PIC16TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::SDIV,             MVT::i8,    Expand);
   setOperationAction(ISD::SDIVREM,          MVT::i8,    Expand);
   setOperationAction(ISD::SREM,             MVT::i8,    Expand);
-  setOperationAction(ISD::UDIV,             MVT::i16,   Expand);
-  setOperationAction(ISD::UDIVREM,          MVT::i16,   Expand);
-  setOperationAction(ISD::UREM,             MVT::i16,   Expand);
-  setOperationAction(ISD::SDIV,             MVT::i16,   Expand);
-  setOperationAction(ISD::SDIVREM,          MVT::i16,   Expand);
-  setOperationAction(ISD::SREM,             MVT::i16,   Expand);
 
   // varargs support
   setOperationAction(ISD::VASTART,          MVT::Other, Custom);
   setOperationAction(ISD::VAARG,            MVT::Other, Expand);
   setOperationAction(ISD::VAEND,            MVT::Other, Expand);
   setOperationAction(ISD::VACOPY,           MVT::Other, Expand);
-  setOperationAction(ISD::JumpTable,        MVT::i16,   Custom);
+  setOperationAction(ISD::JumpTable,        MVT::i8,   Custom);
 
   // Libcalls names.
   if (HWMultMode == HWMultIntr) {
     setLibcallName(RTLIB::MUL_I8,  "__mulqi3hw");
-    setLibcallName(RTLIB::MUL_I16, "__mulhi3hw");
   } else if (HWMultMode == HWMultNoIntr) {
     setLibcallName(RTLIB::MUL_I8,  "__mulqi3hw_noint");
-    setLibcallName(RTLIB::MUL_I16, "__mulhi3hw_noint");
   }
 
   setMinFunctionAlignment(1);
@@ -447,7 +432,7 @@ SDValue PIC16TargetLowering::LowerCCCArguments(
         if (VA.getLocInfo() != CCValAssign::Full)
           ArgValue = DAG.getNode(ISD::TRUNCATE, dl, VA.getValVT(), ArgValue);
 
-        InVals.push_back(ArgValue);
+       InVals.push_back(ArgValue);
       }
     } else {
       // Sanity check
