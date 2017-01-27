@@ -7,7 +7,7 @@
 
 
 sed -i '1s/^/\npremain:\n  call main\n  quicksand: goto quicksand\n\n/' "$1"
-sed -i '1s/^/\ninit:\n  movlw 0x25\n  movwf SP\n  movwf FP\n/' "$1"
+sed -i '1s/^/\ninit:\n  movlw 0x33\n  movwf SP\n  movwf FP\n/' "$1"
 sed -i '1s/^/nop\n/' "$1"
 sed -i '1s/^/\n\norg 0x000\n/' "$1"
 sed -i '1s/^/GPR0 equ 0x20\n/' "$1"
