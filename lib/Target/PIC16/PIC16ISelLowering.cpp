@@ -74,7 +74,6 @@ PIC16TargetLowering::PIC16TargetLowering(const TargetMachine &TM,
 
   // We have post-incremented loads / stores.
   setIndexedLoadAction(ISD::POST_INC, MVT::i8, Legal);
-//  setIndexedLoadAction(ISD::POST_INC, MVT::i16, Legal);
 
   for (MVT VT : MVT::integer_valuetypes()) {
     setLoadExtAction(ISD::EXTLOAD,  VT, MVT::i1,  Promote);
@@ -606,9 +605,9 @@ SDValue PIC16TargetLowering::LowerCCCCallTo(
   // turn it into a TargetGlobalAddress node so that legalize doesn't hack it.
   // Likewise ExternalSymbol -> TargetExternalSymbol.
   if (GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(Callee))
-    Callee = DAG.getTargetGlobalAddress(G->getGlobal(), dl, MVT::i16);
+    Callee = DAG.getTargetGlobalAddress(G->getGlobal(), dl, MVT::i8);
   else if (ExternalSymbolSDNode *E = dyn_cast<ExternalSymbolSDNode>(Callee))
-    Callee = DAG.getTargetExternalSymbol(E->getSymbol(), MVT::i16);
+    Callee = DAG.getTargetExternalSymbol(E->getSymbol(), MVT::i8);
 
   // Returns a chain & a flag for retval copy to use.
   SDVTList NodeTys = DAG.getVTList(MVT::Other, MVT::Glue);
