@@ -50,9 +50,9 @@ void PIC16FrameLowering::emitPrologue(MachineFunction &MF,
   DebugLoc DL = MBBI != MBB.end() ? MBBI->getDebugLoc() : DebugLoc();
 
   // Get the number of bytes to allocate from the FrameInfo.
-  uint64_t StackSize = MFI->getStackSize();
+  int64_t StackSize = MFI->getStackSize();
 
-  uint64_t NumBytes = 0;
+  int64_t NumBytes = 0;
   if (hasFP(MF)) {
     // Calculate required stack adjustment
     uint64_t FrameSize = StackSize - 2;
@@ -67,7 +67,6 @@ void PIC16FrameLowering::emitPrologue(MachineFunction &MF,
     //reserve n blocks for the n local variables
     BuildMI(MBB, MBBI, DL, TII.get(PIC16::INCF_F))
       .addReg(PIC16::SP);
-    BuildMI(MBB, MBBI, DL, TII.get(PIC16::INCF_F), PIC16::SP);
     BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
     BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF))
       .addReg(PIC16::FSR);
@@ -75,10 +74,11 @@ void PIC16FrameLowering::emitPrologue(MachineFunction &MF,
       .addReg(PIC16::FP);
    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF))
       .addReg(PIC16::INDF);
-   BuildMI(MBB, MBBI, DL, TII.get(PIC16::DECF_F), PIC16::SP);
-   BuildMI(MBB, MBBI, DL, TII.get(PIC16::DECF_F), PIC16::FSR);
+   BuildMI(MBB, MBBI, DL, TII.get(PIC16::INCF_F), PIC16::SP);
    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::FP);
+  BuildMI(MBB, MBBI, DL, TII.get(PIC16::DECF_F), PIC16::FP);
+  BuildMI(MBB, MBBI, DL, TII.get(PIC16::DECF_F), PIC16::FP);
 
     // Mark the FramePtr as live-in in every block except the entry.
     for (MachineFunction::iterator I = std::next(MF.begin()), E = MF.end();
@@ -95,22 +95,34 @@ void PIC16FrameLowering::emitPrologue(MachineFunction &MF,
   if (MBBI != MBB.end())
     DL = MBBI->getDebugLoc();
 
-  if (NumBytes) { // adjust stack pointer: SP -= numbytes
-    // If there is an SUB16ri of SP immediately before this instruction, merge
-    // the two.
-    //NumBytes -= mergeSPUpdates(MBB, MBBI, true);
-    // If there is an ADD16ri or SUB16ri of SP immediately after this
-    // instruction, merge the two instructions.
-    // mergeSPUpdatesDown(MBB, MBBI, &NumBytes);
 
-    if (NumBytes) {
+    if (NumBytes>0) {
      MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
         BuildMI(MBB, MBBI, DL, TII.get(PIC16::ADDLW))
-        .addImm(NumBytes-1);
+        .addImm(NumBytes);
     BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::SP);
       MI->getOperand(0).setIsDead();
+    } 
+
+    else if (NumBytes==1){
+      MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
+      BuildMI(MBB, MBBI, DL, TII.get(PIC16::ADDLW))
+        .addImm(NumBytes+1);
+    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::SP);
+      MI->getOperand(0).setIsDead();
+    } else if (NumBytes<0) {
+     MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
+        BuildMI(MBB, MBBI, DL, TII.get(PIC16::ADDLW))
+          .addImm(NumBytes-NumBytes-NumBytes);
+        BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::SP);
+        MI->getOperand(0).setIsDead();
+    } else {
+MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
+        BuildMI(MBB, MBBI, DL, TII.get(PIC16::ADDLW))
+          .addImm(NumBytes+1);
+        BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::SP);
+        MI->getOperand(0).setIsDead();
     }
-  }
 }
 
 void PIC16FrameLowering::emitEpilogue(MachineFunction &MF,
@@ -131,26 +143,26 @@ void PIC16FrameLowering::emitEpilogue(MachineFunction &MF,
   }
 
   // Get the number of bytes to allocate from the FrameInfo
-  uint64_t StackSize = MFI->getStackSize();
+  int64_t StackSize = MFI->getStackSize();
   unsigned CSSize = PIC16FI->getCalleeSavedFrameSize();
-  uint64_t NumBytes = 0;
+  int64_t NumBytes = 0;
 
   if (hasFP(MF)) {
     // Calculate required stack adjustment
-    uint64_t FrameSize = StackSize - 2;
+    int64_t FrameSize = StackSize - 2;
     NumBytes = FrameSize - CSSize;
 
     //restore the FP to the parent function's FP
-    //and have FSR contain the parent functions' FP
-    BuildMI(MBB, MBBI, DL, TII.get(PIC16::INCF_F), PIC16::FP);
-    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::FP);
-    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::FSR);
-    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W))
-      .addReg(PIC16::INDF);
+    BuildMI(MBB, MBBI, DL, TII.get(PIC16::INCF_W), PIC16::FP);
     BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::FSR);
     BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::INDF);
-    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::FP);
-    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::FSR);
+    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF))
+      .addReg(PIC16::FP);
+    BuildMI(MBB, MBBI, DL, TII.get(PIC16::DECF_F))
+      .addReg(PIC16::SP);
+    BuildMI(MBB, MBBI, DL, TII.get(PIC16::DECF_F))
+      .addReg(PIC16::SP);
+
   } else
     NumBytes = StackSize - CSSize;
 
@@ -166,13 +178,25 @@ void PIC16FrameLowering::emitEpilogue(MachineFunction &MF,
   DL = MBBI->getDebugLoc();
 
   // adjust stack pointer back: SP -= numbytes
-  if (NumBytes) {
+  if (NumBytes>0) {
          MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
-        BuildMI(MBB, MBBI, DL, TII.get(PIC16::SUBLW))
-        .addImm(NumBytes-1);
+        BuildMI(MBB, MBBI, DL, TII.get(PIC16::ADDLW))
+        .addImm(NumBytes-NumBytes-NumBytes);
     BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::SP);
       MI->getOperand(0).setIsDead();
-  }
+  } else if (NumBytes<0) {
+      MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
+        BuildMI(MBB, MBBI, DL, TII.get(PIC16::ADDLW))
+        .addImm(NumBytes);
+    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::SP);
+      MI->getOperand(0).setIsDead(); 
+    } else {
+      MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
+        BuildMI(MBB, MBBI, DL, TII.get(PIC16::ADDLW))
+        .addImm(NumBytes-1);
+    BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::SP);
+      MI->getOperand(0).setIsDead(); 
+      }
 }
 
 bool

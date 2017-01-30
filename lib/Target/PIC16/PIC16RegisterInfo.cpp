@@ -10,7 +10,8 @@
 // This file contains the PIC16 implementation of the TargetRegisterInfo class.
 //
 //===----------------------------------------------------------------------===//
-
+#include <iostream>
+using namespace std;
 #include "PIC16RegisterInfo.h"
 #include "PIC16.h"
 #include "PIC16MachineFunctionInfo.h"
@@ -99,6 +100,7 @@ void
 PIC16RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                         int SPAdj, unsigned FIOperandNum,
                                         RegScavenger *RS) const {
+
   assert(SPAdj == 0 && "Unexpected");
 
   MachineInstr &MI = *II;
@@ -107,48 +109,14 @@ PIC16RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   const PIC16FrameLowering *TFI = getFrameLowering(MF);
   DebugLoc dl = MI.getDebugLoc();
   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
-
   unsigned BasePtr = (TFI->hasFP(MF) ? PIC16::FP : PIC16::SP);
-  int Offset = MF.getFrameInfo()->getObjectOffset(FrameIndex);
 
-  // Skip the saved PC
-  Offset += 2;
-
-  if (!TFI->hasFP(MF))
-    Offset += MF.getFrameInfo()->getStackSize();
-  else
-    Offset += 2; // Skip the saved FP
-
-  // Fold imm into offset
-  Offset += MI.getOperand(FIOperandNum + 1).getImm();
-
-  if (MI.getOpcode() == PIC16::ADD8ri) {
-    // This is actually "load effective address" of the stack slot
-    // instruction. We have only two-address instructions, thus we need to
-    // expand it into mov + add
-    const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
-
-    MI.setDesc(TII.get(PIC16::MOV8rr));
-    MI.getOperand(FIOperandNum).ChangeToRegister(BasePtr, false);
-
-    if (Offset == 0)
-      return;
-
-    // We need to materialize the offset via add instruction.
-    unsigned DstReg = MI.getOperand(0).getReg();
-    if (Offset < 0)
-      BuildMI(MBB, std::next(II), dl, TII.get(PIC16::SUB8ri), DstReg)
-        .addReg(DstReg).addImm(-Offset);
-    else
-      BuildMI(MBB, std::next(II), dl, TII.get(PIC16::ADD8ri), DstReg)
-        .addReg(DstReg).addImm(Offset);
-
-    return;
-  }
-
+  int Offset(-2-FrameIndex);
   MI.getOperand(FIOperandNum).ChangeToRegister(BasePtr, false);
   MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
 }
+
+
 
 unsigned PIC16RegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   const PIC16FrameLowering *TFI = getFrameLowering(MF);

@@ -330,7 +330,6 @@ bool PIC16DAGToDAGISel::tryIndexedLoad(SDNode *N) {
   case MVT::i8:
     Opcode = PIC16::MOV8rm_POST;
     break;
-    break;
   default:
     return false;
   }
