@@ -10,7 +10,8 @@
 // This class prints an PIC16 MCInst to a .s file.
 //
 //===----------------------------------------------------------------------===//
-
+#include <iostream>
+#include <sstream>
 #include "PIC16InstPrinter.h"
 #include "PIC16.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -19,6 +20,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
 using namespace llvm;
+using namespace std;
 
 #define DEBUG_TYPE "asm-printer"
 
@@ -35,8 +37,12 @@ void PIC16InstPrinter::printInst(const MCInst *MI, raw_ostream &O,
 void PIC16InstPrinter::printPCRelImmOperand(const MCInst *MI, unsigned OpNo,
                                              raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);
-  if (Op.isImm())
-    O << Op.getImm();
+  stringstream OPbase16;
+  if (Op.isImm()) {
+    OPbase16 << hex << Op.getImm();
+    O << OPbase16.str(); 
+    OPbase16.str("");
+  }
   else {
     assert(Op.isExpr() && "unknown pcrel immediate operand");
     Op.getExpr()->print(O, &MAI);
@@ -47,10 +53,16 @@ void PIC16InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
                                      raw_ostream &O, const char *Modifier) {
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
   const MCOperand &Op = MI->getOperand(OpNo);
+  stringstream OPbase16;
   if (Op.isReg()) {
     O << getRegisterName(Op.getReg());
   } else if (Op.isImm()) {
-      O << Op.getImm();
+      //Imm is in base 10 but our assembler prefers base16
+      //d'' doesn't work due to calculating the stack/frame
+      // pointer offset
+      OPbase16 << hex << Op.getImm();
+      O << OPbase16.str(); 
+      OPbase16.str("");
   } else {
       assert(Op.isExpr() && "unknown operand kind in printOperand");
       Op.getExpr()->print(O, &MAI);
@@ -60,30 +72,19 @@ void PIC16InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
 void PIC16InstPrinter::printSrcMemOperand(const MCInst *MI, unsigned OpNo,
                                            raw_ostream &O,
                                            const char *Modifier) {
-  const MCOperand &Base = MI->getOperand(OpNo);
   const MCOperand &Disp = MI->getOperand(OpNo+1);
   uint64_t alpha = Disp.getImm()-Disp.getImm()-Disp.getImm();
+  stringstream OPbase16;
   // Print displacement first
-
-  // If the global address expression is a part of displacement field with a
-  // register base, we should not emit any prefix symbol here, e.g.
-  //   mov.w &foo, r1
-  // vs
-  //   mov.w glb(r1), r2
-  // Otherwise (!) pic16-as will silently miscompile the output :(
-  if (!Base.getReg())
-    O << '&';
 
   if (Disp.isExpr())
     Disp.getExpr()->print(O, &MAI);
   else {
     assert(Disp.isImm() && "Expected immediate in displacement field");
-    O << alpha;
+    OPbase16 << hex << alpha;
+    O << OPbase16.str(); 
+    OPbase16.str("");
   }
-
-  // Print register base field
-  //if (Base.getReg())
-  //  O << '(' << getRegisterName(Base.getReg()) << ')';
 }
 
 void PIC16InstPrinter::printCCOperand(const MCInst *MI, unsigned OpNo,
