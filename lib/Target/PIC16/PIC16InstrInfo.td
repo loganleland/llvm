@@ -231,10 +231,12 @@ def INCF_F  : I8rr<0x0,
                    (outs), (ins GR8:$src),
                    "incf\t{$src, F}",
                    []>;
-}
 
-
-//===----------------------------------------------------------------------===//
+def INCF_W  : I8rr<0x0,
+                   (outs), (ins GR8:$src),
+                   "incf\t{$src, W}",
+                   []>;
+}//===----------------------------------------------------------------------===//
 // Move Instructions
 
 // FIXME: Provide proper encoding!
@@ -263,11 +265,10 @@ def MOVWF  : I8rr<0x0,
 
 def MOV8rr  : I8rr<0x0,
                    (outs GR8:$dst), (ins GR8:$src),
-                   "MOV8rr\t{$src, $dst}",
+                   "MOV8rr",
                    []>;
 }
 
-// FIXME: Provide proper encoding!
 let isReMaterializable = 1, isAsCheapAsAMove = 1 in {
 def MOV8ri  : I8ri<0x0,
                    (outs GR8:$dst), (ins i8imm:$src),
@@ -278,7 +279,7 @@ def MOV8ri  : I8ri<0x0,
 let canFoldAsLoad = 1, isReMaterializable = 1 in {
 def MOV8rm  : I8rm<0x0,
                    (outs GR8:$dst), (ins memsrc:$src),
-                   "MOV8rm\t{$src, $dst}",
+                   "movf FP,W\n\taddlw $src\n\tmovwf FSR\n\tmovf INDF,W\n\tmovwf $dst", 
                    [(set GR8:$dst, (load addr:$src))]>;
 }
 
@@ -288,32 +289,19 @@ def MOV8rm_POST  : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
                          "MOV8rm_POST\t{@$base+, $dst}", []>;
 }
 
-// Any instruction that defines a 8-bit result leaves the high half of the
-// register. Truncate can be lowered to EXTRACT_SUBREG, and CopyFromReg may
-// be copying from a truncate, but any other 8-bit operation will zero-extend
-// up to 16 bits.
-def def8 : PatLeaf<(i8 GR8:$src), [{
-  return N->getOpcode() != ISD::TRUNCATE &&
-         N->getOpcode() != TargetOpcode::EXTRACT_SUBREG &&
-         N->getOpcode() != ISD::CopyFromReg;
-}]>;
-
-// In the case of a 8-bit def that is known to implicitly zero-extend,
-// we can use a SUBREG_TO_REG.
-
 def LOCALVAR: I8mi<0x0,
                    (outs), (ins memdst:$dst, i8imm:$src),
-                   "movf FSR, W\n\taddlw $dst\n\tmovwf FSR\n\tmovlw $src\n\tmovwf INDF\n\tmovf FSR,W\n\tsublw $dst \n\tmovwf FSR",
+                   "movf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovlw $src\n\tmovwf INDF",
                    [(store (i8 imm:$src), addr:$dst)]>;
 
 def MOV8mr  : I8mr<0x0,
                    (outs), (ins memdst:$dst, GR8:$src),
-                   "movlw $dst\n\tmovwf $src",
+                   "movf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf $src, W\n\tmovwf INDF",
                    [(store GR8:$src, addr:$dst)]>;
 
 def MOV8mm  : I8mm<0x0,
                    (outs), (ins memdst:$dst, memsrc:$src),
-                   "MOV8mm\t{$src, $dst}",
+                   "movf FP,W\n\taddlw $src\n\tmovwf FSR\n\tmovf INDF, W\n\tmovwf GPR10\n\tmovf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf GPR10,W\n\tmovwf INDF",
                    [(store (i8 (load addr:$src)), addr:$dst)]>;
 
 //===----------------------------------------------------------------------===//
@@ -329,19 +317,6 @@ def SUBLW  : I8rr<0x0,
                    "sublw\t{$src}",
                    []>;
 
-let Constraints = "$src2 = $dst" in {
-def ADDWF_W : I8rr<0x0,
-                   (outs WRegClass:$dst), (ins GR8:$src, WRegClass:$src2),
-                   "addwf\t{$src2}, W",
-                    [(set WRegClass:$dst, (add GR8:$src, WRegClass:$src2))]>;
-}
-
-let Constraints = "$src = $dst" in {
-def ADDWF_F : I8rr<0x0,
-                   (outs GR8:$dst), (ins GR8:$src, WRegClass:$src2),
-                   "addwf\t{$src2}, F",
-                   [(set GR8:$dst, (add GR8:$src, WRegClass:$src2))]>;
-}
 
 let Constraints = "$src = $dst" in {
 let Defs = [SR] in {
@@ -350,14 +325,14 @@ let isCommutable = 1 in { // X = ADD Y, Z  == X = ADD Z, Y
 
 def ADD8rr  : I8rr<0x0,
                    (outs GR8:$dst), (ins GR8:$src, GR8:$src2),
-                   "add8rr.b\t{$src2, $dst}",
+                   "ADD8rr",
                    [(set GR8:$dst, (add GR8:$src, GR8:$src2)),
                     (implicit SR)]>;
 }
 
 def ADD8rm  : I8rm<0x0,
                    (outs GR8:$dst), (ins GR8:$src, memsrc:$src2),
-                   "movf $src2,W\n\taddlw $src2\n\tadd8rm.b\t{$src2, $dst}",
+                   "movf FP,W\n\taddlw $src2\n\tmovwf FSR\n\tmovf INDF,W\n\taddwf $src,F",
                    [(set GR8:$dst, (add GR8:$src, (load addr:$src2))),
                     (implicit SR)]>;
 
@@ -372,26 +347,26 @@ def ADD8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
 
 def ADD8ri  : I8ri<0x0,
                    (outs GR8:$dst), (ins GR8:$src, i8imm:$src2),
-                   "add8ri.b\t{$src2, $dst}",
+                   "ADD8ri",
                    [(set GR8:$dst, (add GR8:$src, imm:$src2)),
                     (implicit SR)]>;
 
 let Constraints = "" in {
-def ADD8mr  : I8mr<0x0,
+def ADDmr  : I8mr<0x0,
                    (outs), (ins memdst:$dst, GR8:$src),
-                   "add8mr.b\t{$src, $dst}",
+                   "ADDmr",
                    [(store (add (load addr:$dst), GR8:$src), addr:$dst),
                     (implicit SR)]>;
 
-def ADD8mi  : I8mi<0x0,
+def ADDmi  : I8mi<0x0,
                    (outs), (ins memdst:$dst, i8imm:$src),
-                   "add8mi.b\t{$src, $dst}",
+                   "movf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf INDF,W\n\taddlw $src\n\tmovwf INDF",
                    [(store (add (load addr:$dst), (i8 imm:$src)), addr:$dst),
                     (implicit SR)]>;
 
 def ADD8mm  : I8mm<0x0,
                    (outs), (ins memdst:$dst, memsrc:$src),
-                   "add8mm.b\t{$src, $dst}",
+                   "ADD8mm",
                    [(store (add (load addr:$dst), 
                                 (i8 (load addr:$src))), addr:$dst),
                     (implicit SR)]>;
@@ -402,7 +377,7 @@ let Uses = [SR] in {
 let isCommutable = 1 in { // X = ADDC Y, Z  == X = ADDC Z, Y
 def ADC8rr  : I8rr<0x0,
                    (outs GR8:$dst), (ins GR8:$src, GR8:$src2),
-                   "addc.b\t{$src2, $dst}",
+                   "ADDC8rr",
                    [(set GR8:$dst, (adde GR8:$src, GR8:$src2)),
                     (implicit SR)]>;
 } // isCommutable
@@ -804,7 +779,7 @@ def : Pat<(addc GR8:$src, (load addr:$src2)),
 def : Pat<(addc GR8:$src, imm:$src2),
           (ADD8ri GR8:$src, imm:$src2)>;
 def : Pat<(store (addc (load addr:$dst), GR8:$src), addr:$dst),
-          (ADD8mr addr:$dst, GR8:$src)>;
+          (ADDmr addr:$dst, GR8:$src)>;
 def : Pat<(store (addc (load addr:$dst), (i8 (load addr:$src))), addr:$dst),
           (ADD8mm addr:$dst, addr:$src)>;
 

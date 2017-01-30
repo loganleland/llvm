@@ -26,8 +26,6 @@ class PIC16RegWithSubregs<bits<8> num, string n, list<Register> subregs>
 //  Registers
 //===----------------------------------------------------------------------===//
 
-def WReg  : PIC16Reg<200, "W">;
-
 def PC    : PIC16Reg<0,  "PC">;
 def SP    : PIC16Reg<1,  "SP">;
 def SR    : PIC16Reg<2,  "SR">;
@@ -50,11 +48,8 @@ def INDF  : PIC16Reg<17, "INDF">;
 def GR8 : RegisterClass<"PIC16", [i8], 8,
    // Volatile registers
   (add GPR0, GPR1, GPR2, GPR3, GPR4, GPR5, GPR6,
-       GPR7, GPR8, GPR9, GPR10, 
+       GPR7, GPR8, GPR9, 
    // Frame pointer, sometimes allocable
    FP,FSR,INDF,
    // Volatile, but not allocable
    PC, SP, SR, CG)>;
- 
-def WRegClass : RegisterClass<"PIC16", [i8], 8,
-    (add WReg)>;
