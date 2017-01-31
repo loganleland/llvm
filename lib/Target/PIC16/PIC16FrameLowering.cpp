@@ -211,7 +211,6 @@ PIC16FrameLowering::spillCalleeSavedRegisters(MachineBasicBlock &MBB,
   if (MI != MBB.end()) DL = MI->getDebugLoc();
 
   MachineFunction &MF = *MBB.getParent();
-  const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
   PIC16MachineFunctionInfo *MFI = MF.getInfo<PIC16MachineFunctionInfo>();
   MFI->setCalleeSavedFrameSize(CSI.size() * 2);
 
@@ -230,7 +229,6 @@ PIC16FrameLowering::restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
   if (MI != MBB.end()) DL = MI->getDebugLoc();
 
   MachineFunction &MF = *MBB.getParent();
-  const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
 
   return true;
 }
