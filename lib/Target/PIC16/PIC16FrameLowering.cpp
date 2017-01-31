@@ -119,7 +119,7 @@ void PIC16FrameLowering::emitPrologue(MachineFunction &MF,
     } else {
 MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
         BuildMI(MBB, MBBI, DL, TII.get(PIC16::ADDLW))
-          .addImm(NumBytes+1);
+          .addImm(NumBytes+2);
         BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::SP);
         MI->getOperand(0).setIsDead();
     }
@@ -177,23 +177,23 @@ void PIC16FrameLowering::emitEpilogue(MachineFunction &MF,
 
   DL = MBBI->getDebugLoc();
 
-  // adjust stack pointer back: SP -= numbytes
+  // adjust stack pointer back: SP += -numbytes
   if (NumBytes>0) {
          MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
         BuildMI(MBB, MBBI, DL, TII.get(PIC16::ADDLW))
-        .addImm(NumBytes-NumBytes-NumBytes);
+        .addImm(NumBytes-NumBytes-NumBytes-2);
     BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::SP);
       MI->getOperand(0).setIsDead();
   } else if (NumBytes<0) {
       MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
         BuildMI(MBB, MBBI, DL, TII.get(PIC16::ADDLW))
-        .addImm(NumBytes);
+        .addImm(NumBytes-2);
     BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::SP);
       MI->getOperand(0).setIsDead(); 
     } else {
       MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVF_W), PIC16::SP);
         BuildMI(MBB, MBBI, DL, TII.get(PIC16::ADDLW))
-        .addImm(NumBytes-1);
+        .addImm(NumBytes-2);
     BuildMI(MBB, MBBI, DL, TII.get(PIC16::MOVWF), PIC16::SP);
       MI->getOperand(0).setIsDead(); 
       }
@@ -267,7 +267,7 @@ MachineBasicBlock::iterator PIC16FrameLowering::eliminateCallFramePseudoInstr(
         uint64_t CalleeAmt = Old.getOperand(1).getImm();
         Amount -= CalleeAmt;
         if (Amount)
-          New = BuildMI(MF, Old.getDebugLoc(), TII.get(PIC16::ADD8ri),
+          New = BuildMI(MF, Old.getDebugLoc(), TII.get(PIC16::ADDri),
                         PIC16::SP)
                     .addReg(PIC16::SP)
                     .addImm(Amount);
