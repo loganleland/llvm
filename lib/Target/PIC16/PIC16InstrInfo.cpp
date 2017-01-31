@@ -65,35 +65,35 @@ void PIC16InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                            const TargetRegisterClass *RC,
                                            const TargetRegisterInfo *TRI) const{
   DebugLoc DL;
-  if (MI != MBB.end()) DL = MI->getDebugLoc();
-  MachineFunction &MF = *MBB.getParent();
-  MachineFrameInfo &MFI = *MF.getFrameInfo();
+//  if (MI != MBB.end()) DL = MI->getDebugLoc();
+//  MachineFunction &MF = *MBB.getParent();
+//  MachineFrameInfo &MFI = *MF.getFrameInfo();
 
-  MachineMemOperand *MMO = MF.getMachineMemOperand(
-      MachinePointerInfo::getFixedStack(MF, FrameIdx),
-      MachineMemOperand::MOLoad, MFI.getObjectSize(FrameIdx),
-      MFI.getObjectAlignment(FrameIdx));
+//  MachineMemOperand *MMO = MF.getMachineMemOperand(
+//      MachinePointerInfo::getFixedStack(MF, FrameIdx),
+//      MachineMemOperand::MOLoad, MFI.getObjectSize(FrameIdx),
+//      MFI.getObjectAlignment(FrameIdx));
 
-  if (RC == &PIC16::GR8RegClass)
-    BuildMI(MBB, MI, DL, get(PIC16::MOV8rm))
-      .addReg(DestReg, getDefRegState(true)).addFrameIndex(FrameIdx)
-      .addImm(0).addMemOperand(MMO);
-  else
-    llvm_unreachable("Cannot store this register to stack slot!");
+//  if (RC == &PIC16::GR8RegClass)
+//    BuildMI(MBB, MI, DL, get(PIC16::MOV8rm))
+//      .addReg(DestReg, getDefRegState(true)).addFrameIndex(FrameIdx)
+//      .addImm(0).addMemOperand(MMO);
+//  else
+//    llvm_unreachable("Cannot store this register to stack slot!");
 }
 
 void PIC16InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator I,
                                   const DebugLoc &DL, unsigned DestReg,
                                   unsigned SrcReg, bool KillSrc) const {
-  unsigned Opc;
-  if (PIC16::GR8RegClass.contains(DestReg, SrcReg))
-    Opc = PIC16::MOV8rr;
-  else
-    llvm_unreachable("Impossible reg-to-reg copy");
-
-  BuildMI(MBB, I, DL, get(Opc), DestReg)
-    .addReg(SrcReg, getKillRegState(KillSrc));
+//  unsigned Opc;
+//  if (PIC16::GR8RegClass.contains(DestReg, SrcReg))
+//    Opc = PIC16::MOV8rr;
+//  else
+//    llvm_unreachable("Impossible reg-to-reg copy");
+//
+//  BuildMI(MBB, I, DL, get(Opc), DestReg)
+//    .addReg(SrcReg, getKillRegState(KillSrc));
 }
 
 unsigned PIC16InstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {

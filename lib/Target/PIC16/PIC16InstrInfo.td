@@ -323,14 +323,14 @@ let Defs = [SR] in {
 let isCommutable = 1 in { // X = ADD Y, Z  == X = ADD Z, Y
 
 
-def ADD8rr  : I8rr<0x0,
+def ADDrr  : I8rr<0x0,
                    (outs GR8:$dst), (ins GR8:$src, GR8:$src2),
-                   "ADD8rr",
+                   "movf $src,W\n\taddwf $src2,W\n\tmovwf $dst",
                    [(set GR8:$dst, (add GR8:$src, GR8:$src2)),
                     (implicit SR)]>;
 }
 
-def ADD8rm  : I8rm<0x0,
+def ADDrm  : I8rm<0x0,
                    (outs GR8:$dst), (ins GR8:$src, memsrc:$src2),
                    "movf FP,W\n\taddlw $src2\n\tmovwf FSR\n\tmovf INDF,W\n\taddwf $src,F",
                    [(set GR8:$dst, (add GR8:$src, (load addr:$src2))),
@@ -338,23 +338,23 @@ def ADD8rm  : I8rm<0x0,
 
 let mayLoad = 1, hasExtraDefRegAllocReq = 1, 
 Constraints = "$base = $base_wb, $src = $dst" in {
-def ADD8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
+def ADDrm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
                          (outs GR8:$dst, GR8:$base_wb),
                          (ins GR8:$src, GR8:$base),
                          "add8rm_POST.b\t{@$base+, $dst}", []>;
 }
 
 
-def ADD8ri  : I8ri<0x0,
+def ADDri  : I8ri<0x0,
                    (outs GR8:$dst), (ins GR8:$src, i8imm:$src2),
-                   "ADD8ri",
+                   "movf $src,W\n\taddlw $src2\n\tmovwf $dst",
                    [(set GR8:$dst, (add GR8:$src, imm:$src2)),
                     (implicit SR)]>;
 
 let Constraints = "" in {
 def ADDmr  : I8mr<0x0,
                    (outs), (ins memdst:$dst, GR8:$src),
-                   "ADDmr",
+                   "movf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf INDF,W\n\taddwf $src,W\n\tmovwf INDF",
                    [(store (add (load addr:$dst), GR8:$src), addr:$dst),
                     (implicit SR)]>;
 
@@ -364,9 +364,9 @@ def ADDmi  : I8mi<0x0,
                    [(store (add (load addr:$dst), (i8 imm:$src)), addr:$dst),
                     (implicit SR)]>;
 
-def ADD8mm  : I8mm<0x0,
+def ADDmm  : I8mm<0x0,
                    (outs), (ins memdst:$dst, memsrc:$src),
-                   "ADD8mm",
+                   "movf FP, W\n\taddlw $src\n\tmovwf FSR\n\tmovf INDF,W\n\tmovwf GPR10\n\tmovf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf INDF,W\n\taddwf GPR10,W\n\tmovwf FSR",
                    [(store (add (load addr:$dst), 
                                 (i8 (load addr:$src))), addr:$dst),
                     (implicit SR)]>;
@@ -773,15 +773,15 @@ def : Pat<(PIC16call (i8 texternalsym:$dst)),
           (CALLi texternalsym:$dst)>;
 
 def : Pat<(addc GR8:$src, GR8:$src2),
-          (ADD8rr GR8:$src, GR8:$src2)>;
+          (ADDrr GR8:$src, GR8:$src2)>;
 def : Pat<(addc GR8:$src, (load addr:$src2)),
-          (ADD8rm GR8:$src, addr:$src2)>;
+          (ADDrm GR8:$src, addr:$src2)>;
 def : Pat<(addc GR8:$src, imm:$src2),
-          (ADD8ri GR8:$src, imm:$src2)>;
+          (ADDri GR8:$src, imm:$src2)>;
 def : Pat<(store (addc (load addr:$dst), GR8:$src), addr:$dst),
           (ADDmr addr:$dst, GR8:$src)>;
 def : Pat<(store (addc (load addr:$dst), (i8 (load addr:$src))), addr:$dst),
-          (ADD8mm addr:$dst, addr:$src)>;
+          (ADDmm addr:$dst, addr:$src)>;
 
 def : Pat<(subc GR8:$src, GR8:$src2),
           (SUB8rr GR8:$src, GR8:$src2)>;

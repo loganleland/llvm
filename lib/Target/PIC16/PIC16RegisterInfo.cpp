@@ -53,13 +53,13 @@ PIC16RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   static const MCPhysReg CalleeSavedRegsIntr[] = {
     PIC16::FP,  PIC16::GPR0,  PIC16::GPR1,  PIC16::GPR2,
     PIC16::GPR3,  PIC16::GPR4,  PIC16::GPR5, PIC16::GPR6,
-    PIC16::GPR7, PIC16::GPR8, PIC16::GPR9, PIC16::GPR10,
+    PIC16::GPR7, PIC16::GPR8, PIC16::GPR9,
     0
   };
   static const MCPhysReg CalleeSavedRegsIntrFP[] = {
     PIC16::GPR0,  PIC16::GPR1,  PIC16::GPR2,
     PIC16::GPR3,  PIC16::GPR4,  PIC16::GPR5, PIC16::GPR6,
-    PIC16::GPR7, PIC16::GPR8, PIC16::GPR9, PIC16::GPR10,
+    PIC16::GPR7, PIC16::GPR8, PIC16::GPR9,
     0
   };
 
