@@ -1166,7 +1166,7 @@ PIC16TargetLowering::EmitShiftInstr(MachineInstr &MI,
     .addReg(ShiftAmtReg2).addMBB(LoopBB);
   BuildMI(LoopBB, dl, TII.get(Opc), ShiftReg2)
     .addReg(ShiftReg);
-  BuildMI(LoopBB, dl, TII.get(PIC16::SUB8ri), ShiftAmtReg2)
+  BuildMI(LoopBB, dl, TII.get(PIC16::SUBri), ShiftAmtReg2)
     .addReg(ShiftAmtReg).addImm(1);
   BuildMI(LoopBB, dl, TII.get(PIC16::JCC))
     .addMBB(LoopBB)

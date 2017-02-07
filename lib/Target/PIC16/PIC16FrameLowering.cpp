@@ -256,7 +256,7 @@ MachineBasicBlock::iterator PIC16FrameLowering::eliminateCallFramePseudoInstr(
       MachineInstr *New = nullptr;
       if (Old.getOpcode() == TII.getCallFrameSetupOpcode()) {
         New =
-            BuildMI(MF, Old.getDebugLoc(), TII.get(PIC16::SUB8ri), PIC16::SP)
+            BuildMI(MF, Old.getDebugLoc(), TII.get(PIC16::SUBri), PIC16::SP)
                 .addReg(PIC16::SP)
                 .addImm(Amount);
       } else {
@@ -285,7 +285,7 @@ MachineBasicBlock::iterator PIC16FrameLowering::eliminateCallFramePseudoInstr(
     if (uint64_t CalleeAmt = I->getOperand(1).getImm()) {
       MachineInstr &Old = *I;
       MachineInstr *New =
-          BuildMI(MF, Old.getDebugLoc(), TII.get(PIC16::SUB8ri), PIC16::SP)
+          BuildMI(MF, Old.getDebugLoc(), TII.get(PIC16::SUBri), PIC16::SP)
               .addReg(PIC16::SP)
               .addImm(CalleeAmt);
       // The SRW implicit def is dead.
