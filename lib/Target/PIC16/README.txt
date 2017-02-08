@@ -2,40 +2,22 @@
 // PIC16 backend.
 //===---------------------------------------------------------------------===//
 
-DISCLAIMER: This backend should be considered as highly experimental. I never
-seen nor worked with this MCU, all information was gathered from datasheet
-only. The original intention of making this backend was to write documentation
-of form "How to write backend for dummies" :) Thes notes hopefully will be
-available pretty soon.
+Contributors: Logan Leland, Ryan Newlun, James Underwood
 
-Some things are incomplete / not implemented yet (this list surely is not
-complete as well):
+DISCLAIMER: This backend should be considered as highly experimental.
 
-1. Verify, how stuff is handling implicit zext with 8 bit operands (this might
-be modelled currently in improper way - should we need to mark the superreg as
-def for every 8 bit instruction?).
+List of topics to implement/fix:
 
-2. Libcalls: multiplication, division, remainder. Note, that calling convention
-for libcalls is incomptible with calling convention of libcalls of pic16-gcc
-(these cannot be used though due to license restriction).
+1) Condition Codes
 
-3. Implement multiplication / division by constant (dag combiner hook?).
+2) Branching
 
-4. Implement non-constant shifts.
+3) Control structures
 
-5. Implement varargs stuff.
+4) Libraries(?)
 
-6. Verify and fix (if needed) how's stuff playing with i32 / i64.
+5) More arithmetic
 
-7. Implement floating point stuff (softfp?)
+6) Cleaning up namespaces
 
-8. Implement instruction encoding for (possible) direct code emission in the
-future.
-
-9. Since almost all instructions set flags - implement brcond / select in better
-way (currently they emit explicit comparison).
-
-10. Handle imm in comparisons in better way (see comment in PIC16InstrInfo.td)
-
-11. Implement hooks for better memory op folding, etc.
-
+7) Some sort of data collection and statistics
