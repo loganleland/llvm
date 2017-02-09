@@ -420,20 +420,20 @@ def ADC8mm  : I8mm<0x0,
 let isCommutable = 1 in { // X = AND Y, Z  == X = AND Z, Y
 def AND8rr  : I8rr<0x0,
                    (outs GR8:$dst), (ins GR8:$src, GR8:$src2),
-                   "and.b\t{$src2, $dst}",
+                   "movf $src,W\n\tandwf $src2,W\n\tmovwf $dst",
                    [(set GR8:$dst, (and GR8:$src, GR8:$src2)),
                     (implicit SR)]>;
 }
 
 def AND8ri  : I8ri<0x0,
                    (outs GR8:$dst), (ins GR8:$src, i8imm:$src2),
-                   "and.b\t{$src2, $dst}",
+                   "movf $src,W\n\tandlw $src2\n\tmovwf $dst",
                    [(set GR8:$dst, (and GR8:$src, imm:$src2)),
                     (implicit SR)]>;
 
 def AND8rm  : I8rm<0x0,
                    (outs GR8:$dst), (ins GR8:$src, memsrc:$src2),
-                   "and.b\t{$src2, $dst}",
+                   "movf FP,W\n\taddlw $src2\n\tmovwf FSR\n\tmovf INDF,W\n\tandwf $src,W\n\tmovwf $dst",
                    [(set GR8:$dst, (and GR8:$src, (load addr:$src2))),
                     (implicit SR)]>;
 
@@ -448,19 +448,19 @@ def AND8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
 let Constraints = "" in {
 def AND8mr  : I8mr<0x0,
                    (outs), (ins memdst:$dst, GR8:$src),
-                   "and.b\t{$src, $dst}",
+                   "movf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf INDF,W\n\tandwf $src,W\n\tmovwf INDF",
                    [(store (and (load addr:$dst), GR8:$src), addr:$dst),
                     (implicit SR)]>;
 
 def AND8mi  : I8mi<0x0,
                    (outs), (ins memdst:$dst, i8imm:$src),
-                   "and.b\t{$src, $dst}",
+                   "movf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf INDF,W\n\tandlw $src\n\tmovwf INDF",
                    [(store (and (load addr:$dst), (i8 imm:$src)), addr:$dst),
                     (implicit SR)]>;
 
 def AND8mm  : I8mm<0x0,
                    (outs), (ins memdst:$dst, memsrc:$src),
-                   "and.b\t{$src, $dst}",
+                   "movf FP,W\n\taddlw $src\n\tmovwf FSR\n\tmovf INDF,W\n\tmovwf GPR10\n\tmovf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf INDF,W\n\tandwf GPR10,W\n\tmovwf INDF",
                    [(store (and (load addr:$dst), 
                                 (i8 (load addr:$src))), addr:$dst),
                     (implicit SR)]>;
@@ -469,18 +469,18 @@ def AND8mm  : I8mm<0x0,
 let isCommutable = 1 in { // X = OR Y, Z  == X = OR Z, Y
 def OR8rr  : I8rr<0x0,
                   (outs GR8:$dst), (ins GR8:$src, GR8:$src2),
-                  "bis.b\t{$src2, $dst}",
+                  "movf $src,W\n\tiorwf $src2,W\n\tmovwf $dst",
                   [(set GR8:$dst, (or GR8:$src, GR8:$src2))]>;
 }
 
 def OR8ri  : I8ri<0x0,
                   (outs GR8:$dst), (ins GR8:$src, i8imm:$src2),
-                  "bis.b\t{$src2, $dst}",
+                  "movf $src,W\n\tiorlw $src2\n\tmovwf $dst",
                   [(set GR8:$dst, (or GR8:$src, imm:$src2))]>;
 
 def OR8rm  : I8rm<0x0,
                   (outs GR8:$dst), (ins GR8:$src, memsrc:$src2),
-                  "bis.b\t{$src2, $dst}",
+                  "movf FP,W\n\taddlw $src2\n\tmovwf FSR\n\tmovf INDF,W\n\tiorwf $src,W\n\tmovwf $dst",
                   [(set GR8:$dst, (or GR8:$src, (load addr:$src2)))]>;
 
 let mayLoad = 1, hasExtraDefRegAllocReq = 1, 
@@ -494,17 +494,17 @@ def OR8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
 let Constraints = "" in {
 def OR8mr  : I8mr<0x0,
                   (outs), (ins memdst:$dst, GR8:$src),
-                  "bis.b\t{$src, $dst}",
+                  "movf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf INDF,W\n\tiorwf $src,W\n\tmovwf INDF",
                   [(store (or (load addr:$dst), GR8:$src), addr:$dst)]>;
 
 def OR8mi  : I8mi<0x0, 
                   (outs), (ins memdst:$dst, i8imm:$src),
-                  "bis.b\t{$src, $dst}",
+                  "movf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf INDF,W\n\tiorlw $src\n\tmovwf INDF",
                   [(store (or (load addr:$dst), (i8 imm:$src)), addr:$dst)]>;
 
 def OR8mm  : I8mm<0x0,
                   (outs), (ins memdst:$dst, memsrc:$src),
-                  "bis.b\t{$src, $dst}",
+                  "movf FP,W\n\taddlw $src\n\tmovwf FSR\n\tmovf INDF,W\n\tmovwf GPR10\n\tmovf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf INDF,W\n\tiorwf GPR10,W\n\tmovwf INDF",
                   [(store (or (i8 (load addr:$dst)),
                               (i8 (load addr:$src))), addr:$dst)]>;
 }
@@ -536,20 +536,20 @@ def BIC8mm :  I8mm<0x0,
 let isCommutable = 1 in { // X = XOR Y, Z  == X = XOR Z, Y
 def XOR8rr  : I8rr<0x0,
                    (outs GR8:$dst), (ins GR8:$src, GR8:$src2),
-                   "xor.b\t{$src2, $dst}",
+                   "movf $src,W\n\txorwf $src2,W\n\tmovwf $dst",
                    [(set GR8:$dst, (xor GR8:$src, GR8:$src2)),
                     (implicit SR)]>;
 }
 
 def XOR8ri  : I8ri<0x0,
                    (outs GR8:$dst), (ins GR8:$src, i8imm:$src2),
-                   "xor.b\t{$src2, $dst}",
+                   "movf $src,W\n\txorlw $src2\n\tmovwf $dst",
                    [(set GR8:$dst, (xor GR8:$src, imm:$src2)),
                     (implicit SR)]>;
 
 def XOR8rm  : I8rm<0x0,
                    (outs GR8:$dst), (ins GR8:$src, memsrc:$src2),
-                   "xor.b\t{$src2, $dst}",
+                   "movf FP,W\n\taddlw $src2\n\tmovwf FSR\n\tmovf INDF,W\n\txorwf $src,W\n\tmovwf $dst",
                    [(set GR8:$dst, (xor GR8:$src, (load addr:$src2))),
                     (implicit SR)]>;
 
@@ -564,19 +564,19 @@ def XOR8rm_POST : IForm8<0x0, DstReg, SrcPostInc, Size2Bytes,
 let Constraints = "" in {
 def XOR8mr  : I8mr<0x0,
                    (outs), (ins memdst:$dst, GR8:$src),
-                   "xor.b\t{$src, $dst}",
+                   "movf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf INDF,W\n\txorwf $src,W\n\tmovwf INDF",
                    [(store (xor (load addr:$dst), GR8:$src), addr:$dst),
                     (implicit SR)]>;
 
 def XOR8mi  : I8mi<0x0,
                    (outs), (ins memdst:$dst, i8imm:$src),
-                   "xor.b\t{$src, $dst}",
+                   "movf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf INDF,W\n\txorlw $src\n\tmovwf INDF",
                    [(store (xor (load addr:$dst), (i8 imm:$src)), addr:$dst),
                     (implicit SR)]>;
 
 def XOR8mm  : I8mm<0x0,
                    (outs), (ins memdst:$dst, memsrc:$src),
-                   "xor.b\t{$src, $dst}",
+                   "movf FP,W\n\taddlw $src\n\tmovwf FSR\n\tmovf INDF,W\n\tmovwf GPR10\n\tmovf FP,W\n\taddlw $dst\n\tmovwf FSR\n\tmovf INDF,W\n\txorwf GPR10,W\n\tmovwf INDF",
                    [(store (xor (load addr:$dst), (i8 (load addr:$src))), addr:$dst),
                     (implicit SR)]>;
 }
