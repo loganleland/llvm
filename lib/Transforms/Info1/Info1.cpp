@@ -24,12 +24,19 @@ STATISTIC(Info1Counter, "Counts number of functions");
 
 // Anonymous namespace
 namespace {
-// Code goes here to override the runOnFunction()
+  struct Info1 : public FunctionPass {
+    static char ID; // Pass identification
+    Info1() : FunctionPass(ID) {}
 
-
+    bool runOnFunction(Function &F) override {
+      ++Info1Counter; // Increment number of functions found by 1
+      // By using "opt -stats" the counter should output automatically
+      return false;
+    }
+  };
 }
 
 // Must have ID
-//char Info1::ID = 0;
+char Info1::ID = 0;
 // Registering pass with PassManager
-//static RegisterPass<Info1> X("info1", "Info1 analytic pass");
+static RegisterPass<Info1> A("info1", "Info1 analytic pass");
