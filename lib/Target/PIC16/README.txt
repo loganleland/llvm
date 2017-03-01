@@ -8,16 +8,12 @@ DISCLAIMER: This backend should be considered as highly experimental.
 
 List of topics to implement/fix:
 
-1) Condition Codes
+1) Branching
 
-2) Branching
+2) Control structures
 
-3) Control structures
+3) Libraries(?)
 
-4) Libraries(?)
+4) More arithmetic
 
-5) More arithmetic
-
-6) Cleaning up namespaces
-
-7) Some sort of data collection and statistics
+5) Some sort of data collection and statistics
