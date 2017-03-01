@@ -43,10 +43,6 @@ def PIC16retflag  : SDNode<"PIC16ISD::RET_FLAG", SDTNone,
 def PIC16retiflag : SDNode<"PIC16ISD::RETI_FLAG", SDTNone,
                        [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
-def PIC16rra     : SDNode<"PIC16ISD::RRA", SDTIntUnaryOp, []>;
-def PIC16rla     : SDNode<"PIC16ISD::RLA", SDTIntUnaryOp, []>;
-def PIC16rrc     : SDNode<"PIC16ISD::RRC", SDTIntUnaryOp, []>;
-
 def PIC16call    : SDNode<"PIC16ISD::CALL", SDT_PIC16Call,
                      [SDNPHasChain, SDNPOutGlue, SDNPOptInGlue, SDNPVariadic]>;
 def PIC16callseq_start :
@@ -61,9 +57,6 @@ def PIC16brcc    : SDNode<"PIC16ISD::BR_CC", SDT_PIC16BrCC,
                             [SDNPHasChain, SDNPInGlue]>;
 def PIC16selectcc: SDNode<"PIC16ISD::SELECT_CC", SDT_PIC16SelectCC,
                             [SDNPInGlue]>;
-def PIC16shl     : SDNode<"PIC16ISD::SHL", SDT_PIC16Shift, []>;
-def PIC16sra     : SDNode<"PIC16ISD::SRA", SDT_PIC16Shift, []>;
-def PIC16srl     : SDNode<"PIC16ISD::SRL", SDT_PIC16Shift, []>;
 
 //===----------------------------------------------------------------------===//
 // PIC16 Operand Definitions.
@@ -102,6 +95,7 @@ def and_su : PatFrag<(ops node:$lhs, node:$rhs), (and node:$lhs, node:$rhs), [{
   return N->hasOneUse();
 }]>;
 //===----------------------------------------------------------------------===//
+
 // Instruction list..
 
 // ADJCALLSTACKDOWN/UP implicitly use/def SP because they may be expanded into
@@ -118,24 +112,10 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i8imm:$amt1, i8imm:$amt2),
                               [(PIC16callseq_end timm:$amt1, timm:$amt2)]>;
 }
 
-let usesCustomInserter = 1 in {
   def Select8  : Pseudo<(outs GR8:$dst), (ins GR8:$src, GR8:$src2, i8imm:$cc),
-                        "# Select8 PSEUDO",
+                        "Select8: $cc",
                         [(set GR8:$dst,
                           (PIC16selectcc GR8:$src, GR8:$src2, imm:$cc))]>;
-  let Defs = [SR] in {
-  def Shl8     : Pseudo<(outs GR8:$dst), (ins GR8:$src, GR8:$cnt),
-                        "# Shl8 PSEUDO",
-                        [(set GR8:$dst, (PIC16shl GR8:$src, GR8:$cnt))]>;
-  def Sra8     : Pseudo<(outs GR8:$dst), (ins GR8:$src, GR8:$cnt),
-                        "# Sra8 PSEUDO",
-                        [(set GR8:$dst, (PIC16sra GR8:$src, GR8:$cnt))]>;
-  def Srl8     : Pseudo<(outs GR8:$dst), (ins GR8:$src, GR8:$cnt),
-                        "# Srl8 PSEUDO",
-                        [(set GR8:$dst, (PIC16srl GR8:$src, GR8:$cnt))]>;
-
-  }
-}
 
 let hasSideEffects = 0 in
 def NOP : Pseudo<(outs), (ins), "nop", []>;
@@ -153,13 +133,10 @@ let isReturn = 1, isTerminator = 1, isBarrier = 1 in {
 
 let isBranch = 1, isTerminator = 1 in {
 
-// FIXME: expand opcode & cond field for branches!
-
 // Direct branch
 let isBarrier = 1 in {
-  // Short branch
-  def JMP : CJForm<0, 0, (outs), (ins jmptarget:$dst),
-                   "jmp\t$dst",
+  def GOTO : CJForm<0, 0, (outs), (ins jmptarget:$dst),
+                   "goto\t$dst",
                    [(br bb:$dst)]>;
   let isIndirectBranch = 1 in {
     // Long branches
@@ -174,7 +151,6 @@ let isBarrier = 1 in {
                     [(brind (load addr:$brdst))]>;
   }
 }
-
 // Conditional branches
 let Uses = [SR] in
   def JCC : CJForm<0, 0,
@@ -318,7 +294,6 @@ def SUBLW  : I8rr<0x0,
                    []>;
 
 
-let Constraints = "$src = $dst" in {
 let Defs = [SR] in {
 let isCommutable = 1 in { // X = ADD Y, Z  == X = ADD Z, Y
 
@@ -671,58 +646,39 @@ def SBC8mm  : I8mm<0x0,
 
 } // Uses = [SR]
 
-// FIXME: memory variant!
-def SAR8r1  : II8r<0x0,
-                   (outs GR8:$dst), (ins GR8:$src),
-                   "rra.b\t$dst",
-                   [(set GR8:$dst, (PIC16rra GR8:$src)),
-                    (implicit SR)]>;
-
-def SHL8r1  : I8rr<0x0,
-                   (outs GR8:$dst), (ins GR8:$src),
-                   "rla.b\t$dst",
-                   [(set GR8:$dst, (PIC16rla GR8:$src)),
-                    (implicit SR)]>;
-
-def SAR8r1c  : Pseudo<(outs GR8:$dst), (ins GR8:$src),
-                      "clrc\n\t"
-                      "rrc.b\t$dst",
-                      [(set GR8:$dst, (PIC16rrc GR8:$src)),
-                       (implicit SR)]>;
-
-} // Defs = [SR]
-
 } // Constraints = "$src = $dst"
+
 
 // Integer comparisons
 let Defs = [SR] in {
 def CMP8rr  : I8rr<0x0,
                    (outs), (ins GR8:$src, GR8:$src2),
-                   "cmp.b\t{$src2, $src}",
+                   "CMP8rr\t{$src2, $src}",
                    [(PIC16cmp GR8:$src, GR8:$src2), (implicit SR)]>;
 
 def CMP8ri  : I8ri<0x0,
                    (outs), (ins GR8:$src, i8imm:$src2),
-                   "cmp.b\t{$src2, $src}",
+                   "CMP8ri\t{$src2, $src}",
                    [(PIC16cmp GR8:$src, imm:$src2), (implicit SR)]>;
 
 def CMP8mi  : I8mi<0x0,
                    (outs), (ins memsrc:$src, i8imm:$src2),
-                   "cmp.b\t{$src2, $src}",
+                   "CMP8mi\t{$src2, $src}",
                    [(PIC16cmp (load addr:$src),
                                (i8 imm:$src2)), (implicit SR)]>;
 
 def CMP8rm  : I8rm<0x0,
                    (outs), (ins GR8:$src, memsrc:$src2),
-                   "cmp.b\t{$src2, $src}",
+                   "CMP8rm\t{$src2, $src}",
                    [(PIC16cmp GR8:$src, (load addr:$src2)), 
                     (implicit SR)]>;
 
 def CMP8mr  : I8mr<0x0,
                    (outs), (ins memsrc:$src, GR8:$src2),
-                   "cmp.b\t{$src2, $src}",
+                   "CMP8mr\t{$src2, $src}",
                    [(PIC16cmp (load addr:$src), GR8:$src2),
                     (implicit SR)]>;
+
 
 // BIT TESTS, just sets condition codes
 // Note that the C condition is set differently than when using CMP.

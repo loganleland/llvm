@@ -126,7 +126,7 @@ void PIC16InstPrinter::printCCOperand(const MCInst *MI, unsigned OpNo,
    O << "ge";
    break;
   case PIC16CC::COND_L:
-   O << 'l';
+   O << "l";
    break;
   }
 }

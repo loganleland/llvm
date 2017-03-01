@@ -42,8 +42,6 @@ namespace llvm {
     FunctionPass *createPIC16ISelDag(PIC16TargetMachine &TM,
                                       CodeGenOpt::Level OptLevel);
 
-    FunctionPass *createPIC16BranchSelectionPass();
-
 } // end namespace llvm;
 
 #endif

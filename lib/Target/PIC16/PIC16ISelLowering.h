@@ -103,12 +103,6 @@ namespace llvm {
     getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
                                  StringRef Constraint, MVT VT) const override;
 
-    MachineBasicBlock *
-    EmitInstrWithCustomInserter(MachineInstr &MI,
-                                MachineBasicBlock *BB) const override;
-    MachineBasicBlock *EmitShiftInstr(MachineInstr &MI,
-                                      MachineBasicBlock *BB) const;
-
   private:
     SDValue LowerCCCCallTo(SDValue Chain, SDValue Callee,
                            CallingConv::ID CallConv, bool isVarArg,

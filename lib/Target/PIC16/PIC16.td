@@ -57,4 +57,3 @@ def PIC16InstrInfo : InstrInfo;
 def PIC16 : Target {
   let InstructionSet = PIC16InstrInfo;
 }
-

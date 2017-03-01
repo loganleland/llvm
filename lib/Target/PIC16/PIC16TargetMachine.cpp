@@ -66,7 +66,6 @@ public:
   }
 
   bool addInstSelector() override;
-  void addPreEmitPass() override;
 };
 } // namespace
 
@@ -78,9 +77,4 @@ bool PIC16PassConfig::addInstSelector() {
   // Install an instruction selector.
   addPass(createPIC16ISelDag(getPIC16TargetMachine(), getOptLevel()));
   return false;
-}
-
-void PIC16PassConfig::addPreEmitPass() {
-  // Must run branch selection immediately preceding the asm printer.
-  addPass(createPIC16BranchSelectionPass(), false);
 }

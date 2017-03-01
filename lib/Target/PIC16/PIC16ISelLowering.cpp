@@ -87,43 +87,24 @@ PIC16TargetLowering::PIC16TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::SRA,              MVT::i8,    Custom);
   setOperationAction(ISD::SHL,              MVT::i8,    Custom);
   setOperationAction(ISD::SRL,              MVT::i8,    Custom);
-  setOperationAction(ISD::SRA,              MVT::i16,   Custom);
-  setOperationAction(ISD::SHL,              MVT::i16,   Custom);
-  setOperationAction(ISD::SRL,              MVT::i16,   Custom);
   setOperationAction(ISD::ROTL,             MVT::i8,    Expand);
   setOperationAction(ISD::ROTR,             MVT::i8,    Expand);
-  setOperationAction(ISD::ROTL,             MVT::i16,   Expand);
-  setOperationAction(ISD::ROTR,             MVT::i16,   Expand);
-  setOperationAction(ISD::GlobalAddress,    MVT::i16,   Custom);
-  setOperationAction(ISD::ExternalSymbol,   MVT::i16,   Custom);
-  setOperationAction(ISD::BlockAddress,     MVT::i16,   Custom);
   setOperationAction(ISD::BR_JT,            MVT::Other, Expand);
   setOperationAction(ISD::BR_CC,            MVT::i8,    Custom);
-  setOperationAction(ISD::BR_CC,            MVT::i16,   Custom);
   setOperationAction(ISD::BRCOND,           MVT::Other, Expand);
   setOperationAction(ISD::SETCC,            MVT::i8,    Custom);
-  setOperationAction(ISD::SETCC,            MVT::i16,   Custom);
   setOperationAction(ISD::SELECT,           MVT::i8,    Expand);
-  setOperationAction(ISD::SELECT,           MVT::i16,   Expand);
   setOperationAction(ISD::SELECT_CC,        MVT::i8,    Custom);
-  setOperationAction(ISD::SELECT_CC,        MVT::i16,   Custom);
   setOperationAction(ISD::SIGN_EXTEND,      MVT::i16,   Custom);
   setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i8, Expand);
-  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i16, Expand);
 
   setOperationAction(ISD::CTTZ,             MVT::i8,    Expand);
-  setOperationAction(ISD::CTTZ,             MVT::i16,   Expand);
   setOperationAction(ISD::CTLZ,             MVT::i8,    Expand);
-  setOperationAction(ISD::CTLZ,             MVT::i16,   Expand);
   setOperationAction(ISD::CTPOP,            MVT::i8,    Expand);
-  setOperationAction(ISD::CTPOP,            MVT::i16,   Expand);
 
   setOperationAction(ISD::SHL_PARTS,        MVT::i8,    Expand);
-  setOperationAction(ISD::SHL_PARTS,        MVT::i16,   Expand);
   setOperationAction(ISD::SRL_PARTS,        MVT::i8,    Expand);
-  setOperationAction(ISD::SRL_PARTS,        MVT::i16,   Expand);
   setOperationAction(ISD::SRA_PARTS,        MVT::i8,    Expand);
-  setOperationAction(ISD::SRA_PARTS,        MVT::i16,   Expand);
 
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1,   Expand);
 
@@ -457,7 +438,7 @@ SDValue PIC16TargetLowering::LowerCCCArguments(
 
         // Create the SelectionDAG nodes corresponding to a load
         //from this parameter
-        SDValue FIN = DAG.getFrameIndex(FI, MVT::i16);
+        SDValue FIN = DAG.getFrameIndex(FI, MVT::i8);
         InVal = DAG.getLoad(
             VA.getLocVT(), dl, Chain, FIN,
             MachinePointerInfo::getFixedStack(DAG.getMachineFunction(), FI));
@@ -570,7 +551,7 @@ SDValue PIC16TargetLowering::LowerCCCCallTo(
       ISD::ArgFlagsTy Flags = Outs[i].Flags;
 
       if (Flags.isByVal()) {
-        SDValue SizeNode = DAG.getConstant(Flags.getByValSize(), dl, MVT::i16);
+        SDValue SizeNode = DAG.getConstant(Flags.getByValSize(), dl, MVT::i8);
         MemOp = DAG.getMemcpy(Chain, dl, PtrOff, Arg, SizeNode,
                               Flags.getByValAlign(),
                               /*isVolatile*/false,
@@ -700,10 +681,6 @@ SDValue PIC16TargetLowering::LowerShifts(SDValue Op,
     ShiftAmount -= 1;
   }
 
-  while (ShiftAmount--)
-    Victim = DAG.getNode((Opc == ISD::SHL ? PIC16ISD::RLA : PIC16ISD::RRA),
-                         dl, VT, Victim);
-
   return Victim;
 }
 
@@ -749,17 +726,9 @@ static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, SDValue &TargetCC,
   default: llvm_unreachable("Invalid integer condition!");
   case ISD::SETEQ:
     TCC = PIC16CC::COND_E;     // aka COND_Z
-    // Minor optimization: if LHS is a constant, swap operands, then the
-    // constant can be folded into comparison.
-    if (LHS.getOpcode() == ISD::Constant)
-      std::swap(LHS, RHS);
     break;
   case ISD::SETNE:
     TCC = PIC16CC::COND_NE;    // aka COND_NZ
-    // Minor optimization: if LHS is a constant, swap operands, then the
-    // constant can be folded into comparison.
-    if (LHS.getOpcode() == ISD::Constant)
-      std::swap(LHS, RHS);
     break;
   case ISD::SETULE:
     std::swap(LHS, RHS);        // FALLTHROUGH
@@ -839,7 +808,6 @@ SDValue PIC16TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
   SDValue LHS   = Op.getOperand(0);
   SDValue RHS   = Op.getOperand(1);
   SDLoc dl  (Op);
-
   // If we are doing an AND and testing against zero, then the CMP
   // will not be generated.  The AND (or BIT) will generate the condition codes,
   // but they are different from CMP.
@@ -865,6 +833,7 @@ SDValue PIC16TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
   bool Invert = false;
   bool Shift = false;
   bool Convert = true;
+
   switch (cast<ConstantSDNode>(TargetCC)->getZExtValue()) {
    default:
     Convert = false;
@@ -895,13 +864,13 @@ SDValue PIC16TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
   SDValue One  = DAG.getConstant(1, dl, VT);
   if (Convert) {
     SDValue SR = DAG.getCopyFromReg(DAG.getEntryNode(), dl, PIC16::SR,
-                                    MVT::i16, Flag);
+                                    MVT::i8, Flag);
     if (Shift)
       // FIXME: somewhere this is turned into a SRL, lower it MSP specific?
-      SR = DAG.getNode(ISD::SRA, dl, MVT::i16, SR, One);
-    SR = DAG.getNode(ISD::AND, dl, MVT::i16, SR, One);
+      SR = DAG.getNode(ISD::SRA, dl, MVT::i8, SR, One);
+    SR = DAG.getNode(ISD::AND, dl, MVT::i8, SR, One);
     if (Invert)
-      SR = DAG.getNode(ISD::XOR, dl, MVT::i16, SR, One);
+      SR = DAG.getNode(ISD::XOR, dl, MVT::i8, SR, One);
     return SR;
   } else {
     SDValue Zero = DAG.getConstant(0, dl, VT);
@@ -975,7 +944,7 @@ SDValue PIC16TargetLowering::LowerRETURNADDR(SDValue Op,
   if (Depth > 0) {
     SDValue FrameAddr = LowerFRAMEADDR(Op, DAG);
     SDValue Offset =
-        DAG.getConstant(DAG.getDataLayout().getPointerSize(), dl, MVT::i16);
+        DAG.getConstant(DAG.getDataLayout().getPointerSize(), dl, MVT::i8);
     return DAG.getLoad(PtrVT, dl, DAG.getEntryNode(),
                        DAG.getNode(ISD::ADD, dl, PtrVT, FrameAddr, Offset),
                        MachinePointerInfo());
@@ -1068,185 +1037,12 @@ const char *PIC16TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case PIC16ISD::FIRST_NUMBER:       break;
   case PIC16ISD::RET_FLAG:           return "PIC16ISD::RET_FLAG";
   case PIC16ISD::RETI_FLAG:          return "PIC16ISD::RETI_FLAG";
-  case PIC16ISD::RRA:                return "PIC16ISD::RRA";
-  case PIC16ISD::RLA:                return "PIC16ISD::RLA";
-  case PIC16ISD::RRC:                return "PIC16ISD::RRC";
   case PIC16ISD::CALL:               return "PIC16ISD::CALL";
   case PIC16ISD::Wrapper:            return "PIC16ISD::Wrapper";
   case PIC16ISD::BR_CC:              return "PIC16ISD::BR_CC";
   case PIC16ISD::CMP:                return "PIC16ISD::CMP";
   case PIC16ISD::SETCC:              return "PIC16ISD::SETCC";
   case PIC16ISD::SELECT_CC:          return "PIC16ISD::SELECT_CC";
-  case PIC16ISD::SHL:                return "PIC16ISD::SHL";
-  case PIC16ISD::SRA:                return "PIC16ISD::SRA";
-  case PIC16ISD::SRL:                return "PIC16ISD::SRL";
   }
   return nullptr;
-}
-
-//===----------------------------------------------------------------------===//
-//  Other Lowering Code
-//===----------------------------------------------------------------------===//
-
-MachineBasicBlock *
-PIC16TargetLowering::EmitShiftInstr(MachineInstr &MI,
-                                     MachineBasicBlock *BB) const {
-  MachineFunction *F = BB->getParent();
-  MachineRegisterInfo &RI = F->getRegInfo();
-  DebugLoc dl = MI.getDebugLoc();
-  const TargetInstrInfo &TII = *F->getSubtarget().getInstrInfo();
-
-  unsigned Opc;
-  const TargetRegisterClass * RC;
-  switch (MI.getOpcode()) {
-  default: llvm_unreachable("Invalid shift opcode!");
-  case PIC16::Shl8:
-   Opc = PIC16::SHL8r1;
-   RC = &PIC16::GR8RegClass;
-   break;
-  case PIC16::Sra8:
-   Opc = PIC16::SAR8r1;
-   RC = &PIC16::GR8RegClass;
-   break;
-  case PIC16::Srl8:
-   Opc = PIC16::SAR8r1c;
-   RC = &PIC16::GR8RegClass;
-   break;
-  }
-
-  const BasicBlock *LLVM_BB = BB->getBasicBlock();
-  MachineFunction::iterator I = ++BB->getIterator();
-
-  // Create loop block
-  MachineBasicBlock *LoopBB = F->CreateMachineBasicBlock(LLVM_BB);
-  MachineBasicBlock *RemBB  = F->CreateMachineBasicBlock(LLVM_BB);
-
-  F->insert(I, LoopBB);
-  F->insert(I, RemBB);
-
-  // Update machine-CFG edges by transferring all successors of the current
-  // block to the block containing instructions after shift.
-  RemBB->splice(RemBB->begin(), BB, std::next(MachineBasicBlock::iterator(MI)),
-                BB->end());
-  RemBB->transferSuccessorsAndUpdatePHIs(BB);
-
-  // Add adges BB => LoopBB => RemBB, BB => RemBB, LoopBB => LoopBB
-  BB->addSuccessor(LoopBB);
-  BB->addSuccessor(RemBB);
-  LoopBB->addSuccessor(RemBB);
-  LoopBB->addSuccessor(LoopBB);
-
-  unsigned ShiftAmtReg = RI.createVirtualRegister(&PIC16::GR8RegClass);
-  unsigned ShiftAmtReg2 = RI.createVirtualRegister(&PIC16::GR8RegClass);
-  unsigned ShiftReg = RI.createVirtualRegister(RC);
-  unsigned ShiftReg2 = RI.createVirtualRegister(RC);
-  unsigned ShiftAmtSrcReg = MI.getOperand(2).getReg();
-  unsigned SrcReg = MI.getOperand(1).getReg();
-  unsigned DstReg = MI.getOperand(0).getReg();
-
-  // BB:
-  // cmp 0, N
-  // je RemBB
-  BuildMI(BB, dl, TII.get(PIC16::CMP8ri))
-    .addReg(ShiftAmtSrcReg).addImm(0);
-  BuildMI(BB, dl, TII.get(PIC16::JCC))
-    .addMBB(RemBB)
-    .addImm(PIC16CC::COND_E);
-
-  // LoopBB:
-  // ShiftReg = phi [%SrcReg, BB], [%ShiftReg2, LoopBB]
-  // ShiftAmt = phi [%N, BB],      [%ShiftAmt2, LoopBB]
-  // ShiftReg2 = shift ShiftReg
-  // ShiftAmt2 = ShiftAmt - 1;
-  BuildMI(LoopBB, dl, TII.get(PIC16::PHI), ShiftReg)
-    .addReg(SrcReg).addMBB(BB)
-    .addReg(ShiftReg2).addMBB(LoopBB);
-  BuildMI(LoopBB, dl, TII.get(PIC16::PHI), ShiftAmtReg)
-    .addReg(ShiftAmtSrcReg).addMBB(BB)
-    .addReg(ShiftAmtReg2).addMBB(LoopBB);
-  BuildMI(LoopBB, dl, TII.get(Opc), ShiftReg2)
-    .addReg(ShiftReg);
-  BuildMI(LoopBB, dl, TII.get(PIC16::SUBri), ShiftAmtReg2)
-    .addReg(ShiftAmtReg).addImm(1);
-  BuildMI(LoopBB, dl, TII.get(PIC16::JCC))
-    .addMBB(LoopBB)
-    .addImm(PIC16CC::COND_NE);
-
-  // RemBB:
-  // DestReg = phi [%SrcReg, BB], [%ShiftReg, LoopBB]
-  BuildMI(*RemBB, RemBB->begin(), dl, TII.get(PIC16::PHI), DstReg)
-    .addReg(SrcReg).addMBB(BB)
-    .addReg(ShiftReg2).addMBB(LoopBB);
-
-  MI.eraseFromParent(); // The pseudo instruction is gone now.
-  return RemBB;
-}
-
-MachineBasicBlock *
-PIC16TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
-                                                  MachineBasicBlock *BB) const {
-  unsigned Opc = MI.getOpcode();
-
-  if (Opc == PIC16::Shl8 or Opc == PIC16::Sra8 or
-      Opc == PIC16::Srl8)
-    return EmitShiftInstr(MI, BB);
-
-  const TargetInstrInfo &TII = *BB->getParent()->getSubtarget().getInstrInfo();
-  DebugLoc dl = MI.getDebugLoc();
-
-  assert((Opc == PIC16::Select8) and 
-         "Unexpected instr type to insert");
-
-  // To "insert" a SELECT instruction, we actually have to insert the diamond
-  // control-flow pattern.  The incoming instruction knows the destination vreg
-  // to set, the condition code register to branch on, the true/false values to
-  // select between, and a branch opcode to use.
-  const BasicBlock *LLVM_BB = BB->getBasicBlock();
-  MachineFunction::iterator I = ++BB->getIterator();
-
-  //  thisMBB:
-  //  ...
-  //   TrueVal = ...
-  //   cmpTY ccX, r1, r2
-  //   jCC copy1MBB
-  //   fallthrough --> copy0MBB
-  MachineBasicBlock *thisMBB = BB;
-  MachineFunction *F = BB->getParent();
-  MachineBasicBlock *copy0MBB = F->CreateMachineBasicBlock(LLVM_BB);
-  MachineBasicBlock *copy1MBB = F->CreateMachineBasicBlock(LLVM_BB);
-  F->insert(I, copy0MBB);
-  F->insert(I, copy1MBB);
-  // Update machine-CFG edges by transferring all successors of the current
-  // block to the new block which will contain the Phi node for the select.
-  copy1MBB->splice(copy1MBB->begin(), BB,
-                   std::next(MachineBasicBlock::iterator(MI)), BB->end());
-  copy1MBB->transferSuccessorsAndUpdatePHIs(BB);
-  // Next, add the true and fallthrough blocks as its successors.
-  BB->addSuccessor(copy0MBB);
-  BB->addSuccessor(copy1MBB);
-
-  BuildMI(BB, dl, TII.get(PIC16::JCC))
-      .addMBB(copy1MBB)
-      .addImm(MI.getOperand(3).getImm());
-
-  //  copy0MBB:
-  //   %FalseValue = ...
-  //   # fallthrough to copy1MBB
-  BB = copy0MBB;
-
-  // Update machine-CFG edges
-  BB->addSuccessor(copy1MBB);
-
-  //  copy1MBB:
-  //   %Result = phi [ %FalseValue, copy0MBB ], [ %TrueValue, thisMBB ]
-  //  ...
-  BB = copy1MBB;
-  BuildMI(*BB, BB->begin(), dl, TII.get(PIC16::PHI), MI.getOperand(0).getReg())
-      .addReg(MI.getOperand(2).getReg())
-      .addMBB(copy0MBB)
-      .addReg(MI.getOperand(1).getReg())
-      .addMBB(thisMBB);
-
-  MI.eraseFromParent(); // The pseudo instruction is gone now.
-  return BB;
 }
