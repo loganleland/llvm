@@ -19,6 +19,7 @@ add_llvm_target(PIC16CodeGen
   PIC16TargetMachine.cpp
   PIC16AsmPrinter.cpp
   PIC16MCInstLower.cpp
+  instcount.cpp
   )
 
 add_subdirectory(InstPrinter)
