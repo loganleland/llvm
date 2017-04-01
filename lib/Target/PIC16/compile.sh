@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Wrapper script to compile to PIC16.
 # The variable $1 should be the only command line argument which is the input
 # file for the compiler. It should be in the format of C. The output of
 # the compiler will be the input file with the extension changed to .asm
@@ -12,11 +11,11 @@ DATE=$(date +%F_%H_%M_%S)
 dest=${1%.c}.s
 
 # Clang targeting pic16
-./bin/clang -S -emit-llvm -target pic16 $1 -o ${1%.c}.ll
+~/pic16beta/bin/clang -S -emit-llvm -target pic16 $1 -o ${1%.c}.ll
 
 # llc targeting pic16. Input is the output from clang
-./bin/llc -mcpu=generic -march=pic16 --stats ${1%.c}.ll 2> output.log
-mv ./output.log ./$DATE.log
+~/pic16beta/bin/llc -mcpu=generic -march=pic16 ${1%.c}.ll -o ${1%.c}.s
+#mv ./output.log ./$DATE.log
 rm ${1%.c}.ll
 
 # Code that is in postLLC.sh
