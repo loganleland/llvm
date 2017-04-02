@@ -874,6 +874,7 @@ SDValue PIC16TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
       }
     }
   }
+  llvm_unreachable("LowerSETCC failed");
 }
 
 SDValue PIC16TargetLowering::LowerSIGN_EXTEND(SDValue Op,
@@ -1028,6 +1029,12 @@ const char *PIC16TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case PIC16ISD::BR_CC:              return "PIC16ISD::BR_CC";
   case PIC16ISD::CMP:                return "PIC16ISD::CMP";
   case PIC16ISD::SETCC:              return "PIC16ISD::SETCC";
+  case PIC16ISD::RRA:
+  case PIC16ISD::RLA:
+  case PIC16ISD::RRC:
+  case PIC16ISD::SHL:
+  case PIC16ISD::SRA:
+  case PIC16ISD::SRL:                return "unimplemented";
   }
   return nullptr;
 }
