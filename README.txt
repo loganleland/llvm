@@ -14,8 +14,46 @@ Forked LLVM Repository to build PIC16 Backend
   ./lib/Transforms/
 
 ==================
-Order of Execution
+Download and Usage
 ==================
+
+- Note: This is a very crude way of usage. This will change in the future.
+
+To Download:
+============
+1) This was built on Ubuntu 16.04.02. It should work for most Linux
+   distributions.
+
+2) Navigate to the release tab and download 'pic16beta.zip'
+
+3) Unzip the build and place it in your home directory, that is, the file path
+   that looks like '~/'
+   - The current way we are handling the usage of the compiler is to enforce
+     the build is placed in that specific location.
+
+To Use:
+=======
+1) Have a C source file ready to go.
+
+2) At the command line type:
+   ~/pic16beta/compile.sh /path/to/input/file
+
+   - This will execute the necessary steps needed to translate and lower the
+     C code to acceptable PIC16 ASM code.
+
+3) If your input file was named 'input.c', you should now have a file named
+   'input.asm' in the same directory that you C file was in.
+   - You should now be able to set up a PIC16 project in the MPLAB
+     IDE (version 1.8), load the ASM file into the editor, and build/run it for
+     a PIC16F877 microcontroller.
+
+4) A survey will open up immediately following the execution of the compile
+   command. You should fill this out after you have viewed and tested the
+   ASM file to see if it met your expectations.
+
+=========================
+How the Execution Happens
+=========================
 
 1) Build LLVM
 
@@ -43,8 +81,6 @@ Order of Execution
 
    Expected output:
    hello.asm <--- Assembly file that can be accepted by MPLABX IDE v1.8
-
-// FIXME: Add instructions for actually building LLVM with proper flags
 
 Legacy LLVM Readme:
 ================================
