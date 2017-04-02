@@ -1,4 +1,3 @@
-//===-- PIC16ISelLowering.cpp - PIC16 DAG Lowering Implementation  ------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -70,7 +69,7 @@ PIC16TargetLowering::PIC16TargetLowering(const TargetMachine &TM,
   // Provide all sorts of operation actions
   setStackPointerRegisterToSaveRestore(PIC16::SP);
   setBooleanContents(ZeroOrOneBooleanContent);
-  setBooleanVectorContents(ZeroOrOneBooleanContent); // FIXME: Is this correct?
+  setBooleanVectorContents(ZeroOrOneBooleanContent);
 
   // We have post-incremented loads / stores.
   setIndexedLoadAction(ISD::POST_INC, MVT::i8, Legal);
@@ -93,8 +92,6 @@ PIC16TargetLowering::PIC16TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::BR_CC,            MVT::i8,    Custom);
   setOperationAction(ISD::BRCOND,           MVT::Other, Expand);
   setOperationAction(ISD::SETCC,            MVT::i8,    Custom);
-  setOperationAction(ISD::SELECT,           MVT::i8,    Expand);
-  setOperationAction(ISD::SELECT_CC,        MVT::i8,    Custom);
   setOperationAction(ISD::SIGN_EXTEND,      MVT::i16,   Custom);
   setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i8, Expand);
 
@@ -151,7 +148,6 @@ SDValue PIC16TargetLowering::LowerOperation(SDValue Op,
   case ISD::ExternalSymbol:   return LowerExternalSymbol(Op, DAG);
   case ISD::SETCC:            return LowerSETCC(Op, DAG);
   case ISD::BR_CC:            return LowerBR_CC(Op, DAG);
-  case ISD::SELECT_CC:        return LowerSELECT_CC(Op, DAG);
   case ISD::SIGN_EXTEND:      return LowerSIGN_EXTEND(Op, DAG);
   case ISD::RETURNADDR:       return LowerRETURNADDR(Op, DAG);
   case ISD::FRAMEADDR:        return LowerFRAMEADDR(Op, DAG);
@@ -717,77 +713,39 @@ SDValue PIC16TargetLowering::LowerBlockAddress(SDValue Op,
 
 static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, SDValue &TargetCC,
                        ISD::CondCode CC, const SDLoc &dl, SelectionDAG &DAG) {
+
+
   // FIXME: Handle bittests someday
   assert(!LHS.getValueType().isFloatingPoint() && "We don't handle FP yet");
 
-  // FIXME: Handle jump negative someday
   PIC16CC::CondCodes TCC = PIC16CC::COND_INVALID;
   switch (CC) {
   default: llvm_unreachable("Invalid integer condition!");
   case ISD::SETEQ:
-    TCC = PIC16CC::COND_E;     // aka COND_Z
+    TCC = PIC16CC::COND_E;
     break;
   case ISD::SETNE:
-    TCC = PIC16CC::COND_NE;    // aka COND_NZ
+    TCC = PIC16CC::COND_NE;
     break;
   case ISD::SETULE:
-    std::swap(LHS, RHS);        // FALLTHROUGH
-  case ISD::SETUGE:
-    // Turn lhs u>= rhs with lhs constant into rhs u< lhs+1, this allows us to
-    // fold constant into instruction.
-    if (const ConstantSDNode * C = dyn_cast<ConstantSDNode>(LHS)) {
-      LHS = RHS;
-      RHS = DAG.getConstant(C->getSExtValue() + 1, dl, C->getValueType(0));
-      TCC = PIC16CC::COND_LO;
-      break;
-    }
-    TCC = PIC16CC::COND_HS;    // aka COND_C
-    break;
-  case ISD::SETUGT:
-    std::swap(LHS, RHS);        // FALLTHROUGH
-  case ISD::SETULT:
-    // Turn lhs u< rhs with lhs constant into rhs u>= lhs+1, this allows us to
-    // fold constant into instruction.
-    if (const ConstantSDNode * C = dyn_cast<ConstantSDNode>(LHS)) {
-      LHS = RHS;
-      RHS = DAG.getConstant(C->getSExtValue() + 1, dl, C->getValueType(0));
-      TCC = PIC16CC::COND_HS;
-      break;
-    }
-    TCC = PIC16CC::COND_LO;    // aka COND_NC
-    break;
   case ISD::SETLE:
-    std::swap(LHS, RHS);        // FALLTHROUGH
+    std::swap(LHS, RHS);
   case ISD::SETGE:
-    // Turn lhs >= rhs with lhs constant into rhs < lhs+1, this allows us to
-    // fold constant into instruction.
-    if (const ConstantSDNode * C = dyn_cast<ConstantSDNode>(LHS)) {
-      LHS = RHS;
-      RHS = DAG.getConstant(C->getSExtValue() + 1, dl, C->getValueType(0));
-      TCC = PIC16CC::COND_L;
-      break;
-    }
+  case ISD::SETUGE:
     TCC = PIC16CC::COND_GE;
     break;
+  case ISD::SETUGT:
   case ISD::SETGT:
-    std::swap(LHS, RHS);        // FALLTHROUGH
+    std::swap(LHS, RHS);
+  case ISD::SETULT:
   case ISD::SETLT:
-    // Turn lhs < rhs with lhs constant into rhs >= lhs+1, this allows us to
-    // fold constant into instruction.
-    if (const ConstantSDNode * C = dyn_cast<ConstantSDNode>(LHS)) {
-      LHS = RHS;
-      RHS = DAG.getConstant(C->getSExtValue() + 1, dl, C->getValueType(0));
-      TCC = PIC16CC::COND_GE;
-      break;
-    }
     TCC = PIC16CC::COND_L;
     break;
   }
 
   TargetCC = DAG.getConstant(TCC, dl, MVT::i8);
-  return DAG.getNode(PIC16ISD::CMP, dl, MVT::Glue, LHS, RHS);
+  return DAG.getNode(PIC16ISD::CMP, dl, MVT::Glue, LHS, RHS, TargetCC);
 }
-
 
 SDValue PIC16TargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
   SDValue Chain = Op.getOperand(0);
@@ -800,11 +758,38 @@ SDValue PIC16TargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
   SDValue TargetCC;
   SDValue Flag = EmitCMP(LHS, RHS, TargetCC, CC, dl, DAG);
 
-  return DAG.getNode(PIC16ISD::BR_CC, dl, Op.getValueType(),
+  switch(CC) {
+    default: llvm_unreachable("Invalid integer condition!");
+    case ISD::SETEQ:{
+      return DAG.getNode(PIC16ISD::JEQ, dl, Op.getValueType(),
                      Chain, Dest, TargetCC, Flag);
+    }
+    case ISD::SETNE:{
+      return DAG.getNode(PIC16ISD::JNE, dl, Op.getValueType(),
+                     Chain, Dest, TargetCC, Flag);
+    }
+
+    //these cases were reduced into COND_GE
+    case ISD::SETULE:
+    case ISD::SETUGE:
+    case ISD::SETLE:
+    case ISD::SETGE:{
+      return DAG.getNode(PIC16ISD::JGE, dl, Op.getValueType(),
+                     Chain, Dest, TargetCC, Flag);
+    }
+    //these cases were reduced into COND_L
+    case ISD::SETUGT:
+    case ISD::SETULT:
+    case ISD::SETLT:
+    case ISD::SETGT:{
+       return DAG.getNode(PIC16ISD::JLT, dl, Op.getValueType(),
+                     Chain, Dest, TargetCC, Flag);
+    }
+  }
 }
 
 SDValue PIC16TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
+
   SDValue LHS   = Op.getOperand(0);
   SDValue RHS   = Op.getOperand(1);
   SDLoc dl  (Op);
@@ -824,6 +809,7 @@ SDValue PIC16TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
   }
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(2))->get();
   SDValue TargetCC;
+
   SDValue Flag = EmitCMP(LHS, RHS, TargetCC, CC, dl, DAG);
 
   // Get the condition codes directly from the status register, if its easy.
@@ -850,7 +836,6 @@ SDValue PIC16TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
        // C = ~Z, thus Res = SR & 1, no processing is required
      } else {
        // Res = ~((SR >> 1) & 1)
-       Shift = true;
        Invert = true;
      }
      break;
@@ -861,41 +846,34 @@ SDValue PIC16TargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
      break;
   }
   EVT VT = Op.getValueType();
+  SDValue Zero = DAG.getConstant(0, dl, VT);
   SDValue One  = DAG.getConstant(1, dl, VT);
+  SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
+  SDValue Ops[] = {One, Zero, TargetCC, Flag};
   if (Convert) {
     SDValue SR = DAG.getCopyFromReg(DAG.getEntryNode(), dl, PIC16::SR,
                                     MVT::i8, Flag);
-    if (Shift)
-      // FIXME: somewhere this is turned into a SRL, lower it MSP specific?
-      SR = DAG.getNode(ISD::SRA, dl, MVT::i8, SR, One);
-    SR = DAG.getNode(ISD::AND, dl, MVT::i8, SR, One);
-    if (Invert)
-      SR = DAG.getNode(ISD::XOR, dl, MVT::i8, SR, One);
+    if (Shift){
+      //insert integer equality node
+      SR = DAG.getNode(PIC16ISD::EQ, dl, VTs, Ops);
+    }
+    if (Invert){
+      //insert integer inequality node
+      SR = DAG.getNode(PIC16ISD::NE, dl, VTs, Ops);
+    }
     return SR;
   } else {
-    SDValue Zero = DAG.getConstant(0, dl, VT);
-    SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
-    SDValue Ops[] = {One, Zero, TargetCC, Flag};
-    return DAG.getNode(PIC16ISD::SELECT_CC, dl, VTs, Ops);
+    switch(cast<ConstantSDNode>(TargetCC)->getZExtValue()){
+      case PIC16CC::COND_HS:
+      case PIC16CC::COND_GE:{
+       return DAG.getNode(PIC16ISD::GE, dl, VTs, Ops);
+      }
+      case PIC16CC::COND_LO:
+      case PIC16CC::COND_L: {
+        return DAG.getNode(PIC16ISD::LT, dl, VTs, Ops); 
+      }
+    }
   }
-}
-
-SDValue PIC16TargetLowering::LowerSELECT_CC(SDValue Op,
-                                             SelectionDAG &DAG) const {
-  SDValue LHS    = Op.getOperand(0);
-  SDValue RHS    = Op.getOperand(1);
-  SDValue TrueV  = Op.getOperand(2);
-  SDValue FalseV = Op.getOperand(3);
-  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(4))->get();
-  SDLoc dl   (Op);
-
-  SDValue TargetCC;
-  SDValue Flag = EmitCMP(LHS, RHS, TargetCC, CC, dl, DAG);
-
-  SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
-  SDValue Ops[] = {TrueV, FalseV, TargetCC, Flag};
-
-  return DAG.getNode(PIC16ISD::SELECT_CC, dl, VTs, Ops);
 }
 
 SDValue PIC16TargetLowering::LowerSIGN_EXTEND(SDValue Op,
@@ -1035,6 +1013,14 @@ bool PIC16TargetLowering::getPostIndexedAddressParts(SDNode *N, SDNode *Op,
 const char *PIC16TargetLowering::getTargetNodeName(unsigned Opcode) const {
   switch ((PIC16ISD::NodeType)Opcode) {
   case PIC16ISD::FIRST_NUMBER:       break;
+  case PIC16ISD::EQ:                 return "PIC16ISD::EQ";
+  case PIC16ISD::NE:                 return "PIC16ISD::NE";
+  case PIC16ISD::GE:                 return "PIC16ISD::GE";
+  case PIC16ISD::LT:                 return "PIC16ISD::LT";
+  case PIC16ISD::JEQ:                 return "PIC16ISD::JEQ";
+  case PIC16ISD::JNE:                 return "PIC16ISD::JNE";
+  case PIC16ISD::JGE:                 return "PIC16ISD::JGE";
+  case PIC16ISD::JLT:                 return "PIC16ISD::JLT";
   case PIC16ISD::RET_FLAG:           return "PIC16ISD::RET_FLAG";
   case PIC16ISD::RETI_FLAG:          return "PIC16ISD::RETI_FLAG";
   case PIC16ISD::CALL:               return "PIC16ISD::CALL";
@@ -1042,7 +1028,6 @@ const char *PIC16TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case PIC16ISD::BR_CC:              return "PIC16ISD::BR_CC";
   case PIC16ISD::CMP:                return "PIC16ISD::CMP";
   case PIC16ISD::SETCC:              return "PIC16ISD::SETCC";
-  case PIC16ISD::SELECT_CC:          return "PIC16ISD::SELECT_CC";
   }
   return nullptr;
 }

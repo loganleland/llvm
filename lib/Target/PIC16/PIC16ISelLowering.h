@@ -55,14 +55,17 @@ namespace llvm {
       /// is the block to branch if condition is true, operand 2 is the
       /// condition code, and operand 3 is the flag operand produced by a CMP
       /// instruction.
-      BR_CC,
+      BR_CC, JEQ, JNE, JLT, JGE,
 
       /// SELECT_CC - Operand 0 and operand 1 are selection variable, operand 3
       /// is condition code and operand 4 is flag operand.
       SELECT_CC,
 
       /// SHL, SRA, SRL - Non-constant shifts.
-      SHL, SRA, SRL
+      SHL, SRA, SRL,
+
+      //integer comparison
+      EQ, NE, LT, GE
     };
   }
 

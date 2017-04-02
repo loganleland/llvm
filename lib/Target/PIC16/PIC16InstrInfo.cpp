@@ -129,3 +129,52 @@ unsigned PIC16InstrInfo::GetInstSizeInBytes(const MachineInstr &MI) const {
     return 6;
   }
 }
+/*************
+bool PIC16InstrInfo::expandSELECTCC(MachineBasicBlock::iterator MI,
+                                    const MachineInstr &Orig) const
+{
+  switch (Orig.getOpcode()){
+    default:
+      return false;
+    case PIC16::Select8: {
+      DebugLoc DL = MI->getDebugLoc();
+      MachineBasicBlock &MBB = *MI->getParent();
+
+      const unsigned DstReg = MI->getOperand(0).getReg();
+      const unsigned src1Reg = MI->getOperand(1).getReg();
+      const unsigned src2Reg = MI->getOperand(2).getReg();
+      const unsigned CC = MI->getOperand(3).getImm();
+
+      switch(CC){
+        default: {
+          BuildMI(MBB, MI, DL, get(PIC16::MOVLW)).addImm(99).addMBB(MBB);
+          return false;  
+        }
+        //if zbit=1 true
+        //elseif zbit=0 and cbit=1 true
+        //else false
+        case PIC16CC::COND_HS:
+        case PIC16CC::COND_GE: {
+          BuildMI(MBB, MI, DL, get(PIC16::MOVLW))
+            .addImm(99);
+          break;
+        }
+        //if zbit=0 and cbit=1 true
+        //else false
+        case PIC16CC::COND_L:
+        case PIC16CC::COND_LO:{
+          BuildMI(MBB, MI, DL, get(PIC16::MOVLW))
+            .addImm(99);
+          break;
+        }
+      } 
+
+      BuildMI(MBB, MI, DL, get(PIC16::btfssZ));
+      BuildMI(MBB, MI, DL, get(PIC16::btfssZ));
+
+      MBB.erase(MI);
+      return true;
+    }
+  }
+}
+****************************/

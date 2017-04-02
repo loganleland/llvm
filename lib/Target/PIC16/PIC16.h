@@ -27,18 +27,14 @@ namespace PIC16CC {
         COND_LO = 3,  // aka COND_NC
         COND_GE = 4,
         COND_L = 5,
-
         COND_INVALID = 6
     };
 }
 
 namespace llvm {
     class PIC16TargetMachine;
-
     class FunctionPass;
-
     class formatted_raw_ostream;
-
     FunctionPass *createPIC16ISelDag(PIC16TargetMachine &TM,
                                       CodeGenOpt::Level OptLevel);
 

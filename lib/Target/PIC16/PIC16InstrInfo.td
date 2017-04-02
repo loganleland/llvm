@@ -26,7 +26,7 @@ def SDT_PIC16CallSeqStart : SDCallSeqStart<[SDTCisVT<0, i8>]>;
 def SDT_PIC16CallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i8>, SDTCisVT<1, i8>]>;
 def SDT_PIC16Wrapper      : SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>,
                                                   SDTCisPtrTy<0>]>;
-def SDT_PIC16Cmp          : SDTypeProfile<0, 2, [SDTCisSameAs<0, 1>]>;
+def SDT_PIC16Cmp          : SDTypeProfile<0, 3, [SDTCisSameAs<0, 1>]>;
 def SDT_PIC16BrCC         : SDTypeProfile<0, 2, [SDTCisVT<0, OtherVT>,
                                                   SDTCisVT<1, i8>]>;
 def SDT_PIC16SelectCC     : SDTypeProfile<1, 3, [SDTCisSameAs<0, 1>,
@@ -57,6 +57,23 @@ def PIC16brcc    : SDNode<"PIC16ISD::BR_CC", SDT_PIC16BrCC,
                             [SDNPHasChain, SDNPInGlue]>;
 def PIC16selectcc: SDNode<"PIC16ISD::SELECT_CC", SDT_PIC16SelectCC,
                             [SDNPInGlue]>;
+def PIC16EQ: SDNode<"PIC16ISD::EQ", SDT_PIC16SelectCC,
+                            [SDNPInGlue]>;
+def PIC16NE: SDNode<"PIC16ISD::NE", SDT_PIC16SelectCC,
+                            [SDNPInGlue]>;
+def PIC16LT: SDNode<"PIC16ISD::LT", SDT_PIC16SelectCC,
+                            [SDNPInGlue]>;
+def PIC16GE: SDNode<"PIC16ISD::GE", SDT_PIC16SelectCC,
+                            [SDNPInGlue]>;
+def PIC16JEQ    : SDNode<"PIC16ISD::JEQ", SDT_PIC16BrCC,
+                            [SDNPHasChain, SDNPInGlue]>;
+def PIC16JNE    : SDNode<"PIC16ISD::JNE", SDT_PIC16BrCC,
+                            [SDNPHasChain, SDNPInGlue]>;
+def PIC16JLT    : SDNode<"PIC16ISD::JLT", SDT_PIC16BrCC,
+                            [SDNPHasChain, SDNPInGlue]>;
+def PIC16JGE    : SDNode<"PIC16ISD::JGE", SDT_PIC16BrCC,
+                            [SDNPHasChain, SDNPInGlue]>;
+
 
 //===----------------------------------------------------------------------===//
 // PIC16 Operand Definitions.
@@ -112,13 +129,27 @@ def ADJCALLSTACKUP   : Pseudo<(outs), (ins i8imm:$amt1, i8imm:$amt2),
                               [(PIC16callseq_end timm:$amt1, timm:$amt2)]>;
 }
 
-  def Select8  : Pseudo<(outs GR8:$dst), (ins GR8:$src, GR8:$src2, i8imm:$cc),
-                        "Select8: $cc",
+def LT  : Pseudo<(outs GR8:$dst), (ins GR8:$src, GR8:$src2, i8imm:$cc),
+                        ";LE\n\tmovlw 0x0\n\tbtfss STATUS,Z\n\tmovlw 0x1\n\tbtfss STATUS,C\n\tmovlw 0x0\n\tmovwf $dst",
                         [(set GR8:$dst,
-                          (PIC16selectcc GR8:$src, GR8:$src2, imm:$cc))]>;
+                          (PIC16LT GR8:$src, GR8:$src2, imm:$cc))]>;
 
-let hasSideEffects = 0 in
-def NOP : Pseudo<(outs), (ins), "nop", []>;
+def GE  : Pseudo<(outs GR8:$dst), (ins GR8:$src, GR8:$src2, i8imm:$cc),
+                        ";GE\n\tmovlw 0x0\n\tbtfss STATUS,Z\n\tbtfsc STATUS,C\n\tmovlw 0x1\n\tmovwf $dst",
+                        [(set GR8:$dst,
+                          (PIC16GE GR8:$src, GR8:$src2, imm:$cc))]>;
+
+
+
+def EQ  : Pseudo<(outs GR8:$dst), (ins GR8:$src, GR8:$src2, i8imm:$cc),
+                        ";EQ\n\tmovlw 0x0\n\tbtfsc STATUS,Z\n\tmovlw 0x1\n\tmovwf $dst",
+                        [(set GR8:$dst, 
+                          (PIC16EQ GR8:$src, GR8:$src2, imm:$cc))]>;
+
+def NE  : Pseudo<(outs GR8:$dst), (ins GR8:$src, GR8:$src2, i8imm:$cc),
+                        ";NE\n\tmovlw 0x0\n\tbtfss STATUS,Z\n\tmovlw 0x1\n\tmovwf $dst",
+                        [(set GR8:$dst, 
+                          (PIC16NE GR8:$src, GR8:$src2, imm:$cc))]>;
 
 //===----------------------------------------------------------------------===//
 //  Control Flow Instructions...
@@ -157,6 +188,26 @@ let Uses = [SR] in
                    (outs), (ins jmptarget:$dst, cc:$cc),
                    "j$cc\t$dst",
                    [(PIC16brcc bb:$dst, imm:$cc)]>;
+
+  def JEQ : CJForm<0, 0,
+                   (outs), (ins jmptarget:$dst, cc:$cc),
+                   ";JEQ\n\tbtfsc STATUS,Z\n\tgoto $dst",
+                   [(PIC16JEQ bb:$dst, imm:$cc)]>;
+  def JNE : CJForm<0, 0,
+                   (outs), (ins jmptarget:$dst, cc:$cc),
+                   ";JNE\n\tbtfss STATUS,Z\n\tgoto $dst",
+                   [(PIC16JNE bb:$dst, imm:$cc)]>;
+
+  def JGE : CJForm<0, 0,
+                   (outs), (ins jmptarget:$dst, cc:$cc),
+                   ";JGE\n\tmovlw 0x0\n\tbtfss STATUS,Z\n\tbtfsc STATUS,C\n\tmovlw 0x1\n\taddlw 0x1\n\tbtfsc STATUS,Z\n\tgoto $dst",
+                   [(PIC16JGE bb:$dst, imm:$cc)]>;
+
+  def JLT : CJForm<0, 0,
+                   (outs), (ins jmptarget:$dst, cc:$cc),
+                   ";JLT\n\tmovlw 0x0\n\tbtfss STATUS,Z\n\tmovlw 0x1\n\tbtfss STATUS,C\n\tmovlw 0x0\n\tandlw 0x1\n\tbtfsc STATUS,Z\n\tgoto $dst",
+                   [(PIC16JLT bb:$dst, imm:$cc)]>;
+
 } // isBranch, isTerminator
 
 //===----------------------------------------------------------------------===//
@@ -212,10 +263,23 @@ def INCF_W  : I8rr<0x0,
                    (outs), (ins GR8:$src),
                    "incf\t{$src, W}",
                    []>;
+
+//check z bit in STATUS
+def btfscZ  : I8rr<0x0,
+                   (outs), (ins),
+                   "btfsc\t{STATUS, Z}",
+                   []>;
+
+//check z bit in STATUS
+def btfssZ  : I8rr<0x0,
+                   (outs), (ins),
+                   "btfss\t{STATUS, Z}",
+                   []>;
+
+
 }//===----------------------------------------------------------------------===//
 // Move Instructions
 
-// FIXME: Provide proper encoding!
 let hasSideEffects = 0 in {
 
 def MOVF_W  : I8rr<0x0,
@@ -484,30 +548,6 @@ def OR8mm  : I8mm<0x0,
                               (i8 (load addr:$src))), addr:$dst)]>;
 }
 
-// bic does not modify condition codes
-def BIC8rr :  I8rr<0x0,
-                   (outs GR8:$dst), (ins GR8:$src, GR8:$src2),
-                   "bic.b\t{$src2, $dst}",
-                   [(set GR8:$dst, (and GR8:$src, (not GR8:$src2)))]>;
-
-def BIC8rm :  I8rm<0x0,
-                   (outs GR8:$dst), (ins GR8:$src, memsrc:$src2),
-                   "bic.b\t{$src2, $dst}",
-                    [(set GR8:$dst, (and GR8:$src, (not (i8 (load addr:$src2)))))]>;
-
-let Constraints = "" in {
-def BIC8mr :  I8mr<0x0,
-                   (outs), (ins memdst:$dst, GR8:$src),
-                   "bic.b\t{$src, $dst}",
-                   [(store (and (load addr:$dst), (not GR8:$src)), addr:$dst)]>;
-
-def BIC8mm :  I8mm<0x0,
-                   (outs), (ins memdst:$dst, memsrc:$src),
-                   "bic.b\t{$src, $dst}",
-                   [(store (and (load addr:$dst),
-                                (not (i8 (load addr:$src)))), addr:$dst)]>;
-}
-
 let isCommutable = 1 in { // X = XOR Y, Z  == X = XOR Z, Y
 def XOR8rr  : I8rr<0x0,
                    (outs GR8:$dst), (ins GR8:$src, GR8:$src2),
@@ -571,7 +611,7 @@ def SUBri  : I8ri<0x0,
 
 def SUBrm  : I8rm<0x0,
                    (outs GR8:$dst), (ins GR8:$src, memsrc:$src2),
-                   "movf FP,W\n\taddlw $src2\n\tmovwf FSR\n\tmovf INDF,W\n\tsubwf $src,F",
+                   "movf FP,W\n\taddlw $src2\n\tmovwf FSR\n\tmovf INDF,W\n\tsubwf $src,W\n\tmovwf $dst",
                    [(set GR8:$dst, (sub GR8:$src, (load addr:$src2))),
                     (implicit SR)]>;
 
@@ -652,73 +692,34 @@ def SBC8mm  : I8mm<0x0,
 // Integer comparisons
 let Defs = [SR] in {
 def CMP8rr  : I8rr<0x0,
-                   (outs), (ins GR8:$src, GR8:$src2),
-                   "CMP8rr\t{$src2, $src}",
-                   [(PIC16cmp GR8:$src, GR8:$src2), (implicit SR)]>;
+                (outs), (ins GR8:$src, GR8:$src2, i8imm:$cc),
+                "movf $src,W\n\tsubwf $src2",
+                [(PIC16cmp GR8:$src, GR8:$src2, imm:$cc), (implicit SR)]>;
 
 def CMP8ri  : I8ri<0x0,
-                   (outs), (ins GR8:$src, i8imm:$src2),
-                   "CMP8ri\t{$src2, $src}",
-                   [(PIC16cmp GR8:$src, imm:$src2), (implicit SR)]>;
+                   (outs), (ins GR8:$src, i8imm:$src2, i8imm:$cc),
+                   "movf $src,W\n\tsublw $src2",
+                   [(PIC16cmp GR8:$src, imm:$src2, imm:$cc), (implicit SR)]>;
 
 def CMP8mi  : I8mi<0x0,
-                   (outs), (ins memsrc:$src, i8imm:$src2),
-                   "CMP8mi\t{$src2, $src}",
+                   (outs), (ins memsrc:$src, i8imm:$src2, i8imm:$cc),
+                   "movf FP,W\n\taddlw $src\n\tmovwf FSR\n\tmovf INDF,W\n\tsublw $src2",
                    [(PIC16cmp (load addr:$src),
-                               (i8 imm:$src2)), (implicit SR)]>;
+                               (i8 imm:$src2), imm:$cc),(implicit SR)]>;
 
 def CMP8rm  : I8rm<0x0,
-                   (outs), (ins GR8:$src, memsrc:$src2),
-                   "CMP8rm\t{$src2, $src}",
-                   [(PIC16cmp GR8:$src, (load addr:$src2)), 
+                   (outs), (ins GR8:$src, memsrc:$src2, i8imm:$cc),
+                   "movf FP,W\n\taddlw $src2\n\tmovwf FSR\n\tmovf INDF,W\n\tmovwf GPR10\n\tmovf $src,W\n\tsubwf GPR10",
+                   [(PIC16cmp GR8:$src, (load addr:$src2), imm:$cc), 
                     (implicit SR)]>;
 
 def CMP8mr  : I8mr<0x0,
-                   (outs), (ins memsrc:$src, GR8:$src2),
-                   "CMP8mr\t{$src2, $src}",
-                   [(PIC16cmp (load addr:$src), GR8:$src2),
+                   (outs), (ins memsrc:$src, GR8:$src2, i8imm:$cc),
+                   "CMP8mr\n\tmovf FP,W\n\taddlw $src\n\tmovwf FSR\n\tmovf INDF,W\n\t\n\tsubwf $src2",
+                   [(PIC16cmp (load addr:$src), GR8:$src2, imm:$cc),
                     (implicit SR)]>;
 
 
-// BIT TESTS, just sets condition codes
-// Note that the C condition is set differently than when using CMP.
-let isCommutable = 1 in {
-def BIT8rr  : I8rr<0x0,
-                   (outs), (ins GR8:$src, GR8:$src2),
-                   "bit.b\t{$src2, $src}",
-                   [(PIC16cmp (and_su GR8:$src, GR8:$src2), 0),
-                    (implicit SR)]>;
-}
-def BIT8ri  : I8ri<0x0,
-                   (outs), (ins GR8:$src, i8imm:$src2),
-                   "bit.b\t{$src2, $src}",
-                   [(PIC16cmp (and_su GR8:$src, imm:$src2), 0),
-                    (implicit SR)]>;
-
-def BIT8rm  : I8rm<0x0,
-                   (outs), (ins GR8:$src, memdst:$src2),
-                   "bit.b\t{$src2, $src}",
-                   [(PIC16cmp (and_su GR8:$src,  (load addr:$src2)), 0),
-                    (implicit SR)]>;
-
-def BIT8mr  : I8mr<0x0,
-                  (outs), (ins memsrc:$src, GR8:$src2),
-                  "bit.b\t{$src2, $src}",
-                  [(PIC16cmp (and_su (load addr:$src), GR8:$src2), 0),
-                   (implicit SR)]>;
-
-def BIT8mi  : I8mi<0x0,
-                   (outs), (ins memsrc:$src, i8imm:$src2),
-                   "bit.b\t{$src2, $src}",
-                   [(PIC16cmp (and_su (load addr:$src), (i8 imm:$src2)), 0),
-                    (implicit SR)]>;
-def BIT8mm  : I8mm<0x0,
-                   (outs), (ins memsrc:$src, memsrc:$src2),
-                   "bit.b\t{$src2, $src}",
-                   [(PIC16cmp (and_su (i8 (load addr:$src)),
-                                       (load addr:$src2)),
-                                 0),
-                      (implicit SR)]>;
 } // Defs = [SR]
 
 //===----------------------------------------------------------------------===//

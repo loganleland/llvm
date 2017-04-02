@@ -28,7 +28,7 @@ class PIC16RegWithSubregs<bits<8> num, string n, list<Register> subregs>
 
 def PC    : PIC16Reg<0,  "PC">;
 def SP    : PIC16Reg<1,  "SP">;
-def SR    : PIC16Reg<2,  "SR">;
+def SR    : PIC16Reg<2,  "STATUS">;
 def CG    : PIC16Reg<3,  "CG">;
 def FP    : PIC16Reg<4,  "FP">;
 def GPR0  : PIC16Reg<5,  "GPR0">;

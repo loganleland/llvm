@@ -29,6 +29,7 @@ sed -i '1s/^/SP   equ 0x32\n/' "$1"
 sed -i '1s/^/W    equ 0x0\n/' "$1"
 sed -i '1s/^/F    equ 0x1\n/' "$1"
 sed -i '1s/^/Z    equ 0x2\n/' "$1"
+sed -i '1s/^/C    equ 0x0\n/' "$1"
 sed -i '1s/^/FSR  equ 0x04\n/' "$1"
 sed -i '1s/^/INDF equ 0x00\n/' "$1"
 sed -i '1s/^/STATUS equ 0x03\n/' "$1"
@@ -46,5 +47,8 @@ rm "$1".bak
 
 # This adds the "end" directive at the end of the assembly file
 echo end >> "$1"
+
+# remove '.' from file to correct the labels generated
+sed -i s/[.]//g "$1"
 
 mv "$1" "${1/.s/.asm}"

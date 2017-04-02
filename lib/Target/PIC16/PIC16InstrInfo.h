@@ -69,7 +69,8 @@ public:
                             const TargetRegisterInfo *TRI) const override;
 
   unsigned GetInstSizeInBytes(const MachineInstr &MI) const;
-
+//  bool expandSELECTCC(MachineBasicBlock::iterator MI,
+//                      const MachineInstr &Orig) const;
 };
 
 }
