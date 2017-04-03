@@ -89,7 +89,7 @@ This backend is a preliminary prototype undergoing active development. Pull requ
 # Future Work
 * Implement assembler
 * Implement multiplication and division
-* Implment more integer comparisons
+* Implement more integer comparisons
 * Refactor
 * Create API for timing, I/O ports, etc
 * Currently our implementation is confined to one out of the four avaiable banks of general purpose registers. Using more of these banks would allow for more variables
