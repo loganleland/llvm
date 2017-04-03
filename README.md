@@ -41,9 +41,9 @@ compilePIC16 source.c
 postLLC can be found at llvm/lib/Target/PIC16/postLLC.sh
 
 ```
-clang -S -emit-llvm -target pic16 $1 -o ${1%.c}.ll
-llc -mcpu=generic -march=pic16 ${1%.c}.ll -o ${1%.c}.s
-postLLC.sh ${1%.c}.s
+clang -S -emit-llvm -target pic16 source.c
+llc -mcpu=generic -march=pic16 source.ll
+postLLC.sh source.s
 ```
 
 
