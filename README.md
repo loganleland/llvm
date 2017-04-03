@@ -1,7 +1,7 @@
 # LLVM
 This directory and its subdirectories contain source code for LLVM,
 a toolkit for the construction of highly optimized compilers,
-optimizers, and runtime environments.
+optimizers, and runtime environments. On top of LLVM 3.9, an experimental backend targeting ANSI C is being implemented for the PIC16F877 in lib/Target/PIC16.
 
 LLVM is open source software. You may freely distribute it under the terms of
 the license agreement found in LICENSE.txt.
@@ -31,9 +31,21 @@ PATH=$PATH:$PWD/PIC16rc1
 ```
 
 # Usage
+### If you downloaded the binary:
+
 ```
 compilePIC16 source.c
 ```
+
+### If you built from source:
+postLLC can be found at llvm/lib/Target/PIC16/postLLC.sh
+
+```
+clang -S -emit-llvm -target pic16 $1 -o ${1%.c}.ll
+llc -mcpu=generic -march=pic16 ${1%.c}.ll -o ${1%.c}.s
+postLLC.sh ${1%.c}.s
+```
+
 
 # Survey
 While using this compiler it would be greatly beneficial to the developers of this backend if you fill out the following survey: https://goo.gl/forms/AYxzRiEtKxIy9aBy2
@@ -66,10 +78,19 @@ This backend is a preliminary prototype undergoing active development. Pull requ
 
 * `LLVM IR` to `Assembly_1` [llc](http://llvm.org/docs/CommandGuide/llc.html)
 
-#### `Assembly_1`
+#### `Pre-PIC16 ISA`
 
-* `Assembly_1` to `PIC16 ISD` [postLLC](https://github.com/loganleland/llvm/blob/Star_Wars_A_New_NOPE/lib/Target/PIC16/postLLC.sh): Transforms the output assembly into PIC16 (will be removed once assembler is implemented)
+* `Pre-PIC16 ISA` to `PIC16 ISA` [postLLC](https://github.com/loganleland/llvm/blob/Star_Wars_A_New_NOPE/lib/Target/PIC16/postLLC.sh): Transforms the llc output assembly into PIC16 ISA (will be removed once assembler is implemented)
 
 #### `PIC16 ISA`
 
 * `PIC16 ISA` to `Byte-code` [mpasm](http://www.microchip.com/developmenttools/getting_started/gs_mplab2.aspx)
+
+# Future Work
+* Implement assembler
+* Implement multiplication and division
+* Implment more integer comparisons
+* Refactor
+* Create API for timing, I/O ports, etc
+* Currently our implementation is confined to one out of the four avaiable banks of general purpose registers. Using more of these banks would allow for more variables
+* Implement vector support
