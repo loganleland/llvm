@@ -92,5 +92,5 @@ This backend is a preliminary prototype undergoing active development. Pull requ
 * Implement more integer comparisons
 * Refactor
 * Create API for timing, I/O ports, etc
-* Currently our implementation is confined to one out of the four avaiable banks of general purpose registers. Using more of these banks would allow for more variables
+* Currently our implementation is confined to one out of the four available banks of general purpose registers. Using more of these banks would allow for more variables
 * Implement vector support
