@@ -43,6 +43,7 @@ sed -i '1s/^/SP   equ 0x32\n/' "$dest"
 sed -i '1s/^/W    equ 0x0\n/' "$dest"
 sed -i '1s/^/F    equ 0x1\n/' "$dest"
 sed -i '1s/^/Z    equ 0x2\n/' "$dest"
+sed -i '1s/^/C    equ 0x0\n/' "$dest"
 sed -i '1s/^/FSR  equ 0x04\n/' "$dest"
 sed -i '1s/^/INDF equ 0x00\n/' "$dest"
 sed -i '1s/^/STATUS equ 0x03\n/' "$dest"
@@ -56,6 +57,9 @@ sed -i.bak '/.globl/d' "$dest"
 rm "$dest".bak
 
 echo end >> "$dest"
+
+# remove '.' from file to correct the labels generated
+sed -i s/[.]//g "$dest"
 
 mv "$dest" "${dest/.s/.asm}"
 
