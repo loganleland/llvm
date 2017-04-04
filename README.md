@@ -76,7 +76,7 @@ This backend is a preliminary prototype undergoing active development. Pull requ
 
 #### `LLVM IR`
 
-* `LLVM IR` to `Assembly_1` [llc](http://llvm.org/docs/CommandGuide/llc.html)
+* `LLVM IR` to `Pre-PIC16 ISA` [llc](http://llvm.org/docs/CommandGuide/llc.html)
 
 #### `Pre-PIC16 ISA`
 
